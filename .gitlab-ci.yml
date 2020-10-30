@@ -6,8 +6,6 @@ pages:
   - echo 'Nothing to do...'
   artifacts:
     paths:
-    - index.html
-    - assets
-    - pages
+    - public
   only:
   - master
