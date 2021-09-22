@@ -3,7 +3,8 @@
 	font-style: normal;
 	font-weight: 400;
 	font-display: swap;
-	src: local('F25 Bank Printer'), local('F25 Bank Printer'), url(../fonts/F25_Bank_Printer.woff2) format('woff2');
+	src: local('F25 Bank Printer'), local('F25 Bank Printer'),
+		url(../Fonts/F25_Bank_Printer.woff2) format('woff2');
 }
 
 body {

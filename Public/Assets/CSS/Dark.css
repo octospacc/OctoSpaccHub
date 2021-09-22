@@ -9,7 +9,7 @@ a:active {
 }
 
 body {
-	background-image: url(../gif/bg/0.gif);
+	background-image: url(../Media/BG/0.gif);
 	background-size: cover;
 	margin: 0;
 	height: 100%;
@@ -17,7 +17,11 @@ body {
 	color: #F0F0FF;
 }
 
-.content {
+.InlineDiv > * {
+	display: inline-block;
+}
+
+.Content {
 	background-color: rgba(0,0,0, 0.8);
 	width: 100%;
 	position: absolute;
@@ -31,7 +35,7 @@ body {
 	padding-bottom: 5%;
 }
 
-.footer {
+.Footer {
 	background-color: rgba(48,48,48, 0.7);
 	position: fixed;
 	bottom: 0px;
