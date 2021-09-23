@@ -19,6 +19,7 @@ body {
 
 .InlineDiv > * {
 	display: inline-block;
+	margin: 32px;
 }
 
 .Content {
@@ -33,6 +34,17 @@ body {
 	overflow-x: hidden;
 	padding-top: 5%;
 	padding-bottom: 5%;
+}
+
+.TopBar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	padding: 6px;
+	width:100%;
+	white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .Footer {
