@@ -37,14 +37,14 @@ body {
 }
 
 .TopBar {
-	position: absolute;
+	position: absolute !important;
 	left: 0;
 	top: 0;
 	padding: 6px;
 	width:100%;
 	white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .Footer {
