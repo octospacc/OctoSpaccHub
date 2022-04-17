@@ -35,10 +35,10 @@
 		<br><br><br>
 	</div>
 	<script>
-		var CurrentAgeText = document.getElementById("CurrentAge").textContent;
+		var CurrentAgeText = document.getElementById("CurrentAge").innerHTML;
 		const CurrentAgeRefresh = 50;
 		setInterval(
-			function() {CurrentAgeText = "Currently" + UnixToYears() + ".."},
+			function() {CurrentAgeText = "Currently " + UnixToYears() + ".."},
 			CurrentAgeRefresh);
 	</script>
 </body>
