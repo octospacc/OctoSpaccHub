@@ -13,6 +13,7 @@
 	<link rel="shortcut icon" href="favicon.png" type="image/x-icon">
 	<link href="Assets/CSS/Dark.css" rel="stylesheet">
 	<script src="Assets/JS/RandomGIF.js"></script>
+	<script src="Assets/JS/CurrentAge.js"></script>
 </head>
 
 <body>
@@ -25,9 +26,20 @@
 			<h4><a href="FumoPrisms/">Fumo Prisms (!)</a></h4>
 			<br>
 			<h4><a href="WebPinBoard/">My WebPinBoard</a></h4>
+			<br>
 		</p>
+		<div>
+			<p id="CurrentAge"></p>
+			<noscript><p>There should be a ticking clock here, but your browser isn't loading the JavaScript.</p></noscript>
+		</div>
 		<br><br><br>
 	</div>
-	
+	<script>
+		var CurrentAgeText = document.getElementById("CurrentAge").textContent;
+		const CurrentAgeRefresh = 50;
+		setInterval(
+			function() {CurrentAgeText = "Currently" + UnixToYears() + ".."},
+			CurrentAgeRefresh);
+	</script>
 </body>
 </html>
