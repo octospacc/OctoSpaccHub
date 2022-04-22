@@ -39,7 +39,7 @@ async function Confetti() {
 function UpdateAge() {
 	let Years = UnixToYears();
 	CurrentAgeElem.innerHTML = "Currently " + Years + " years old..";
-	if ((Years % 1 == 0) && (!ConfettiCalled)) {
+	if ((Years % 1 < 0.0000001) && (!ConfettiCalled)) {
 		Confetti();
 		ConfettiCalled = true;
 	}
