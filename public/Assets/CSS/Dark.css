@@ -22,6 +22,15 @@ body {
 	margin: 32px;
 }
 
+#ConfettiCanvas {
+	Position: Relative;
+	Top: 0;
+	Left: 0;
+	Width: 100%;
+	Height: 100%;
+	Z-Index: 2;
+}
+
 .Content {
 	background-color: rgba(0,0,0, 0.8);
 	width: 100%;
