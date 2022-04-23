@@ -3,6 +3,7 @@ const RefreshTime = 50;
 
 const ConfettiSleep = 600;
 const ConfettiIter = 32;
+const ConfettiExec = 0.00275; // Exec payload for ~1 day from event
 
 var ConfettiCalled = false;
 
@@ -39,7 +40,7 @@ async function Confetti() {
 function UpdateAge() {
 	let Years = UnixToYears();
 	CurrentAgeElem.innerHTML = "Currently " + Years + " years old..";
-	if ((Years % 1 < 0.0000001) && (!ConfettiCalled)) {
+	if ((Years % 1 < ConfettiExec) && (!ConfettiCalled)) {
 		Confetti();
 		ConfettiCalled = true;
 	}
