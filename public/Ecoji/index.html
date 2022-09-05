@@ -688,5 +688,6 @@ function doLinkCopy(){
 				The app is self-contained - you can simply "Save Page As" to get an offline copy.
 			</p></footer>
 		</div>
+		<script>ecojiPromise.then(() => {doPopulate(new URLSearchParams(window.location.search).get("d"))})</script>
 	</body>
 </html>
