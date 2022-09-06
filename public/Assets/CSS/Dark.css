@@ -1,14 +1,17 @@
 @import url("Font_F25_Bank_Printer.css");
 
-a {
-	color: #17c3ea;
+A {
+	Color: #17C3EA;
+}
+A:Active {
+	Color: #0B69BC;
+}
+A:Hover {
+	Background: #101060;
+	Color: #E9FFEE;
 }
 
-a:active {
-	color: #0b69bc;
-}
-
-body {
+Body {
 	background-image: url("https://octospacc.gitlab.io/Web-ThirdParty-Unknown/Assets/Media/Backgrounds/0.gif");
 	background-size: cover;
 	margin: 0;
@@ -32,7 +35,7 @@ body {
 }
 
 .Content {
-	background-color: rgba(0,0,0, 0.8);
+	background-color: rgba(0,0,0,0.8);
 	width: 100%;
 	position: absolute;
 	top: 0px;
@@ -45,11 +48,18 @@ body {
 	padding-bottom: 5%;
 }
 
+#Links > Div {
+	Max-Width: Fit-Content;
+	Margin: Auto !Important;
+	Padding: 16px;
+	Background-Color: RGBA(16,16,16,0.8);
+}
+
 .TopBar {
 	position: absolute !important;
 	left: 0;
 	top: 0;
-	padding: 6px;
+	padding: 8px;
 	/* width: 100%; */
 	white-space: nowrap;
 	overflow: hidden;
@@ -57,7 +67,7 @@ body {
 }
 
 .Footer {
-	background-color: rgba(48,48,48, 0.8);
+	background-color: rgba(36,36,36, 0.8);
 	position: fixed;
 	bottom: 0px;
 	width: 100vw;
@@ -71,3 +81,15 @@ body {
 .Footer > * {
 	vertical-align: sub;
 }
+.FooterLeft {
+	Float: Left;
+	Display: Block;
+	Padding: 3px;
+}
+.FooterRight {
+	Float: Right;
+	Display: Block;
+	Padding: 3px;
+}
+
+#AgeDiv { Padding: 16px; }
