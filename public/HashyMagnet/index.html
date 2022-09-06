@@ -9,9 +9,63 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="shortcut icon" href="../favicon.png" type="image/x-icon">
+	<style>
+Body {
+	Margin: 0px;
+	Padding: 16px;
+}
+#TextBox {
+	Width: Calc(100% - 8px);
+}
+	</style>
 </head>
 <body>
-	<h4>Under construction ¯\_(ツ)_/¯</h4>
-	<p>Sorry!</p>
+	<h4>Still under construction ¯\_(ツ)_/¯</h4>
+	<p>(Sorry!)</p>
+	<hr>
+
+	<input id="TextBox" placeholder="Paste Hash here...">
+	<button id="GenerateBtn">Generate!</button>
+	<!--
+	<button id="CopyBtn">Copy link</button>
+	<button id="OpenBtn">Open link</button>
+	<textarea id="MoreTrackers" rows="8" cols="60"></textarea>
+	-->
+	<script>
+var Trackers = [];
+var TrackersNum = 35;
+const TrackersSources = [
+	"https://newtrackon.com/api/stable",
+	"https://ngosang.github.io/trackerslist/trackers_best.txt",
+];
+
+/*
+async function FetchItem(Item) {
+	let Response = await fetch(Item);
+	let Data = await Response.text();
+	return Data;
+}
+*/
+
+function FetchTrackers() {
+	for (let i = 0; i < TrackersSources.length; i++) {
+		let Req = fetch(TrackersSources[i]);
+		Req.then(Res => Res.text()).then(Data => {
+			Trackers = Trackers.concat(Data.replaceAll("\n\n","\n").split("\n"))});
+	}
+	Trackers.slice(0,TrackersNum);
+}
+
+function DoGenerate() {
+	let TextBox = document.getElementById("TextBox");
+	TextBox.value = "magnet:?xt=urn:btih:" + TextBox.value;
+	for (let i = 0; i < Trackers.length; i++) {
+		TextBox.value += "&tr=" + encodeURIComponent(Trackers[i]);
+	}
+}
+GenerateBtn.onclick = DoGenerate;
+
+FetchTrackers();
+	</script>
 </body>
 </html>
