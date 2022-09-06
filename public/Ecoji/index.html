@@ -4,7 +4,7 @@
 	| https://github.com/keith-turner/ecoji
 
 	Changes in this Web build:
-	| Simpler CSS, and making the app a standalone AHTML bundle.
+	| Simpler CSS, handle decode URIs with #, made the app a standalone AHTML bundle.
 -->
 <html lang="en">
 	<head>
@@ -688,6 +688,6 @@ function doLinkCopy(){
 				The app is self-contained - you can simply "Save Page As" to get an offline copy.
 			</p></footer>
 		</div>
-		<script>ecojiPromise.then(() => {doPopulate(new URLSearchParams(window.location.search).get("d"))})</script>
+		<script>ecojiPromise.then(() => {doPopulate(new URLSearchParams(window.location.hash).get("#d"))})</script>
 	</body>
 </html>
