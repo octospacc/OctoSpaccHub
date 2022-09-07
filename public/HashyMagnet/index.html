@@ -8,64 +8,173 @@
 	<meta property="og:url" content="https://hub.octt.eu.org/HashyMagnet">
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="Bubbles.css" rel="stylesheet">
 	<link rel="shortcut icon" href="../favicon.png" type="image/x-icon">
+	<link rel="manifest" href="manifest.json">
 	<style>
 Body {
+	Color: #FFFFFF;
+	Background-Color: #254070;
 	Margin: 0px;
 	Padding: 16px;
+	Overflow: Hidden;
+	Text-Align: Center;
+	Font-Family: Sans-Serif;
 }
-#TextBox {
-	Width: Calc(100% - 8px);
+Input, Button {
+	Height: 2em;
+	Font-Size: Initial;
+}
+Input, TextArea {
+	Width: Calc(90% - 8px);
+	Margin-Top: 8px;
+	Margin-Bottom: 8px;
+}
+#Main {
+	Overflow-Y: Scroll;
+	Max-Height: 100vh;
+	Position: Absolute;
+	Top: 50%;
+	Transform: TranslateY(-50%);
+	Left: 0px;
+	Right: 0px;
+	Z-Index: 4;
+}
+.Section {
+	Margin: 4px;
+}
+.NoWrap {
+	White-Space: NoWrap;
 }
 	</style>
 </head>
 <body>
-	<h4>Still under construction ¯\_(ツ)_/¯</h4>
-	<p>(Sorry!)</p>
-	<hr>
-
-	<input id="TextBox" placeholder="Paste Hash here...">
-	<button id="GenerateBtn">Generate!</button>
-	<!--
-	<button id="CopyBtn">Copy link</button>
-	<button id="OpenBtn">Open link</button>
-	<textarea id="MoreTrackers" rows="8" cols="60"></textarea>
-	-->
+<div id="Main">
+	<div class="Section">
+		<h3>HashyMagnet</h3>
+		<p>Generate a full Bit<span style="Color:#AAFFFF;">Torrent</span> Magnet Link from an Info Hash!</p>
+		<noscript><p>
+			This is an actual app, not a badly-made website.
+			<br>
+			It needs JavaScript, so you need to enable it.
+			<br>
+			The code is fully open, and you can review it with "View Page Source".
+		</p></noscript>
+	</div>
+	<br>
+	<div class="Section">
+		<div class="NoWrap">
+			<button id="ResetBtn">❌</button>
+			<input id="TextBox" placeholder="📝 Paste Info Hash here...">
+		</div>
+		<div class="NoWrap">
+			<button id="GenerateBtn">Generate Magnet!</button>
+			<button id="CopyBtn">Copy link</button>
+			<button id="OpenBtn">Open link</button>
+		</div>
+	</div>
+	<br>
+	<div class="Section">
+		<div class="NoWrap">
+			<label for="TrackersBtn">Trackers list:</label>
+			<button id="TrackersBtn"></button>
+		</div>
+		<textarea id="TrackersArea" placeholder="📜 Paste Trackers here..." rows="8" cols="60"></textarea>
+	</div>
+	<br>
+</div>
+<div class="ocean"><div class="bubble bubble-1"></div><div class="bubble bubble-2"></div><div class="bubble bubble-3"></div><div class="bubble bubble-4"></div><div class="bubble bubble-5"></div><div class="bubble bubble-6"></div><div class="bubble bubble-7"></div><div class="bubble bubble-8"></div><div class="bubble bubble-9"></div><div class="bubble bubble-10"></div><div class="bubble bubble-11"></div></div>
 	<script>
+var Generated = false;
 var Trackers = [];
 var TrackersNum = 35;
 const TrackersSources = [
-	"https://newtrackon.com/api/stable",
 	"https://ngosang.github.io/trackerslist/trackers_best.txt",
+	"https://newtrackon.com/api/stable",
 ];
 
-/*
-async function FetchItem(Item) {
-	let Response = await fetch(Item);
-	let Data = await Response.text();
-	return Data;
-}
-*/
-
-function FetchTrackers() {
+async function FetchTrackers() {
 	for (let i = 0; i < TrackersSources.length; i++) {
-		let Req = fetch(TrackersSources[i]);
-		Req.then(Res => Res.text()).then(Data => {
-			Trackers = Trackers.concat(Data.replaceAll("\n\n","\n").split("\n"))});
+		let Req = await fetch(TrackersSources[i]);
+		let Data = await Req.text();
+		Trackers = Trackers.concat(Data.replaceAll("\n\n","\n").split("\n"));
 	}
-	Trackers.slice(0,TrackersNum);
+	Trackers = Trackers.slice(0,TrackersNum);
 }
 
-function DoGenerate() {
-	let TextBox = document.getElementById("TextBox");
+function WriteTrackers() {
+	for (let i = 0; i < Trackers.length; i++) {
+		TrackersArea.value += Trackers[i] + "\n\n";
+	}
+	DoRedraw();
+}
+
+function StoreTrackers() {
+}
+
+async function FetchWriteTrackers() {
+	await FetchTrackers();
+	WriteTrackers();
+}
+
+GenerateBtn.onclick = function() {
 	TextBox.value = "magnet:?xt=urn:btih:" + TextBox.value;
 	for (let i = 0; i < Trackers.length; i++) {
 		TextBox.value += "&tr=" + encodeURIComponent(Trackers[i]);
 	}
-}
-GenerateBtn.onclick = DoGenerate;
+	Generated = true;
+	DoRedraw();
+};
 
-FetchTrackers();
+function DoRedraw() {
+	if (Generated) {
+		GenerateBtn.hidden = true;
+		ResetBtn.hidden = false;
+		
+		CopyBtn.hidden = false;
+		OpenBtn.hidden = false;
+	} else {
+		GenerateBtn.hidden = false;
+		ResetBtn.hidden = true;
+		
+		CopyBtn.hidden = true;
+		OpenBtn.hidden = true;
+	}
+	if (TrackersArea.value) {
+		TrackersBtn.textContent = "🧹 Clear";
+	} else {
+		TrackersBtn.textContent = "🔄 Refresh";
+	}
+}
+
+ResetBtn.onclick = function() {
+	TextBox.value = "";
+	Generated = false;
+	DoRedraw();
+};
+
+CopyBtn.onclick = function() {
+	navigator.clipboard.writeText(TextBox.value);
+};
+
+OpenBtn.onclick = function() {
+	window.open(TextBox.value);
+};
+
+TrackersBtn.onclick = function() {
+	if (TrackersArea.value) {
+		TrackersArea.value = "";
+	} else {
+		WriteTrackers();
+	}
+	DoRedraw();
+};
+
+TrackersArea.onchange = StoreTrackers;
+
+DoRedraw();
+FetchWriteTrackers();
+TrackersBtn.hidden = true;
 	</script>
 </body>
 </html>
