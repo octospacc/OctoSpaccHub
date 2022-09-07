@@ -50,7 +50,7 @@ Body {
 
 #Links > Div {
 	Max-Width: Fit-Content;
-	Margin: Auto !Important;
+	Margin: Auto;
 	Padding: 16px;
 	Background-Color: RGBA(16,16,16,0.8);
 }

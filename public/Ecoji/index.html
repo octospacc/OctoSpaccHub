@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 	This is an unaffiliated fork of the Ecoji v1 webapp.
-	| Last modified: 2022-09-06.
+	| Last updated: 2022-09-07.
 
 	Original Ecoji project info:
 	| https://github.com/keith-turner/ecoji
@@ -9,7 +9,7 @@
 	Changes in this Web build (directly edited from the gh-pages branch):
 	| Simplified the CSS, 
 	| handling decode URIs with "#d=" instead of "?d=",
-	| // TODO: autoremove whitespace in decode box,
+	| automatically ignore whitespace in decode box,
 	| added JavaScript notice,
 	| made the app a self-contained AHTML bundle and added notice.
 
@@ -61,7 +61,7 @@ Header > Div > * {
 	Margin-Right: 40px;
 	White-Space: NoWrap;
 }
-NoScript P {
+NoScript, NoScript P {
 	Font-Size: XX-Large;
 	Padding: 8px;
 	Padding-Bottom: 48px;
@@ -581,6 +581,7 @@ function doEncode(){
 
 function doDecode(){
 	var data = document.getElementById('encoded').value
+		.replaceAll("\n", "").replaceAll("\r", "").replaceAll("\t", "").replaceAll(" ", "")
 	var decoded = ecojiDecode(data)
 	document.getElementById('plain').value = decoded
 }
