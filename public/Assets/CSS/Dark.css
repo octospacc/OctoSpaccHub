@@ -20,6 +20,15 @@ Body {
 	color: #F0F0FF;
 }
 
+.NoSelect, .Footer {
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	User-Select: none;
+}
+
 .InlineDiv > * {
 	display: inline-block;
 	margin: 32px;
@@ -67,29 +76,23 @@ Body {
 }
 
 .Footer {
-	background-color: rgba(36,36,36, 0.8);
-	position: fixed;
-	bottom: 0px;
-	width: 100vw;
-	height: 24px;
-	text-align: center;
-	overflow-x: scroll;
-	overflow-y: hidden;
-	white-space: nowrap;
-	z-index: 1;
+	Background-Color: RGBA(36, 36, 36, 0.8);
+	Position: Fixed;
+	Display: Flex;    
+	Flex-Direction: Row;
+	Justify-Content: Space-Between;
+	Bottom: 0px;
+	Width: 100vw;
+	Padding-Top: 2px;
+	Padding-Bottom: 2px;
+	Padding-Left: 6px;
+	Padding-Right: 6px;
+	Text-Align: Center;
+	Overflow-X: Scroll;
+	Overflow-Y: Hidden;
+	White-Space: NoWrap;
+	Z-Index: 1;
 }
-.Footer > * {
-	vertical-align: sub;
-}
-.FooterLeft {
-	Float: Left;
-	Display: Block;
-	Padding: 3px;
-}
-.FooterRight {
-	Float: Right;
-	Display: Block;
-	Padding: 3px;
-}
+.Footer > .FooterRight { Margin-Right: 12px; }
 
 #AgeDiv { Padding: 16px; }
