@@ -44,7 +44,7 @@ Body {
 }
 
 .Content {
-	background-color: rgba(0,0,0,0.8);
+	background-color: rgba(0,0,0,0.85);
 	width: 100%;
 	position: absolute;
 	top: 0px;
@@ -61,7 +61,7 @@ Body {
 	Max-Width: Fit-Content;
 	Margin: Auto;
 	Padding: 16px;
-	Background-Color: RGBA(16,16,16,0.8);
+	Background-Color: RGBA(16,16,16,0.85);
 }
 
 .TopBar {
@@ -76,7 +76,6 @@ Body {
 }
 
 .Footer {
-	Background-Color: RGBA(36, 36, 36, 0.8);
 	Position: Fixed;
 	Display: Flex;    
 	Flex-Direction: Row;
@@ -92,6 +91,19 @@ Body {
 	Overflow-Y: Hidden;
 	White-Space: NoWrap;
 	Z-Index: 1;
+	/* CSS-only scroll shadow effect | Credits to Bartek, <https://stackoverflow.com/questions/44793453/how-do-i-add-a-top-and-bottom-shadow-while-scrolling-but-only-when-needed#comment115950584_44794221> */
+	/*
+	background:
+		linear-gradient(90deg, white 30%, rgba(255, 255, 255, 0)),
+		linear-gradient(90deg, rgba(255, 255, 255, 0), white 70%) 0 100%,
+		radial-gradient(farthest-side at 0% 50%, rgba(0, 0, 0, 0.2), white),
+		radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.2), white) 0 100%;
+	background-repeat: no-repeat;
+	background-position: top left, top right, top left, top right;
+	background-size: 40px 100%, 40px 100%, 20px 100%, 20px 100%;
+	background-attachment: local, local, scroll, scroll;
+	*/
+	Background-Color: RGBA(36, 36, 36, 0.85);
 }
 .Footer > .FooterRight { Margin-Right: 12px; }
 
