@@ -1,20 +1,23 @@
+var OcttTime = {};
+
 // All Unix time values are in milliseconds (ms)
-const UnixDay = 86400000;
-const UnixYear = 31536000000;
-const BirthTime = 1082713500000;
+OcttTime.UnixDay = 86400000;
+OcttTime.UnixYear = 31536000000;
+OcttTime.BirthTime = 1082713500000;
+OcttTime.Duration = 0.00275; // ~1 day
 
-function UnixTime() {
-	let DateNow = Date.now();
-	let TimeSinceBirth = DateNow - BirthTime;
-	let YearsSinceBirth = TimeSinceBirth / UnixYear;
-	let LeapYears = ~~(YearsSinceBirth / 4);
-	return DateNow - UnixDay*LeapYears;
+OcttTime.UnixTime = function UnixTime() {
+	var DateNow = Date.now();
+	var TimeSinceBirth = DateNow - OcttTime.BirthTime;
+	var YearsSinceBirth = TimeSinceBirth / OcttTime.UnixYear;
+	var LeapYears = ~~(YearsSinceBirth / 4);
+	return DateNow - (OcttTime.UnixDay * LeapYears);
 }
 
-function UnixAgeNow() {
-	return UnixTime() - BirthTime;
+OcttTime.UnixAgeNow = function UnixAgeNow() {
+	return OcttTime.UnixTime() - OcttTime.BirthTime;
 }
 
-function UnixToYears() {
-	return UnixAgeNow() / UnixYear;
+OcttTime.YearsAgeNow = function YearsAgeNow() {
+	return OcttTime.UnixAgeNow() / OcttTime.UnixYear;
 }

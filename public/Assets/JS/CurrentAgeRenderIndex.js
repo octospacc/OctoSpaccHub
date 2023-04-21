@@ -1,9 +1,8 @@
-const CurrentAgeElem = document.getElementById("CurrentAge");
-const RefreshTime = 50;
+var CurrentAgeElem = document.getElementById('OcttCurrentAge');
+var RefreshTime = 50;
 
-const ConfettiSleep = 600;
-const ConfettiIter = 32;
-const ConfettiExec = 0.00275; // Exec payload for ~1 day from event
+var ConfettiSleep = 600;
+var ConfettiIter = 32;
 
 var ConfettiCalled = false;
 
@@ -16,19 +15,18 @@ function Sleep(ms) {
 }
 
 async function Confetti() {
-	for (let i = 0; i < ConfettiIter; i++) {
-		const ConfettiCanvas = document.getElementById('ConfettiCanvas');
-		const JsConfetti = new JSConfetti({ConfettiCanvas});
+	for (var i = 0; i < ConfettiIter; i++) {
+		var ConfettiCanvas = document.getElementById('ConfettiCanvas');
+		var JsConfetti = new JSConfetti({ConfettiCanvas});
 		JsConfetti.addConfetti({
 			emojis: [
-				'🌈', '⚡️', '💥',
-				'✨', '💫', '🌸',
-				'🏳️‍⚧️️', '🎉️', '🎊️',
-				'🏳️‍🌈️', '🎈️', '🎆️',
-				'💘️', '💝️', '💖️',
-				'💗️', '💞️', '❤️',
-				'💛️', '💚️', '💜️',
-				'🤎️', '🖤️', '🤍️',
+				'🌈', '⚡️', '💥', '✨',
+				'💫', '🌸', '🏳️‍⚧️️', '🎉️',
+				'🎊️', '🏳️‍🌈️', '🎈️', '🎆️',
+				'💘️', '💝️', '💖️', '💗️',
+				'💞️', '❤️', '💛️', '💚️',
+				'💜️', '🤎️', '🖤️', '🤍️',
+				'💯', '❣️', '👾', '🎁',
 			]
 		});
 		JsConfetti.addConfetti();
@@ -38,9 +36,9 @@ async function Confetti() {
 
 
 function UpdateAge() {
-	let Years = UnixToYears();
+	var Years = OcttTime.YearsAgeNow();
 	CurrentAgeElem.innerHTML = "Currently " + Years + " years old..";
-	if ((Years % 1 < ConfettiExec) && (!ConfettiCalled)) {
+	if ((Years % 1 < OcttTime.Duration) && (!ConfettiCalled)) {
 		Confetti();
 		ConfettiCalled = true;
 	}

@@ -210,13 +210,13 @@ String.prototype.replaceAllTxt = function replaceAll(search, replace) {
   return this.split(search).join(replace);
 };
 
-const OnInputChangePaste = ['onchange', 'oninput', 'onpaste'];
+var OnInputChangePaste = ['onchange', 'oninput', 'onpaste'];
 
 var Generated = false;
 var Trackers = [], 
     FetchTrackers = [];
 var MaxFetchTrackers = 40;
-const TrackersSources = [
+var TrackersSources = [
 	"https://ngosang.github.io/trackerslist/trackers_best.txt",
 	"https://newtrackon.com/api/stable",
 ];
@@ -230,16 +230,16 @@ function SplitLines(Text) {
 }
 
 async function DoFetchTrackers() {
-	for (let i = 0; i < TrackersSources.length; i++) {
-		let Req = await fetch(TrackersSources[i]);
-		let Data = await Req.text();
+	for (var i = 0; i < TrackersSources.length; i++) {
+		var Req = await fetch(TrackersSources[i]);
+		var Data = await Req.text();
 		FetchTrackers = FetchTrackers.concat(SplitLines(Data));
 	}
 	FetchTrackers = FetchTrackers.slice(0,MaxFetchTrackers);
 }
 
 function WriteFetchTrackers() {
-	for (let i = 0; i < FetchTrackers.length; i++) {
+	for (var i = 0; i < FetchTrackers.length; i++) {
 		TrackersArea.value += FetchTrackers[i] + '\n\n';
 	}
 	StoreTrackers();
@@ -250,9 +250,12 @@ function StoreTrackers() {
 	Trackers = SplitLines(TrackersArea.value);
 }
 
-async function CallWriteFetchTrackers() {
+async function InitialFill() {
 	await DoFetchTrackers();
 	WriteFetchTrackers();
+	if (new URLSearchParams(window.location.hash).get('#Hash')) {
+		GenerateBtn.onclick();
+	};
 }
 
 GenerateBtn.onclick = function() {
@@ -262,16 +265,17 @@ GenerateBtn.onclick = function() {
 		};
 	});
 	TextBox.value = 'magnet:?xt=urn:btih:' + TextBox.value;
-	for (let i = 0; i < Trackers.length; i++) {
+	for (var i = 0; i < Trackers.length; i++) {
 		TextBox.value += '&tr=' + encodeURIComponent(Trackers[i]);
 	};
 	Generated = true;
-	DoRedraw();
+	// Do it two times because of a strange bug with the ResetBtn
+	DoRedraw(); DoRedraw();
 };
 
 function DoRedraw() {
 	TextBox.style = '';
-	let TextBoxWidth = TextBox.offsetWidth;
+	var TextBoxWidth = TextBox.offsetWidth;
 	if (Generated) {
 		TextBox.disabled = GenerateBtn.disabled = GenerateBtn.hidden = true;
 		TextBox.style = 'Width:' + (TextBoxWidth - ResetBtn.offsetWidth - 12) + 'px;'
@@ -334,15 +338,18 @@ TitleTitle.onclick = function() {
 TextBox.value = new URLSearchParams(window.location.hash).get('#Hash');
 
 DoRedraw();
-CallWriteFetchTrackers();
+InitialFill();
 
-const Changelog = `\
+var Changelog = `\
+[ 2023-04-21 ]
+- Various UX fixes
+
 [ 2023-01-18 ]
 - Fix handling of torrent hash input
 - Improve support for older browsers
 - Improve minor UI/UX aspects
 `;
-LastUpdatedDate.innerHTML = Changelog.split('\n')[0].substring(2, 12);
+LastUpdatedDate.innerHTML = Changelog.split('\n')[0].split('[')[1].split(']')[0].trim();
 </script>
 </body>
 </html>
