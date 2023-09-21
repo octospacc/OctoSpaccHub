@@ -5,12 +5,21 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Frames Browser (WIP)</title>
 		<style>
+			:root {
+				--BtnHeight: 2em;
+				--BtnActionHeight: 3em;
+			}
 			* {
 				box-sizing: border-box;
 			}
 			body {
 				margin: 0px;
 				overflow: hidden;
+				max-width: 100vw;
+				max-height: 100vh;
+			}
+			button {
+				height: var(--BtnHeight);
 			}
 			iframe {
 				border: none;
@@ -19,36 +28,63 @@
 				position: relative;
 			}
 			#BoxControls table, #BoxControls td > * {
-				height: 32px;
+				height: var(--BtnActionHeight);
+				min-width: var(--BtnActionHeight);
 				border-spacing: 0;
+			}
+			.BoxPopup {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				z-index: 1;
 			}
 		</style>
 		<script>
 			var FrameZoomLevels = [50, 200];
 			var AppInfoString = `
-Frames Browser v2023-09-21 (WIP).
+Frames Browser v2023-09-21.2 (WIP).
 			`.trim();
 		</script>
 	</head>
 	<body>
 		<div id="BoxControls"><table><tr>
 			<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>
+			<!--<td><button onclick="LoadFile()">📄 File</button></td>-->
 			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
+			<!--<td><button onclick="ListFrames()">🪟 Frames</button></td>-->
 			<td style="width: 100%;"><input style="width: 100%;"/></td>
 			<td><button onclick="LoadFrame()">↩️ Load</button></td>
+			<td><button onclick="ExciseFrame()">↗️ Excise</button></td>
 		<tr></table></div>
 		<div><iframe></iframe></div>
 		<script>
 			var FrameZoomIndex = -1;
 
+			function $new(tag){
+				return document.createElement(tag);
+			}
+
 			function ShowAppInfo(){
 				alert(AppInfoString);
 			};
 
-			function LoadFrame(){
+			function SaveUrl(){
 				var url = document.querySelector('input').value;
 				localStorage.setItem('FramesBrowser.url', url);
-				document.querySelector('iframe').src = url;
+				return url;
+			}
+
+			function LoadFrame(){
+				document.querySelector('iframe').src = SaveUrl();
+			};
+
+			function ExciseFrame(){
+				window.open(SaveUrl());
+			};
+
+			function LoadFile(){
+				
 			};
 
 			function ZoomFrame(){
@@ -67,12 +103,27 @@ Frames Browser v2023-09-21 (WIP).
 					? ''
 					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - ${32 * (levelopp / 100)}px); ${stylepos}`
 				);
-				//switch (FrameZoom) {
-				//	case 100: FrameZoom = 200; break;
-				//	case 200: FrameZoom = 50; break;
-				//	case 50: FrameZoom = 100; break;
-				//};
-				//document.querySelector('iframe').style = `scale: ${FrameZoom/100}; width: ${FrameZoom}vw; height: ${FrameZoom}vh; left: ${''}; top: ${''};`;
+			};
+
+			function ListFrames(){
+				var Box = NewBoxPopup();
+				var BtnAdd = $new('button');
+				BtnAdd.innerHTML = '➕ Add';
+				Box.appendChild(BtnAdd);
+				var BtnMain = $new('button');
+				BtnMain.innerHTML = 'No Frame';
+				Box.appendChild(BtnMain);
+			};
+
+			function NewBoxPopup(){
+				var Box = $new('div');
+				Box.className = 'BoxPopup';
+				var BtnClose = $new('button');
+				BtnClose.innerHTML = '❌ Close';
+				BtnClose.onclick = function(){ this.parentElement.remove() };
+				Box.appendChild(BtnClose);
+				document.body.appendChild(Box);
+				return Box;
 			};
 
 			onload = function(){
