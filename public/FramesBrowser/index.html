@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Frames Browser (WIP)</title>
+		<style>
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0px;
+				overflow: hidden;
+			}
+			iframe {
+				border: none;
+				width: 100vw;
+				height: calc(100vh - 32px);
+				position: relative;
+			}
+			#BoxControls table, #BoxControls td > * {
+				height: 32px;
+				border-spacing: 0;
+			}
+		</style>
+		<script>
+			var FrameZoomLevels = [50, 200];
+			var AppInfoString = `
+Frames Browser v2023-09-21 (WIP).
+			`.trim();
+		</script>
+	</head>
+	<body>
+		<div id="BoxControls"><table><tr>
+			<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>
+			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
+			<td style="width: 100%;"><input style="width: 100%;"/></td>
+			<td><button onclick="LoadFrame()">↩️ Load</button></td>
+		<tr></table></div>
+		<div><iframe></iframe></div>
+		<script>
+			var FrameZoomIndex = -1;
+
+			function ShowAppInfo(){
+				alert(AppInfoString);
+			};
+
+			function LoadFrame(){
+				var url = document.querySelector('input').value;
+				localStorage.setItem('FramesBrowser.url', url);
+				document.querySelector('iframe').src = url;
+			};
+
+			function ZoomFrame(){
+				if (FrameZoomIndex == FrameZoomLevels.length - 1) {
+					FrameZoomIndex = -1;
+				} else {
+					FrameZoomIndex ++;
+				};
+				var level = FrameZoomLevels[FrameZoomIndex];
+				var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - FrameZoomIndex];
+				var stylepos = (level < 100
+					? `right: ${level}vw; bottom: calc(${level}vh - 16px);`
+					: `left: ${levelopp/2}vw; top: calc(${levelopp/2}vh - 8px);`
+				);
+				document.querySelector('iframe').style = (FrameZoomIndex == -1
+					? ''
+					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - ${32 * (levelopp / 100)}px); ${stylepos}`
+				);
+				//switch (FrameZoom) {
+				//	case 100: FrameZoom = 200; break;
+				//	case 200: FrameZoom = 50; break;
+				//	case 50: FrameZoom = 100; break;
+				//};
+				//document.querySelector('iframe').style = `scale: ${FrameZoom/100}; width: ${FrameZoom}vw; height: ${FrameZoom}vh; left: ${''}; top: ${''};`;
+			};
+
+			onload = function(){
+				document.querySelector('input').value = localStorage.getItem('FramesBrowser.url');
+			};
+		</script>
+	</body>
+</html>
