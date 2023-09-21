@@ -24,10 +24,10 @@
 			iframe {
 				border: none;
 				width: 100vw;
-				height: calc(100vh - 32px);
+				height: calc(100vh - var(--BtnActionHeight));
 				position: relative;
 			}
-			#BoxControls table, #BoxControls td > * {
+			#BoxControls table, #BoxControls table td, #BoxControls table td > * {
 				height: var(--BtnActionHeight);
 				min-width: var(--BtnActionHeight);
 				border-spacing: 0;
@@ -37,23 +37,25 @@
 				top: 0;
 				left: 0;
 				right: 0;
-				z-index: 1;
 			}
 		</style>
 		<script>
 			var FrameZoomLevels = [50, 200];
 			var AppInfoString = `
-Frames Browser v2023-09-21.2 (WIP).
+Frames Browser v2023-09-21.3 (WIP).
 			`.trim();
 		</script>
 	</head>
 	<body>
 		<div id="BoxControls"><table><tr>
 			<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>
-			<!--<td><button onclick="LoadFile()">📄 File</button></td>-->
+			<td>
+				<button onclick="this.nextElementSibling.click()">📄 File</button>
+				<input type="file" hidden="hidden" style="display: none;" onchange="LoadFile(this.files[0])"/>
+			</td>
 			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
 			<!--<td><button onclick="ListFrames()">🪟 Frames</button></td>-->
-			<td style="width: 100%;"><input style="width: 100%;"/></td>
+			<td style="width: 100%;"><input type="text" style="width: 100%;"/></td>
 			<td><button onclick="LoadFrame()">↩️ Load</button></td>
 			<td><button onclick="ExciseFrame()">↗️ Excise</button></td>
 		<tr></table></div>
@@ -61,16 +63,20 @@ Frames Browser v2023-09-21.2 (WIP).
 		<script>
 			var FrameZoomIndex = -1;
 
+			//function $rule(prop){
+			//	return getComputedStyle(document.body).getPropertyValue(prop);
+			//};
+
 			function $new(tag){
 				return document.createElement(tag);
-			}
+			};
 
 			function ShowAppInfo(){
 				alert(AppInfoString);
 			};
 
 			function SaveUrl(){
-				var url = document.querySelector('input').value;
+				var url = document.querySelector('input[type="text"]').value;
 				localStorage.setItem('FramesBrowser.url', url);
 				return url;
 			}
@@ -80,11 +86,20 @@ Frames Browser v2023-09-21.2 (WIP).
 			};
 
 			function ExciseFrame(){
-				window.open(SaveUrl());
+				var url = SaveUrl();
+				var extwindow = open(url, '_blank');
+				if (url.toLowerCase().startsWith('data:')) {
+					extwindow.document.write(`<style>body { margin: 0; } iframe { width: 100vw; height: 100vh; border: none; }</style><iframe src="${url}" frameborder="0"></iframe>`);
+				};
 			};
 
-			function LoadFile(){
-				
+			function LoadFile(file){
+				var reader = new FileReader();
+				reader.onload = function(){
+					document.querySelector('input[type="text"]').value = `data:text/html;utf8,${reader.result}`;
+					LoadFrame();
+				};
+				reader.readAsText(file);
 			};
 
 			function ZoomFrame(){
@@ -101,7 +116,7 @@ Frames Browser v2023-09-21.2 (WIP).
 				);
 				document.querySelector('iframe').style = (FrameZoomIndex == -1
 					? ''
-					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - ${32 * (levelopp / 100)}px); ${stylepos}`
+					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - (var(--BtnActionHeight) * ${levelopp / 100})); ${stylepos}`
 				);
 			};
 
@@ -127,7 +142,7 @@ Frames Browser v2023-09-21.2 (WIP).
 			};
 
 			onload = function(){
-				document.querySelector('input').value = localStorage.getItem('FramesBrowser.url');
+				document.querySelector('input[type="text"]').value = localStorage.getItem('FramesBrowser.url');
 			};
 		</script>
 	</body>
