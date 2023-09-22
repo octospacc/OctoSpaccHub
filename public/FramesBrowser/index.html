@@ -6,8 +6,11 @@
 		<title>Frames Browser (WIP)</title>
 		<style>
 			:root {
-				--BtnHeight: 2em;
-				--BtnActionHeight: 3em;
+				--BaseMargin: 8px;
+				--BtnHeight: calc(1rem + var(--BaseMargin));
+				--BtnActionHeight: calc(2rem + var(--BaseMargin));
+				--ColorBg: #f0f0f0;
+				--ColorFg: #0f0f0f;
 			}
 			* {
 				box-sizing: border-box;
@@ -27,22 +30,45 @@
 				height: calc(100vh - var(--BtnActionHeight));
 				position: relative;
 			}
+			#BoxControls {
+				overflow: auto;
+			}
 			#BoxControls table, #BoxControls table td, #BoxControls table td > * {
 				height: var(--BtnActionHeight);
 				min-width: var(--BtnActionHeight);
+				padding-top: 0;
+				padding-bottom: 0;
 				border-spacing: 0;
 			}
 			.BoxPopup {
-				position: absolute;
-				top: 0;
 				left: 0;
 				right: 0;
+			}
+			.BoxPopup.Container {
+				position: absolute;
+				top: 10vh;
+				z-index: 1;
+				max-height: 80vh;
+				overflow: auto;
+				text-align: center;
+			}
+			.BoxPopup.Content {
+				position: relative;
+				margin-left: auto;
+				margin-right: auto;
+				width: fit-content;
+				box-shadow: gray 4px 4px 4px 0px;
+				color: var(--ColorFg);
+				background-color: var(--ColorBg);
+			}
+			.BtnAction {
+				height: var(--BtnActionHeight);
 			}
 		</style>
 		<script>
 			var FrameZoomLevels = [50, 200];
 			var AppInfoString = `
-Frames Browser v2023-09-21.3 (WIP).
+Frames Browser v2023-09-22 (WIP).
 			`.trim();
 		</script>
 	</head>
@@ -54,42 +80,102 @@ Frames Browser v2023-09-21.3 (WIP).
 				<input type="file" hidden="hidden" style="display: none;" onchange="LoadFile(this.files[0])"/>
 			</td>
 			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
-			<!--<td><button onclick="ListFrames()">🪟 Frames</button></td>-->
-			<td style="width: 100%;"><input type="text" style="width: 100%;"/></td>
+			<td><button onclick="ListFrames()">🪟 Frames</button></td>
+			<td style="width: 100%;"><input type="text" style="min-width: 100%;" hint="🔗️ Enter URI..."/></td>
 			<td><button onclick="LoadFrame()">↩️ Load</button></td>
 			<td><button onclick="ExciseFrame()">↗️ Excise</button></td>
 		<tr></table></div>
+		<noscript><p class="NoScript">
+			This is an actual app, not a badly-made website.
+			<br>
+			It needs JavaScript to work, so you need to enable it.
+			<br>
+			The code is fully open, and you can review it with "View Page Source".
+		</p></noscript>
+		<div id="BoxHandy"></div>
 		<div><iframe></iframe></div>
 		<script>
+			var CurrentFrames = [];
+			var FrameIndexes = [-1];
 			var FrameZoomIndex = -1;
 
-			//function $rule(prop){
-			//	return getComputedStyle(document.body).getPropertyValue(prop);
-			//};
-
-			function $new(tag){
-				return document.createElement(tag);
+			function $new(tag, props){
+				var el = document.createElement(tag);
+				if (props) {
+					Object.keys(props).forEach(function(key){
+						el[key] = props[key];
+					});
+				};
+				return el;
 			};
 
 			function ShowAppInfo(){
 				alert(AppInfoString);
 			};
 
+			function ShowFrame(index){
+				ListFramesClose();
+				FrameIndexes = [index];
+				SaveCurrentFrames();
+				document.querySelector('iframe').hidden = false;
+				document.querySelector('iframe').style.display = '';
+				document.querySelector('input[type="text"]').value = CurrentFrames[index];
+				document.querySelector('input[type="text"]').disabled = false;
+				document.querySelector('iframe').src = CurrentFrames[index];
+			};
+
+			function ShowRootFrame(){
+				ListFramesClose();
+				FrameIndexes = [-1];
+				SaveCurrentFrames();
+				document.querySelector('iframe').hidden = true;
+				document.querySelector('iframe').style.display = 'none';
+				document.querySelector('input[type="text"]').disabled = true;
+				document.querySelector('input[type="text"]').value = '';
+				document.querySelector('iframe').src = '';
+			};
+
 			function SaveUrl(){
 				var url = document.querySelector('input[type="text"]').value;
 				localStorage.setItem('FramesBrowser.url', url);
+				CurrentFrames[FrameIndexes[0]] = url;
+				SaveCurrentFrames();
 				return url;
-			}
+			};
+
+			function AddFrame(){
+				CurrentFrames = CurrentFrames.concat(['']);
+				ListFrames(); //ListFrames();
+				ShowFrame(CurrentFrames.length - 1);
+				SaveCurrentFrames();
+			};
+
+			function CloseFrame(index){
+				CurrentFrames.pop(index);
+				if (FrameIndexes[0] === index) {
+					ShowRootFrame();
+				} else if (FrameIndexes[0] > index) {
+					FrameIndexes[0] --;
+				};
+				ListFrames(); ListFrames();
+				SaveCurrentFrames();
+			};
+
+			function SaveCurrentFrames(){
+				localStorage.setItem('FramesBrowser.CurrentFrames', JSON.stringify(CurrentFrames));
+				localStorage.setItem('FramesBrowser.FrameIndexes', JSON.stringify(FrameIndexes));
+			};
 
 			function LoadFrame(){
 				document.querySelector('iframe').src = SaveUrl();
 			};
 
 			function ExciseFrame(){
-				var url = SaveUrl();
-				var extwindow = open(url, '_blank');
-				if (url.toLowerCase().startsWith('data:')) {
-					extwindow.document.write(`<style>body { margin: 0; } iframe { width: 100vw; height: 100vh; border: none; }</style><iframe src="${url}" frameborder="0"></iframe>`);
+				var uri = SaveUrl();
+				if (uri.toLowerCase().startsWith('data:')) {
+					opendatauri(uri);
+				} else {
+					open(uri, '_blank');
 				};
 			};
 
@@ -103,7 +189,7 @@ Frames Browser v2023-09-21.3 (WIP).
 			};
 
 			function ZoomFrame(){
-				if (FrameZoomIndex == FrameZoomLevels.length - 1) {
+				if (FrameZoomIndex === FrameZoomLevels.length - 1) {
 					FrameZoomIndex = -1;
 				} else {
 					FrameZoomIndex ++;
@@ -114,35 +200,76 @@ Frames Browser v2023-09-21.3 (WIP).
 					? `right: ${level}vw; bottom: calc(${level}vh - 16px);`
 					: `left: ${levelopp/2}vw; top: calc(${levelopp/2}vh - 8px);`
 				);
-				document.querySelector('iframe').style = (FrameZoomIndex == -1
+				document.querySelector('iframe').style = (FrameZoomIndex === -1
 					? ''
 					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - (var(--BtnActionHeight) * ${levelopp / 100})); ${stylepos}`
 				);
 			};
 
 			function ListFrames(){
-				var Box = NewBoxPopup();
-				var BtnAdd = $new('button');
-				BtnAdd.innerHTML = '➕ Add';
-				Box.appendChild(BtnAdd);
-				var BtnMain = $new('button');
-				BtnMain.innerHTML = 'No Frame';
-				Box.appendChild(BtnMain);
+				if (!ListFramesClose()){
+					var Box = NewBoxPopup('BoxFramesList');
+					var BtnAdd = $new('button', { className: 'BtnAction', innerHTML: '➕ Add', onclick: AddFrame });
+					Box.Content.appendChild(BtnAdd);
+					var BoxList = $new('ul');
+					Box.Content.appendChild(BoxList);
+					var LiMain = $new('li');
+					BoxList.appendChild(LiMain);
+					var BtnMain = $new('button', { innerHTML: 'Root Window', onclick: ShowRootFrame, disabled: FrameIndexes[0] === -1 });
+					LiMain.appendChild(BtnMain);
+					for (var i=0; i<CurrentFrames.length; i++) {
+						var li = $new('li');
+						li.ItemIndex = i;
+						BoxList.appendChild(li);
+						var open = $new('button', { innerHTML: `&nbsp;${CurrentFrames[i].slice(0, 16)}&nbsp;`, onclick: function(){ShowFrame(this.parentElement.ItemIndex)}, disabled: FrameIndexes[0] === i });
+						li.append(open);
+						var close = $new('button', { innerHTML: '✖️', onclick: function(){CloseFrame(this.parentElement.ItemIndex)} });
+						li.append(close);
+					};
+				};
+			};
+			
+			function ListFramesClose(){
+				var exist = document.querySelector('#BoxFramesList');
+				if (exist) {
+					BoxFramesList.remove();
+				};
+				return exist;
 			};
 
-			function NewBoxPopup(){
-				var Box = $new('div');
-				Box.className = 'BoxPopup';
-				var BtnClose = $new('button');
-				BtnClose.innerHTML = '❌ Close';
-				BtnClose.onclick = function(){ this.parentElement.remove() };
-				Box.appendChild(BtnClose);
-				document.body.appendChild(Box);
-				return Box;
+			function NewBoxPopup(id){
+				var Container = $new('div', { id: id, className: 'BoxPopup Container' });
+				var Content = $new('div', { className: 'BoxPopup Content' });
+				Container.appendChild(Content);
+				var BtnClose = $new('button', { className: 'BtnAction', innerHTML: '❌ Close', onclick: function(){this.parentElement.parentElement.remove()} });
+				Content.appendChild(BtnClose);
+				BoxHandy.appendChild(Container);
+				return { Container: Container, Content: Content };
+			};
+
+			window.opendatauri = function opendatauri(data){
+				var head = data.split(',')[0].split('data:')[1];
+				var [mime, encoding] = head.split(';');
+				data = data.split(',').slice(1).join(',');
+				if (encoding.toLowerCase() === 'base64') {
+					data = atob(data);
+				};
+				var bytes = new Array(data.length);
+				for (var i = 0; i < data.length; i++) {
+					bytes[i] = data.charCodeAt(i);
+				};
+				window.open(URL.createObjectURL(
+					new Blob([new Uint8Array(bytes)], { type: `${mime};${encoding ? encoding : 'utf8'}` })
+				), '_blank');
 			};
 
 			onload = function(){
+				Array.from(document.querySelectorAll('noscript, .NoScript')).forEach(function(el){ el.remove() });
+				CurrentFrames = (JSON.parse(localStorage.getItem('FramesBrowser.CurrentFrames')) || []);
+				FrameIndexes = (JSON.parse(localStorage.getItem('FramesBrowser.FrameIndexes')) || [-1]);
 				document.querySelector('input[type="text"]').value = localStorage.getItem('FramesBrowser.url');
+				var frame0 = FrameIndexes[0];
+				frame0 === -1 ? ShowRootFrame() : ShowFrame(frame0);
 			};
 		</script>
 	</body>
