@@ -1,9 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Frames Browser (WIP)</title>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<meta property="og:url" content="https://hub.octt.eu.org/FramesBrowser"/>
+		<link rel="canonical" href="https://hub.octt.eu.org/FramesBrowser"/>
+		<link rel="shortcut icon" type="image/x-icon" href="../favicon.png"/>
+		<link rel="manifest" href="./manifest.json"/>
+		<title>🪟️ Frames Browser (WIP)</title>
+		<meta name="description" content="iFrame-based HTML5 Browser for fun and development"/>
+		<meta property="og:title" content="🪟️ Frames Browser (WIP)"/>
+		<meta property="og:description" content="iFrame-based HTML5 Browser for fun and development"/>
 		<style>
 			:root {
 				--BaseMargin: 8px;
@@ -48,8 +55,6 @@
 				position: absolute;
 				top: 10vh;
 				z-index: 1;
-				max-height: 80vh;
-				overflow: auto;
 				text-align: center;
 			}
 			.BoxPopup.Content {
@@ -57,6 +62,8 @@
 				margin-left: auto;
 				margin-right: auto;
 				width: fit-content;
+				max-height: 80vh;
+				overflow: auto;
 				box-shadow: gray 4px 4px 4px 0px;
 				color: var(--ColorFg);
 				background-color: var(--ColorBg);
@@ -68,22 +75,23 @@
 		<script>
 			var FrameZoomLevels = [50, 200];
 			var AppInfoString = `
-Frames Browser v2023-09-22 (WIP).
+Frames Browser v2023-09-23 (WIP).
 			`.trim();
 		</script>
 	</head>
 	<body>
 		<div id="BoxControls"><table><tr>
 			<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>
+			<td><button onclick="ToggleDevTools()">📐️ Tools</button></td>
 			<td>
-				<button onclick="this.nextElementSibling.click()">📄 File</button>
+				<button id="BtnFile" onclick="this.nextElementSibling.click()">📄 File</button>
 				<input type="file" hidden="hidden" style="display: none;" onchange="LoadFile(this.files[0])"/>
 			</td>
 			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
 			<td><button onclick="ListFrames()">🪟 Frames</button></td>
-			<td style="width: 100%;"><input type="text" style="min-width: 100%;" hint="🔗️ Enter URI..."/></td>
-			<td><button onclick="LoadFrame()">↩️ Load</button></td>
-			<td><button onclick="ExciseFrame()">↗️ Excise</button></td>
+			<td style="width: 100%;"><input id="InputUri" type="text" style="min-width: 100%;" placeholder="🔗️ Enter URI..." onkeydown="InputHandleKey(event)"/></td>
+			<td><button id="BtnLoad" onclick="LoadFrame()">↩️ Load</button></td>
+			<td><button id="BtnExcise" onclick="ExciseFrame()">↗️ Excise</button></td>
 		<tr></table></div>
 		<noscript><p class="NoScript">
 			This is an actual app, not a badly-made website.
@@ -109,8 +117,29 @@ Frames Browser v2023-09-22 (WIP).
 				return el;
 			};
 
+			function $request(url, opts){
+				if (!opts.method) {
+					opts.method = 'GET';
+				};
+				var req = new XMLHttpRequest();
+				req.onreadystatechange = function(){
+					if (this.readyState == 4) {
+						opts.callback(req.responseText);
+					};
+				};
+				req.open(opts.method, url, true);
+				req.send();
+			};
+
 			function ShowAppInfo(){
 				alert(AppInfoString);
+			};
+
+			function InputHandleKey(ev){
+				// Enter
+				if (ev.keyCode == 13) {
+					LoadFrame();
+				};
 			};
 
 			function ShowFrame(index){
@@ -119,8 +148,11 @@ Frames Browser v2023-09-22 (WIP).
 				SaveCurrentFrames();
 				document.querySelector('iframe').hidden = false;
 				document.querySelector('iframe').style.display = '';
-				document.querySelector('input[type="text"]').value = CurrentFrames[index];
-				document.querySelector('input[type="text"]').disabled = false;
+				InputUri.disabled = false;
+				InputUri.value = CurrentFrames[index];
+				BtnFile.disabled = false;
+				BtnLoad.disabled = false;
+				BtnExcise.disabled = false;
 				document.querySelector('iframe').src = CurrentFrames[index];
 			};
 
@@ -130,8 +162,11 @@ Frames Browser v2023-09-22 (WIP).
 				SaveCurrentFrames();
 				document.querySelector('iframe').hidden = true;
 				document.querySelector('iframe').style.display = 'none';
-				document.querySelector('input[type="text"]').disabled = true;
-				document.querySelector('input[type="text"]').value = '';
+				InputUri.disabled = true;
+				InputUri.value = '';
+				BtnFile.disabled = true;
+				BtnLoad.disabled = true;
+				BtnExcise.disabled = true;
 				document.querySelector('iframe').src = '';
 			};
 
@@ -182,10 +217,10 @@ Frames Browser v2023-09-22 (WIP).
 			function LoadFile(file){
 				var reader = new FileReader();
 				reader.onload = function(){
-					document.querySelector('input[type="text"]').value = `data:text/html;utf8,${reader.result}`;
+					document.querySelector('input[type="text"]').value = reader.result;
 					LoadFrame();
 				};
-				reader.readAsText(file);
+				reader.readAsDataURL(file);
 			};
 
 			function ZoomFrame(){
@@ -235,6 +270,17 @@ Frames Browser v2023-09-22 (WIP).
 					BoxFramesList.remove();
 				};
 				return exist;
+			};
+
+			function ToggleDevTools(){
+				//var src = 'https://cdn.jsdelivr.net/npm/eruda';
+				//document.write('<scr' + 'ipt src="' + src + '" onload="eruda.init();"></scr' + 'ipt>');
+				//document.write('<scr' + 'ipt>eruda.init()</scr' + 'ipt>');
+				$request('https://cdn.jsdelivr.net/npm/eruda', { callback: function(text){
+					eval(text);
+					eruda.init();
+				} });
+				document.querySelector('button[onclick="ToggleDevTools()"]').disabled = true;
 			};
 
 			function NewBoxPopup(id){
