@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<script src="./SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
+<script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
+
+<script module="Meta">({
+	Name: "🃏️ [Matrix] Sticker Helper",
+})</script>
+
+<script module="Main" type="module">
+	import { html, render } from 'https://esm.sh/htm/preact/standalone';
+	//import axios from 'https://cdn.skypack.dev/axios';
+	const Spacc = SpaccDotWeb.AppInit();
+
+	const State = {};
+	const Defaults = {
+		stickerSelectorUrl: "https://maunium.net/stickers-demo/", //"https://hub.octt.eu.org/Matrix/MauniumStickerPickerFork/",
+		appIdentity: "org.eu.octt.MatrixStickerHelper",
+		appInterface: "v1",
+	};
+
+	let Config = localStorage.getItem('SpaccInc-Matrix-Config');
+	if (Config) Config = JSON.parse(Config);
+	else Config = {
+		accounts: [],
+	};
+	Config.Save = () => localStorage.setItem('SpaccInc-Matrix-Config', JSON.stringify(Config));
+
+	function ActionForm (props) {
+		let formElems = [];
+
+		for (const action of props.actionEntries) {
+			action.options ||= [];
+
+			formElems.push(html`
+				<button
+					style=${{ textAlign: 'left', width: `calc(100% - ${action.options.length * 3}em)`, display: 'inline-block' }}
+					dataIndex=${action.dataIndex}
+					onclick=${action.onclick}
+					disabled=${action.disabled}
+				>
+					${action.label}
+				</button>
+			`)
+
+			for (const option of action.options) {
+				formElems.push(html`
+					<button
+						style=${{ width: '3em', display: 'inline-block' }}
+						dataIndex=${option.dataIndex}
+						onclick=${option.onclick}
+					>
+						${option.label}
+					</button>
+				`)
+			}
+		}
+
+		return html`<div class="ActionForm">
+			${formElems}
+		</div>`
+	}
+
+	function TableForm (props) {
+		let tableRows = [];
+
+		for (const entry of props.formEntries) {
+			tableRows.push(html`<tr>
+				<td>
+					${entry.type !== 'button' ? entry.label : ''}
+				</td>
+				<td style=${{ width: '100%' }}>
+					<input
+						style=${{ width: '100%' }}
+						name=${entry.name || entry.label.toLowerCase()}
+						type=${entry.type}
+						placeholder=${entry.placeholder || entry.value}
+						value=${entry.type !== 'button' ? entry.value : (entry.value || entry.label)}
+						onclick=${entry.onclick || entry.onInteract}
+						onselect=${entry.onInteract}
+						onchange=${entry.onInteract}
+						oninput=${entry.onInteract}
+						onpaste=${entry.onInteract}
+					/>
+				</td>
+			</tr>`)
+		}
+
+		return html`<div class="TableForm" id=${props.id}>
+			<table>
+				<tbody>
+					${tableRows}
+				</tbody>
+			</table>
+		</div>`
+	}
+
+	function ClickImg (props) {
+		function deleteClick (that) {
+			const button = that.base.querySelector('button[name="delete"]');
+			button.innerHTML = '❌️ Confirm delete?';
+			button.onclick = function(){
+				
+			}
+		}
+
+		return html`<div class="ClickImg">
+			<img
+				src=${props.src}
+				onclick=${() => {
+					for (const openImg of document.querySelectorAll('.ClickImg[data-opened="1"]')) {
+						if (openImg !== this.base ) {
+							openImg.dataset.opened = '0';
+						}
+					}
+					const isOpened = this.base.dataset.opened;
+					if (isOpened === '1') {
+						this.base.dataset.opened = '0';
+					} else {
+						this.base.dataset.opened = '1';
+					}
+					this.base.querySelector('button[name="delete"]').innerHTML = '❌️';
+				}}
+			/>
+			<button
+				name="delete"
+				onclick=${() => deleteClick(this)}
+			>
+				❌️
+			</button>
+		</div>`
+	}
+
+	const Request = (url, options) => {
+		const http = new XMLHttpRequest();
+		http.onreadystatechange = function() {
+			if (this.readyState === 4) {
+				(options.callback || function(){})(http, options.callbackData);
+			}
+		}
+		http.open((options.method || 'GET'), url, true);
+		for (const header in (options.headers || {})) {
+			http.setRequestHeader(header, options.headers[header]);
+		}
+		http.send(options.body);
+	}
+
+	const TryMatrixLoginAndSaveAndUse = (loginData) => {
+		/*fetch(`${loginData.homeserver}/_matrix/client/v3/login`, {
+			method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+				type: "m.login.password",
+				identifier: {
+					type: "m.id.user",
+					user: loginData.username,
+				},
+				password: loginData.password,
+			}) 
+		}).then(response => {
+			if (response.ok) {
+				Config.accounts.push({
+					homeserver: loginData.homeserver,
+					username: loginData.username,
+					token: body.token,
+				});
+				Config.Save();
+				Render();
+			} else {
+				alert(`Error: ${response.json()}`);
+			}
+		})*/
+		Request(`${loginData.homeserver}/_matrix/client/v3/login`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				type: "m.login.password",
+				identifier: {
+					type: "m.id.user",
+					user: loginData.username,
+				},
+				password: loginData.password,
+			}),
+			callback: function(http) {
+				if (http.status === 200) {
+					State.account = {
+						homeserver: loginData.homeserver,
+						username: loginData.username,
+						token: JSON.parse(http.responseText).access_token,
+					};
+					Config.accounts.push(State.account);
+					Config.Save();
+					Render(CollectionScreen);
+				} else {
+					alert(`Error: ${http.responseText}`);
+					document.querySelector('#AccountLoginForm input[name="loginSave"]').disabled = false;
+				}
+			},
+		});
+	}
+
+	const DataWidgetSaveRequest = (configUrl) => {
+		document.querySelector('input[name="reinit"]').disabled = true;
+		document.querySelector('button[name="commit"]').disabled = true;
+		State.dataWidgets.stickerpicker = {
+			content: {
+				type: "m.stickerpicker",
+				url: `${document.querySelector('input[name="sticker selector url"]').value}?&config=${configUrl}&theme=$theme`,
+				name: "Stickerpicker",
+				creatorUserId: `${GetMatrixUserTag(State.account)}`,
+				managedBy: [
+					`${Defaults.appIdentity}/${Defaults.appInterface}`,
+				],
+			},
+			sender: `${GetMatrixUserTag(State.account)}`,
+			state_key: "stickerpicker",
+			type: "m.widget",
+			id: "stickerpicker",
+		};
+		Request(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, {
+			method: 'PUT',
+			headers: { "Content-Type": "application/json", "authorization": `Bearer ${State.account.token}` },
+			body: JSON.stringify(State.dataWidgets),
+			callback: function(http) {
+				const data = JSON.parse(http.responseText);
+				if (http.status === 200) {
+					console.log(data);
+				} else {
+					alert(`Error: ${http.responseText}`);
+					document.querySelector('button[name="commit"]').disabled = false;
+				}
+				document.querySelector('input[name="reinit"]').disabled = false;
+			},
+		});
+	}
+
+	const GetMatrixUserTag = (account) => `@${account.username}:${account.homeserver.split('://')[1]}`
+
+	function AccountChoice (props) {
+		let accountsActions = [];
+
+		for (let i=0; i<Config.accounts.length; i++) {
+			let account = Config.accounts[i];
+			
+			accountsActions.push({
+				label: `🐱️ ${GetMatrixUserTag(account)}`,
+				onclick: () => {
+					State.account = account;
+					Render(CollectionScreen);
+				},
+				options: [ {
+					dataIndex: i,
+					label: '❌️',
+					onclick: () => {
+						Config.accounts.pop(this.dataIndex);
+						Config.Save();
+						Render();
+					},
+				} ]
+			})
+		}
+
+		return html`
+			<${ActionForm} actionEntries=${[...accountsActions,
+				{ label: '🆕️ Add new account', onclick: () => Render(AccountLogin) },
+			]}/>
+		`
+	}
+
+	function AccountLogin (props) {
+		return html`<Fragment>
+			<p>
+				Please login with your [Matrix] account.
+				(Your login details are processed locally and only sent to the homeserver you specified.)
+			</p>
+			<${TableForm} id="AccountLoginForm" formEntries=${[
+				{ label: 'Homeserver', type: 'text',     value: 'https://matrix.org' },
+				{ label: 'Username',   type: 'text',     placeholder: 'AzureDiamond' },
+				{ label: 'Password',   type: 'password', placeholder: '*******' },
+				{ label: 'Import via session token', type: 'checkbox' },
+				{ label: '🆕️ Login and Save', type: 'button',   onclick: () => {
+					this.base.querySelector('input[name="loginSave"]').disabled = true;
+					const password = this.base.querySelector('input[name="password"]').value;
+					let loginData = {
+						homeserver: this.base.querySelector('input[name="homeserver"]').value,
+						username: this.base.querySelector('input[name="username"]').value,
+					};
+					if (this.base.querySelector('input[name="import via session token"]').checked) {
+						loginData.token = password;
+						Config.accounts.push(loginData);
+						Config.Save();
+						Render(CollectionScreen);
+					} else {
+						loginData.password = password;
+						TryMatrixLoginAndSaveAndUse(loginData);
+					}
+				}, name: 'loginSave' },
+				...(Config.accounts.length > 0
+					? [{ label: '✖️ Cancel', type: 'button', onclick: () => Render() }]
+					: [])
+			]}/>
+		</Fragment>`
+	}
+
+	function CollectionList (props) {
+		return html`<Fragment>
+			<div id="CollectionList"><div>
+				<img src="https://http.cat/100"/>
+				<img src="https://http.cat/101"/>
+				<img src="https://http.cat/100"/>
+				<img src="https://http.cat/101"/>
+				<img src="https://http.cat/100"/>
+				<img src="https://http.cat/101"/>
+				<img src="https://http.cat/100"/>
+				<img src="https://http.cat/101"/>
+				<img src="https://http.cat/100"/>
+				<img src="https://http.cat/101"/>
+				<img src="https://http.cat/100"/>
+				<img src="https://http.cat/101"/>
+				<button style=${{ verticalAlign: 'top', height: '64px' }}>
+					➕️ Add new
+				</button>
+			</div></div>
+			<${CollectionGrid}/>
+		</Fragment>`
+	}
+
+	function CollectionGrid (props) {
+		return html`<div id="CollectionGrid">
+			<${ClickImg} src="https://http.cat/100"/>
+			<${ClickImg} src="https://http.cat/101"/>
+			<${ClickImg} src="https://http.cat/102"/>
+			<${ClickImg} src="https://http.cat/103"/>
+			<${ClickImg} src="https://http.cat/200"/>
+			<${ClickImg} src="https://http.cat/201"/>
+			<${ClickImg} src="https://http.cat/202"/>
+			<${ClickImg} src="https://http.cat/203"/>
+			<${ClickImg} src="https://http.cat/204"/>
+			<${ClickImg} src="https://http.cat/205"/>
+			<button
+				style=${{ verticalAlign: 'top', width: '128px', height: '128px' }}
+				onclick=${() => this.base.querySelector('button > input[type="file"]').click()}
+			>
+				➕️ Add new
+				<input
+					style=${{ display: 'none' }}
+					type="file"
+					accept="image/jpeg,image/gif,image/png,image/webp"
+					multiple
+					onchange=${(data) => {
+						console.log(data.target.files);
+						document.querySelector('button[name="commit"]').disabled = false;
+					}}
+				/>
+			</button>
+		</div>`
+	}
+
+	function CollectionView (props) {
+		const isManaged = props.extra?.stickerpicker?.content?.managedBy?.includes(`${Defaults.appIdentity}/${Defaults.appInterface}`);
+		State.dataWidgets = props.extra;
+		if (!State.dataWidgets) State.dataWidgets = {};
+
+		new URLSearchParams(State.dataWidgets?.stickerpicker?.content?.url?.split('?')?[1]).get('config');
+
+		return html`<Fragment>
+			<${ActionForm} actionEntries=${[
+				{ label: '🔙️ Go Back', onclick: () => Render() },
+				{ name: 'commit', label: '📝️ Commit Changes', disabled: true, onclick: DataWidgetSaveRequest },
+			]}/>
+			<${CollectionList}/>
+			${!props.extras && html`<p>
+				Your account is currently not set-up to handle stickers.
+			</p>`}
+			${props.extras && !isManaged && html`<p>
+				Your account is set-up with a sticker picker, but it's not marked as being managed by this app.
+				This could mean that you are currently using an incompatible sticker picker.
+				You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
+			</p>`}
+			<details open=${!props.extras || !isManaged}>
+				<summary>
+					<h3 style=${{ display: 'inline' }}>
+						Options
+					</h3>
+				</summary>
+				<p>
+					Reinitializing sticker data for your account will simply override
+					the <code>stickerpicker</code> subfield in its <code>m.widgets</code> field.
+				</p>
+				<${TableForm} formEntries=${[
+					{ name: 'reinit', label: '💡️ Reinitialize sticker data as new', type: 'button', onclick: DataWidgetSaveRequest },
+					{ label: 'or', type: 'hidden' },
+					{ label: 'Import JSON from URL', placeholder: 'https://example.com', type: 'text', onInteract: () => {
+						const thisElem = this.base.querySelector('input[name="import json from url"]');
+						const button = this.base.querySelector('input[name="reinit"]');
+						if (thisElem.value === '') {
+							button.value = '💡️ Reinitialize sticker data as new';
+						} else {
+							button.value = '💡️ Reinitialize sticker packs from URL';
+						}
+					} },
+				]}/>
+				<details open=${false}>
+					<summary>
+						<h4 style=${{ display: 'inline' }}>
+							Advanced
+						</h4>
+					</summary>
+					<${TableForm} formEntries=${[
+						{ label: 'Sticker selector URL', value: Defaults.stickerSelectorUrl, type: 'text' },
+					]}/>
+				</details>
+			</details>
+		</Fragment>`
+	}
+
+	function CollectionScreen (props) {
+		Request(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, {
+			headers: { "Content-Type": "application/json", "authorization": `Bearer ${State.account.token}` },
+			callback: function(http) {
+				const data = JSON.parse(http.responseText);
+				if (http.status === 200) {
+					Render(CollectionView, data);
+				} else {
+					if (data.errcode === 'M_NOT_FOUND') {
+						Render(CollectionView);
+					} else {
+						alert(`Error: ${http.responseText}`);
+						Render();
+					}
+				}
+			},
+		});
+	}
+
+	function App (props) {
+		return html`
+			<${props.screen || (Config.accounts.length > 0 ? AccountChoice : AccountLogin)} extras=${props.extras}/>
+			<p>
+				🃏️ [Matrix] Sticker Helper WIP, created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
+				Made possible by <a href="https://github.com/maunium/stickerpicker">Maunium sticker picker</a>.
+			</p>
+			<style>
+				:root {
+					--margin: 8px;
+				}
+
+				* {
+					box-sizing: border-box;
+				}
+				
+				body, .ActionForm, .TableForm {
+					margin: var(--margin);
+				}
+
+				#CollectionList {
+					max-width: 100%;
+					overflow: auto;
+				}
+
+				#CollectionList > div {
+					width: max-content;
+				}
+
+				#CollectionList > div > * {
+					width: 64px;
+					margin: var(--margin);
+				}
+
+				.ActionForm > *,
+				.TableForm td > * {
+					display: block;
+					height: 2em;
+					width: 100%;
+				}
+				
+				.ActionForm > * > * {
+					height: 2em;
+				}
+				
+				#CollectionGrid > *,
+				.ClickImg {
+					display: inline-block;
+					margin: 8px;
+				}
+				
+				.ClickImg,
+				.ClickImg img {
+					width: 128px;
+				}
+
+				.ClickImg[data-opened="1"], .ClickImg[data-opened="1"] > img {
+					width: calc(100% - var(--margin));
+				}
+			</style>
+		`
+	}
+
+	function Render (screen, extras) {
+		render(html`<${App} screen=${screen} extras=${extras}/>`, document.body);
+	}
+	Render()
+</script>
