@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <script src="./SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
 <script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
+<script src="https://googlechrome.github.io/dialog-polyfill/dist/dialog-polyfill.js"></script>
 
 <script module="Meta">({
 	Name: "🃏️ [Matrix] Sticker Helper",
 })</script>
 
 <script module="Main" type="module">
-	import { html, render } from 'https://esm.sh/htm/preact/standalone';
-	//import axios from 'https://cdn.skypack.dev/axios';
 	const Spacc = SpaccDotWeb.AppInit();
+</script>
+
+<script module="App" type="module">
+	import { html, render } from 'https://esm.sh/htm/preact/standalone';
+	import axios from 'https://cdn.skypack.dev/axios';
 
 	const State = {};
 	const Defaults = {
-		stickerSelectorUrl: "https://maunium.net/stickers-demo/", //"https://hub.octt.eu.org/Matrix/MauniumStickerPickerFork/",
+		stickerSelectorUrl: "https://maunium.net/stickers-demo/",
 		appIdentity: "org.eu.octt.MatrixStickerHelper",
 		appInterface: "v1",
 	};
@@ -37,6 +41,7 @@
 					dataIndex=${action.dataIndex}
 					onclick=${action.onclick}
 					disabled=${action.disabled}
+					name=${action.name}
 				>
 					${action.label}
 				</button>
@@ -95,14 +100,6 @@
 	}
 
 	function ClickImg (props) {
-		function deleteClick (that) {
-			const button = that.base.querySelector('button[name="delete"]');
-			button.innerHTML = '❌️ Confirm delete?';
-			button.onclick = function(){
-				
-			}
-		}
-
 		return html`<div class="ClickImg">
 			<img
 				src=${props.src}
@@ -118,19 +115,39 @@
 					} else {
 						this.base.dataset.opened = '1';
 					}
-					this.base.querySelector('button[name="delete"]').innerHTML = '❌️';
 				}}
 			/>
-			<button
+			<${SecureButton}
 				name="delete"
-				onclick=${() => deleteClick(this)}
+				modalText='❌️ Confirm delete?'
+				onclick=${() => {
+					alert(1)
+				}}
 			>
 				❌️
-			</button>
+			</${SecureButton}>
 		</div>`
 	}
 
-	const Request = (url, options) => {
+	function ShowModal (text, action, question) {
+		document.querySelector('#Modal > p').innerHTML = text;
+		document.querySelector('#Modal > button[name="confirm"]').onclick = action;
+		document.querySelector('#Modal').showModal();
+	}
+
+	function SecureButton (props) {
+		return html`
+			<button
+				class="SecureButton ${props.class}"
+				name=${props.name}
+				onclick=${() => ShowModal('❌️ Confirm delete?', props.onclick)}
+			>
+				${props.children}
+			</button>
+		`
+	}
+
+	function Request (url, options) {
 		const http = new XMLHttpRequest();
 		http.onreadystatechange = function() {
 			if (this.readyState === 4) {
@@ -144,65 +161,37 @@
 		http.send(options.body);
 	}
 
-	const TryMatrixLoginAndSaveAndUse = (loginData) => {
-		/*fetch(`${loginData.homeserver}/_matrix/client/v3/login`, {
-			method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+	async function TryMatrixLoginAndSaveAndUse (loginData) {
+		try {
+			const response = await axios.post(`${loginData.homeserver}/_matrix/client/v3/login`, {
 				type: "m.login.password",
 				identifier: {
 					type: "m.id.user",
 					user: loginData.username,
 				},
 				password: loginData.password,
-			}) 
-		}).then(response => {
-			if (response.ok) {
-				Config.accounts.push({
-					homeserver: loginData.homeserver,
-					username: loginData.username,
-					token: body.token,
-				});
-				Config.Save();
-				Render();
-			} else {
-				alert(`Error: ${response.json()}`);
-			}
-		})*/
-		Request(`${loginData.homeserver}/_matrix/client/v3/login`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				type: "m.login.password",
-				identifier: {
-					type: "m.id.user",
-					user: loginData.username,
-				},
-				password: loginData.password,
-			}),
-			callback: function(http) {
-				if (http.status === 200) {
-					State.account = {
-						homeserver: loginData.homeserver,
-						username: loginData.username,
-						token: JSON.parse(http.responseText).access_token,
-					};
-					Config.accounts.push(State.account);
-					Config.Save();
-					Render(CollectionScreen);
-				} else {
-					alert(`Error: ${http.responseText}`);
-					document.querySelector('#AccountLoginForm input[name="loginSave"]').disabled = false;
-				}
-			},
-		});
+			});
+			State.account = {
+				homeserver: loginData.homeserver,
+				username: loginData.username,
+				token: response.data.access_token,
+			};
+			Config.accounts.push(State.account);
+			Config.Save();
+			Render(CollectionScreen);
+		} catch(err) {
+			alert(`Error trying to get a session token: ${err.response.request.response}`);
+			document.querySelector('#AccountLoginForm input[name="loginSave"]').disabled = false;
+		}
 	}
 
-	const DataWidgetSaveRequest = (configUrl) => {
+	async function DataWidgetSaveRequest (configUrl) {
 		document.querySelector('input[name="reinit"]').disabled = true;
 		document.querySelector('button[name="commit"]').disabled = true;
 		State.dataWidgets.stickerpicker = {
 			content: {
 				type: "m.stickerpicker",
-				url: `${document.querySelector('input[name="sticker selector url"]').value}?&config=${configUrl}&theme=$theme`,
+				url: `${document.querySelector('input[name="sticker selector url"]').value}?&config=${configUrl || ''}&theme=$theme`,
 				name: "Stickerpicker",
 				creatorUserId: `${GetMatrixUserTag(State.account)}`,
 				managedBy: [
@@ -214,21 +203,17 @@
 			type: "m.widget",
 			id: "stickerpicker",
 		};
-		Request(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, {
-			method: 'PUT',
-			headers: { "Content-Type": "application/json", "authorization": `Bearer ${State.account.token}` },
-			body: JSON.stringify(State.dataWidgets),
-			callback: function(http) {
-				const data = JSON.parse(http.responseText);
-				if (http.status === 200) {
-					console.log(data);
-				} else {
-					alert(`Error: ${http.responseText}`);
-					document.querySelector('button[name="commit"]').disabled = false;
-				}
-				document.querySelector('input[name="reinit"]').disabled = false;
-			},
-		});
+		try {
+			const response = await axios.put(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, State.dataWidgets, {
+				headers: { "Authorization": `Bearer ${State.account.token}` },
+			});
+			console.log(response.data);
+			Render(CollectionScreen);
+		} catch(err) {
+			alert(`Error updating account widget data: ${err.response.request.response}`);
+			document.querySelector('button[name="commit"]').disabled = false;
+		}
+		document.querySelector('input[name="reinit"]').disabled = false;
 	}
 
 	const GetMatrixUserTag = (account) => `@${account.username}:${account.homeserver.split('://')[1]}`
@@ -238,7 +223,7 @@
 
 		for (let i=0; i<Config.accounts.length; i++) {
 			let account = Config.accounts[i];
-			
+
 			accountsActions.push({
 				label: `🐱️ ${GetMatrixUserTag(account)}`,
 				onclick: () => {
@@ -300,26 +285,25 @@
 	}
 
 	function CollectionList (props) {
-		return html`<Fragment>
+		let packElems = [];
+		for (const pack of (props.extras?.dataPacks?.packs || [])) {
+			packElems.push(html`
+				<img
+					src="${props.extras?.dataPacks?.homeserver_url}/_matrix/media/r0/thumbnail/${pack.stickers[0].info.thumbnail_url.split('mxc://')[1]}?&height=128&width=128&method=scale"
+					onclick=${null}
+				/>
+			`);
+		}
+
+		return html`<${CollectionViewMenu} optionsOpen=${false}>
 			<div id="CollectionList"><div>
-				<img src="https://http.cat/100"/>
-				<img src="https://http.cat/101"/>
-				<img src="https://http.cat/100"/>
-				<img src="https://http.cat/101"/>
-				<img src="https://http.cat/100"/>
-				<img src="https://http.cat/101"/>
-				<img src="https://http.cat/100"/>
-				<img src="https://http.cat/101"/>
-				<img src="https://http.cat/100"/>
-				<img src="https://http.cat/101"/>
-				<img src="https://http.cat/100"/>
-				<img src="https://http.cat/101"/>
 				<button style=${{ verticalAlign: 'top', height: '64px' }}>
-					➕️ Add new
+					➕️ Create new pack
 				</button>
+				${packElems}
 			</div></div>
 			<${CollectionGrid}/>
-		</Fragment>`
+		</${CollectionViewMenu}>`
 	}
 
 	function CollectionGrid (props) {
@@ -333,12 +317,13 @@
 			<${ClickImg} src="https://http.cat/202"/>
 			<${ClickImg} src="https://http.cat/203"/>
 			<${ClickImg} src="https://http.cat/204"/>
-			<${ClickImg} src="https://http.cat/205"/>
 			<button
 				style=${{ verticalAlign: 'top', width: '128px', height: '128px' }}
 				onclick=${() => this.base.querySelector('button > input[type="file"]').click()}
 			>
-				➕️ Add new
+				➕️ Upload new
+				<br/><br/>
+				<small>(Only image files supported for now)</small>
 				<input
 					style=${{ display: 'none' }}
 					type="file"
@@ -353,28 +338,80 @@
 		</div>`
 	}
 
+	async function CollectionScreen (props) {
+		try {
+			const response = await axios.get(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, {
+				headers: { "Authorization": `Bearer ${State.account.token}` },
+			});
+			Render(CollectionFetchData, response.data);
+		} catch(err) {
+			if (err.response.data.errcode === 'M_NOT_FOUND') {
+				Render(CollectionFetchData);
+			} else {
+				alert(`Error fetching account widget data: ${err.response.request.response}`);
+				Render();
+			}
+		}
+	}
+	
+	async function CollectionFetchData (props) {
+		const packsUrl = (new URLSearchParams(props.dataWidgets?.stickerpicker?.content?.url?.split('?')[1])).get('config');
+		if (packsUrl) {
+			try {
+				const response = await axios.get(packsUrl).data;
+				Render(CollectionView, {
+					dataWidgets: props.extras,
+					dataPacks: response.data,
+				});
+			} catch(err) {
+				alert(`Error: ${err.response.request.response}`);
+				Render();
+			}
+		} else {
+			Render(CollectionView, {
+				dataWidgets: props.extras,
+			});
+		}
+	}
+
 	function CollectionView (props) {
-		const isManaged = props.extra?.stickerpicker?.content?.managedBy?.includes(`${Defaults.appIdentity}/${Defaults.appInterface}`);
-		State.dataWidgets = props.extra;
+		const isManaged = props.extras?.dataWidgets?.stickerpicker?.content?.managedBy?.includes(`${Defaults.appIdentity}/${Defaults.appInterface}`);
+		State.dataWidgets = props.extras?.dataWidgets;
 		if (!State.dataWidgets) State.dataWidgets = {};
 
-		new URLSearchParams(State.dataWidgets?.stickerpicker?.content?.url?.split('?')?[1]).get('config');
+		return html`<${CollectionViewMenu} optionsOpen=${!props.dataWidgets || !props.isManaged}>
+			${!props.extras?.dataWidgets && html`<p>
+				Your account must first be set-up to handle stickers.
+			</p>`}
+			${props.extras?.dataWidgets && !isManaged && html`
+				<p>
+					Your account is set-up with a sticker picker, but it's not marked as being managed by this app.
+					This could mean that you are currently using an incompatible sticker picker.
+					You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
+				</p>
+				<p>
+					<button
+						class="ActionButton"
+						onclick=${() => {
+							Render(CollectionList, props.extras?.dataPacks)
+						}}
+					>
+						⏭️ Continue
+					</button>
+				</p>
+			`}
+			${isManaged && Render(CollectionList, props.extras?.dataPacks)}
+		</${CollectionViewMenu}>`
+	}
 
-		return html`<Fragment>
+	function CollectionViewMenu (props) {
+		return html`<Fragment class="CollectionViewMenu">
 			<${ActionForm} actionEntries=${[
 				{ label: '🔙️ Go Back', onclick: () => Render() },
-				{ name: 'commit', label: '📝️ Commit Changes', disabled: true, onclick: DataWidgetSaveRequest },
+				{ name: 'commit', label: '📝️ Commit Changes', disabled: true, onclick: () => DataWidgetSaveRequest(packsUrl) },
 			]}/>
-			<${CollectionList}/>
-			${!props.extras && html`<p>
-				Your account is currently not set-up to handle stickers.
-			</p>`}
-			${props.extras && !isManaged && html`<p>
-				Your account is set-up with a sticker picker, but it's not marked as being managed by this app.
-				This could mean that you are currently using an incompatible sticker picker.
-				You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
-			</p>`}
-			<details open=${!props.extras || !isManaged}>
+			${props.children}
+			<details open=${props.optionsOpen}>
 				<summary>
 					<h3 style=${{ display: 'inline' }}>
 						Options
@@ -385,7 +422,7 @@
 					the <code>stickerpicker</code> subfield in its <code>m.widgets</code> field.
 				</p>
 				<${TableForm} formEntries=${[
-					{ name: 'reinit', label: '💡️ Reinitialize sticker data as new', type: 'button', onclick: DataWidgetSaveRequest },
+					{ name: 'reinit', label: '💡️ Reinitialize sticker data as new', type: 'button', onclick: () => DataWidgetSaveRequest(this.base.querySelector('input[name="import json from url"]').value) },
 					{ label: 'or', type: 'hidden' },
 					{ label: 'Import JSON from URL', placeholder: 'https://example.com', type: 'text', onInteract: () => {
 						const thisElem = this.base.querySelector('input[name="import json from url"]');
@@ -411,90 +448,91 @@
 		</Fragment>`
 	}
 
-	function CollectionScreen (props) {
-		Request(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, {
-			headers: { "Content-Type": "application/json", "authorization": `Bearer ${State.account.token}` },
-			callback: function(http) {
-				const data = JSON.parse(http.responseText);
-				if (http.status === 200) {
-					Render(CollectionView, data);
-				} else {
-					if (data.errcode === 'M_NOT_FOUND') {
-						Render(CollectionView);
-					} else {
-						alert(`Error: ${http.responseText}`);
-						Render();
-					}
-				}
-			},
-		});
-	}
-
 	function App (props) {
-		return html`
-			<${props.screen || (Config.accounts.length > 0 ? AccountChoice : AccountLogin)} extras=${props.extras}/>
-			<p>
-				🃏️ [Matrix] Sticker Helper WIP, created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
-				Made possible by <a href="https://github.com/maunium/stickerpicker">Maunium sticker picker</a>.
-			</p>
-			<style>
-				:root {
-					--margin: 8px;
-				}
+		return html`<Fragment>
+			<div class="Dynamic">
+				<${props.screen || (Config.accounts.length > 0 ? AccountChoice : AccountLogin)} extras=${props.extras}/>
+			</div>
+			<div class="Static">
+				<dialog id="Modal">
+					<p></p>
+					<button onclick=${() => document.querySelector('#Modal').close()}>🔙️ Back</button>
+					<button name="confirm">⏩️ Confirm</button>
+				</dialog>
+				<p>
+					🃏️ [Matrix] Sticker Helper WIP, created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
+					Made possible by <a href="https://github.com/maunium/stickerpicker">Maunium sticker picker</a>.
+				</p>
+				<style>
+					:root {
+						--margin: 8px;
+					}
 
-				* {
-					box-sizing: border-box;
-				}
-				
-				body, .ActionForm, .TableForm {
-					margin: var(--margin);
-				}
+					* {
+						box-sizing: border-box;
+					}
+					
+					body, .ActionForm, .TableForm {
+						margin: var(--margin);
+					}
 
-				#CollectionList {
-					max-width: 100%;
-					overflow: auto;
-				}
+					#CollectionList {
+						max-width: 100%;
+						overflow: auto;
+					}
 
-				#CollectionList > div {
-					width: max-content;
-				}
+					#CollectionList > div {
+						width: max-content;
+					}
 
-				#CollectionList > div > * {
-					width: 64px;
-					margin: var(--margin);
-				}
+					#CollectionList > div > * {
+						width: 64px;
+						margin: var(--margin);
+					}
 
-				.ActionForm > *,
-				.TableForm td > * {
-					display: block;
-					height: 2em;
-					width: 100%;
-				}
-				
-				.ActionForm > * > * {
-					height: 2em;
-				}
-				
-				#CollectionGrid > *,
-				.ClickImg {
-					display: inline-block;
-					margin: 8px;
-				}
-				
-				.ClickImg,
-				.ClickImg img {
-					width: 128px;
-				}
+					.ActionButton,
+					.ActionForm > *,
+					.TableForm td > * {
+						display: block;
+						height: 2em;
+						width: 100%;
+					}
+					
+					.ActionForm > * > * {
+						height: 2em;
+					}
+					
+					#CollectionGrid > *,
+					.ClickImg {
+						display: inline-block;
+						margin: 8px;
+					}
+					
+					.ClickImg,
+					.ClickImg img {
+						width: 128px;
+					}
 
-				.ClickImg[data-opened="1"], .ClickImg[data-opened="1"] > img {
-					width: calc(100% - var(--margin));
-				}
-			</style>
-		`
+					.ClickImg[data-opened="1"], .ClickImg[data-opened="1"] > img {
+						width: calc(100% - var(--margin));
+					}
+				</style>
+			</div>
+		</Fragment>`
 	}
 
 	function Render (screen, extras) {
 		render(html`<${App} screen=${screen} extras=${extras}/>`, document.body);
+
+		// idk why that section gets duplicated, it worked fine until a bit before, we do this to fix it
+		for (const type of ['.Static', '.CollectionViewMenu']) {
+			const elems = document.querySelectorAll(type);
+			for (let i=0; i<(elems.length-1); i++) {
+				elems[i].remove();
+			}
+		}
+
+		dialogPolyfill.registerDialog(document.querySelector('#Modal'));
 	}
 	Render()
 </script>
