@@ -1,25 +1,38 @@
 <!DOCTYPE html>
-<script src="./SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!--
+<script src="../../../SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
 <script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
+-->
+<script src="../../../SpaccDotWeb/SpaccDotWeb.Alt.js" module="SpaccDotWeb"></script>
+<script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.Alt.js" module="SpaccDotWeb"></script>
 <script src="https://googlechrome.github.io/dialog-polyfill/dist/dialog-polyfill.js"></script>
+<link rel="stylesheet" href="./paper.min.css"/>
 
 <script module="Meta">({
 	Name: "🃏️ [Matrix] Sticker Helper",
 })</script>
 
 <script module="Main" type="module">
-	const Spacc = SpaccDotWeb.AppInit();
-</script>
+	//import { html, render } from 'https://esm.sh/htm/preact/standalone';
+	//import axios from 'https://cdn.skypack.dev/axios';
 
-<script module="App" type="module">
-	import { html, render } from 'https://esm.sh/htm/preact/standalone';
-	import axios from 'https://cdn.skypack.dev/axios';
+	const Spacc = SpaccDotWeb.AppInit();
 
 	const State = {};
 	const Defaults = {
 		stickerSelectorUrl: "https://maunium.net/stickers-demo/",
 		appIdentity: "org.eu.octt.MatrixStickerHelper",
 		appInterface: "v1",
+		Strings: {
+			mustInitMessage: `Your account must first be initialized to handle stickers.`,
+			notManagedMessage: `
+				Your account is set-up with a sticker picker, but it's not marked as being managed by this app.
+				This could mean that you are currently using an incompatible sticker picker.
+				You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
+			`,
+		}
 	};
 
 	let Config = localStorage.getItem('SpaccInc-Matrix-Config');
@@ -29,6 +42,7 @@
 	};
 	Config.Save = () => localStorage.setItem('SpaccInc-Matrix-Config', JSON.stringify(Config));
 
+/*
 	function ActionForm (props) {
 		let formElems = [];
 
@@ -89,14 +103,6 @@
 				</td>
 			</tr>`)
 		}
-
-		return html`<div class="TableForm" id=${props.id}>
-			<table>
-				<tbody>
-					${tableRows}
-				</tbody>
-			</table>
-		</div>`
 	}
 
 	function ClickImg (props) {
@@ -127,38 +133,6 @@
 				❌️
 			</${SecureButton}>
 		</div>`
-	}
-
-	function ShowModal (text, action, question) {
-		document.querySelector('#Modal > p').innerHTML = text;
-		document.querySelector('#Modal > button[name="confirm"]').onclick = action;
-		document.querySelector('#Modal').showModal();
-	}
-
-	function SecureButton (props) {
-		return html`
-			<button
-				class="SecureButton ${props.class}"
-				name=${props.name}
-				onclick=${() => ShowModal('❌️ Confirm delete?', props.onclick)}
-			>
-				${props.children}
-			</button>
-		`
-	}
-
-	function Request (url, options) {
-		const http = new XMLHttpRequest();
-		http.onreadystatechange = function() {
-			if (this.readyState === 4) {
-				(options.callback || function(){})(http, options.callbackData);
-			}
-		}
-		http.open((options.method || 'GET'), url, true);
-		for (const header in (options.headers || {})) {
-			http.setRequestHeader(header, options.headers[header]);
-		}
-		http.send(options.body);
 	}
 
 	async function TryMatrixLoginAndSaveAndUse (loginData) {
@@ -215,8 +189,6 @@
 		}
 		document.querySelector('input[name="reinit"]').disabled = false;
 	}
-
-	const GetMatrixUserTag = (account) => `@${account.username}:${account.homeserver.split('://')[1]}`
 
 	function AccountChoice (props) {
 		let accountsActions = [];
@@ -338,72 +310,6 @@
 		</div>`
 	}
 
-	async function CollectionScreen (props) {
-		try {
-			const response = await axios.get(`${State.account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(State.account)}/account_data/m.widgets`, {
-				headers: { "Authorization": `Bearer ${State.account.token}` },
-			});
-			Render(CollectionFetchData, response.data);
-		} catch(err) {
-			if (err.response.data.errcode === 'M_NOT_FOUND') {
-				Render(CollectionFetchData);
-			} else {
-				alert(`Error fetching account widget data: ${err.response.request.response}`);
-				Render();
-			}
-		}
-	}
-	
-	async function CollectionFetchData (props) {
-		const packsUrl = (new URLSearchParams(props.dataWidgets?.stickerpicker?.content?.url?.split('?')[1])).get('config');
-		if (packsUrl) {
-			try {
-				const response = await axios.get(packsUrl).data;
-				Render(CollectionView, {
-					dataWidgets: props.extras,
-					dataPacks: response.data,
-				});
-			} catch(err) {
-				alert(`Error: ${err.response.request.response}`);
-				Render();
-			}
-		} else {
-			Render(CollectionView, {
-				dataWidgets: props.extras,
-			});
-		}
-	}
-
-	function CollectionView (props) {
-		const isManaged = props.extras?.dataWidgets?.stickerpicker?.content?.managedBy?.includes(`${Defaults.appIdentity}/${Defaults.appInterface}`);
-		State.dataWidgets = props.extras?.dataWidgets;
-		if (!State.dataWidgets) State.dataWidgets = {};
-
-		return html`<${CollectionViewMenu} optionsOpen=${!props.dataWidgets || !props.isManaged}>
-			${!props.extras?.dataWidgets && html`<p>
-				Your account must first be set-up to handle stickers.
-			</p>`}
-			${props.extras?.dataWidgets && !isManaged && html`
-				<p>
-					Your account is set-up with a sticker picker, but it's not marked as being managed by this app.
-					This could mean that you are currently using an incompatible sticker picker.
-					You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
-				</p>
-				<p>
-					<button
-						class="ActionButton"
-						onclick=${() => {
-							Render(CollectionList, props.extras?.dataPacks)
-						}}
-					>
-						⏭️ Continue
-					</button>
-				</p>
-			`}
-			${isManaged && Render(CollectionList, props.extras?.dataPacks)}
-		</${CollectionViewMenu}>`
-	}
-
 	function CollectionViewMenu (props) {
 		return html`<Fragment class="CollectionViewMenu">
 			<${ActionForm} actionEntries=${[
@@ -447,92 +353,357 @@
 			</details>
 		</Fragment>`
 	}
+*/
 
-	function App (props) {
-		return html`<Fragment>
-			<div class="Dynamic">
-				<${props.screen || (Config.accounts.length > 0 ? AccountChoice : AccountLogin)} extras=${props.extras}/>
-			</div>
-			<div class="Static">
-				<dialog id="Modal">
-					<p></p>
-					<button onclick=${() => document.querySelector('#Modal').close()}>🔙️ Back</button>
-					<button name="confirm">⏩️ Confirm</button>
-				</dialog>
-				<p>
-					🃏️ [Matrix] Sticker Helper WIP, created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
-					Made possible by <a href="https://github.com/maunium/stickerpicker">Maunium sticker picker</a>.
-				</p>
-				<style>
-					:root {
-						--margin: 8px;
-					}
+	const $ = (query, ...params) => (query
+		? document.querySelector(Array.isArray(query)
+			? (params.length > 0
+				? params.map((a, i) => `${query[i]}${a}`).join('')
+				: query.join(''))
+			: query)
+		: document);
 
-					* {
-						box-sizing: border-box;
-					}
-					
-					body, .ActionForm, .TableForm {
-						margin: var(--margin);
-					}
+	const GetMatrixUserTag = (account) => `@${account.username}:${account.homeserver.split('://')[1]}`;
 
-					#CollectionList {
-						max-width: 100%;
-						overflow: auto;
-					}
+	const GetMatrixMediaUrl = (mxcId, homeserverUrl) => `${homeserverUrl}/_matrix/media/r0/thumbnail/${mxcId?.split('mxc://')[1]}`;
 
-					#CollectionList > div {
-						width: max-content;
-					}
-
-					#CollectionList > div > * {
-						width: 64px;
-						margin: var(--margin);
-					}
-
-					.ActionButton,
-					.ActionForm > *,
-					.TableForm td > * {
-						display: block;
-						height: 2em;
-						width: 100%;
-					}
-					
-					.ActionForm > * > * {
-						height: 2em;
-					}
-					
-					#CollectionGrid > *,
-					.ClickImg {
-						display: inline-block;
-						margin: 8px;
-					}
-					
-					.ClickImg,
-					.ClickImg img {
-						width: 128px;
-					}
-
-					.ClickImg[data-opened="1"], .ClickImg[data-opened="1"] > img {
-						width: calc(100% - var(--margin));
-					}
-				</style>
-			</div>
-		</Fragment>`
+	function ResetLayouts () {
+		$`#Main`.hidden = false;
+		for (const id of ['LayoutInfo', 'LayoutAccountSelect', 'LayoutPacksList', 'LayoutPackGrid']) {
+			$`#${id}`.innerHTML = '';
+		}
+		for (const id of ['LayoutAccountLogin', 'LayoutCollectionActions', 'LayoutCollectionOptions']) {
+			$`#${id}`.hidden = true;
+		}
+		for (const id of ['LayoutCollectionOptions']) {
+			$`#${id}`.open = false;
+		}
 	}
 
-	function Render (screen, extras) {
-		render(html`<${App} screen=${screen} extras=${extras}/>`, document.body);
+	function RegisterLayouts () {
+		$`#LayoutCollectionActions button[name="back"]`.onclick = () => DisplayAccountSelectLogin();
+		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerSelectorUrl;
+	}
 
-		// idk why that section gets duplicated, it worked fine until a bit before, we do this to fix it
-		for (const type of ['.Static', '.CollectionViewMenu']) {
-			const elems = document.querySelectorAll(type);
-			for (let i=0; i<(elems.length-1); i++) {
-				elems[i].remove();
+	async function RequestAccountWidgetsData (account, postData) {
+		const request = await fetch(`${account.homeserver}/_matrix/client/v3/user/${GetMatrixUserTag(account)}/account_data/m.widgets`, {
+			method: (postData ? "PUT" : "GET"),
+			headers: { Authorization: `Bearer ${account.token}` },
+			body: JSON.stringify(postData),
+		});
+		const result = await request.json();
+		if (request.status === 200 || result.errcode === 'M_NOT_FOUND') {
+			return result;
+		} else {
+			Spacc.ShowModal(`Error: ${JSON.stringify(result)}`);
+		}
+	}
+
+	async function RequestUploadFile (account, fileData, fileMime) {
+		const request = await fetch(`${account.homeserver}/_matrix/client/v3/upload`, {
+			method: "POST",
+			headers: { Authorization: `Bearer ${account.token}`, "Content-Type": (fileData.type || fileMime) },
+			body: fileData,
+		});
+		const result = await request.json();
+		if (request.status === 200) {
+			return result;
+		} else {
+			Spacc.ShowModal(`Error: ${JSON.stringify(result)}`);
+		}
+	}
+
+	async function PreparePacksEditor (account) {
+		ResetLayouts();
+		$`#LayoutCollectionActions`.hidden = false;
+		$`#LayoutCollectionOptions`.hidden = false;
+		$`#LayoutCollectionActions button[name="commit"]`.onclick = () => Spacc.ShowModal({ label: 'Confirm committing account data?', action: async () => {
+			// ... we must read updated widget data that is stored somewhere accessible 
+			//if (await RequestAccountWidgetsData(account, {})) {
+			//	`#LayoutCollectionActions button[name="commit"]`.disabled = true;
+			//}
+		} });
+		$`#LayoutCollectionOptions button[name="reinit"]`.onclick = () => Spacc.ShowModal({ label: 'Confirm committing account data?', action: async () => {
+			const userTag = GetMatrixUserTag(account);
+			await RequestAccountWidgetsData(account, {
+				stickerpicker: {
+					content: {
+						type: "m.stickerpicker",
+						url: `${$`#LayoutCollectionOptions input[name="pickerUrl"]`.value}?&config=&theme=$theme`,
+						name: "Stickerpicker",
+						creatorUserId: userTag,
+						managedBy: [
+							`${Defaults.appIdentity}`,
+							`${Defaults.appIdentity}/${Defaults.appInterface}`,
+						],
+					},
+					sender: userTag,
+					state_key: "stickerpicker",
+					type: "m.widget",
+					id: "stickerpicker",
+				},
+			});
+			DisplayPacksEditor(account);
+		} });
+		$`#LayoutInfo`.innerHTML = `<p>
+			Fetching account data...
+		</p>`;
+		const widgetsData = await RequestAccountWidgetsData(account);
+		if (widgetsData) {
+			const isManaged = widgetsData?.stickerpicker?.content?.managedBy?.includes(`${Defaults.appIdentity}/${Defaults.appInterface}`);
+			const packsUrl = (new URLSearchParams(widgetsData?.stickerpicker?.content?.url?.split('?')[1])).get('config');
+			if (!isManaged || !widgetsData?.stickerpicker) {
+				$`#LayoutCollectionOptions`.open = true;
+				if (!widgetsData?.stickerpicker) {
+					$`#LayoutInfo`.innerHTML = `<p>${Defaults.Strings.mustInitMessage}</p>`;
+				} else
+				if (!isManaged) {
+					$`#LayoutInfo`.innerHTML = `
+						<p>${Defaults.Strings.notManagedMessage}</p>
+						<button name="continue">⏭️ Continue</button>
+					`;
+					$`#LayoutInfo > button[name="continue"]`.onclick = () => {
+						$`#LayoutCollectionOptions`.open = false;
+						DisplayPacksEditor(account, packsUrl);
+					};
+				}
+			} else {
+				DisplayPacksEditor(account, packsUrl);
 			}
 		}
-
-		dialogPolyfill.registerDialog(document.querySelector('#Modal'));
 	}
-	Render()
+	
+	async function DisplayPacksEditor (account, packsUrl) {
+		ResetLayouts();
+		$`#LayoutCollectionActions`.hidden = false;
+		$`#LayoutCollectionOptions`.hidden = false;
+		let packsData;
+		if (packsUrl) {
+			const request = await fetch(packsUrl);
+			packsData = await request.json();
+		}
+		const addButton = $().createElement('button');
+		addButton.name = 'add';
+		addButton.innerHTML = '➕️ Create New Pack';
+		addButton.onclick = (ev) => {
+			for (const elem of ev.srcElement.parentElement.querySelectorAll('button')) {
+				elem.disabled = false;
+			}
+			const packButton = MakeStickerPackButton(account, packsData);
+			$`#LayoutPacksList`.insertBefore(packButton, $`#LayoutPacksList > button[name="add"]`.nextElementSibling);
+			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+			packButton.click();
+		};
+		$`#LayoutPacksList`.appendChild(addButton);
+		for (const pack of (packsData?.packs || [])) {
+			const request = await fetch(pack);
+			const packData = await request.json();
+			$`#LayoutPacksList`.appendChild(MakeStickerPackButton(account, packsData, packData));
+		}
+	}
+	
+	function MakeStickerPackButton (account, packsData, packData) {
+		const packButton = $().createElement('button');
+		packButton.innerHTML = `<img src="${GetMatrixMediaUrl(packData?.stickers[0]?.info?.thumbnail_url, packsData?.homeserver_url)}?&height=64&width=64&method=scale"/>`;
+		packButton.onclick = (ev) => {
+			const thisElem = (ev.srcElement.tagName.toLowerCase() === 'button' ? ev.srcElement : ev.srcElement.parentElement);
+			for (const elem of thisElem.parentElement.querySelectorAll('button')) {
+				elem.disabled = false;
+			}
+			thisElem.disabled = true;
+			$`#LayoutPackGrid`.innerHTML = '';
+			for (const sticker of (packData?.stickers || [])) {
+				const stickerElem = $().createElement('button');
+				stickerElem.innerHTML = `<img src="${GetMatrixMediaUrl(sticker.info.thumbnail_url, packsData?.homeserver_url)}?&height=128&width=128&method=scale"/>`;
+				$`#LayoutPackGrid`.appendChild(stickerElem);
+			}
+			const addButton = $().createElement('button');
+			addButton.innerHTML = `
+				➕️ Upload New Sticker(s)
+				<input type=file hidden="true" multiple="true" accept="image/jpeg,image/gif,image/png,image/webp"/>
+			`;
+			addButton.querySelector('input[type="file"]').onchange = async (ev) => {
+				for (const file in ev.target.files) {
+					const result = await RequestUploadFile(account, file);
+					// ... we must use the result.content_uri to add the new sticker to the screen, add it somewhere keeping the current pack state, and the packs state, ready for committing
+					if (!result) {
+						switch (Spacc.ShowModal({ label: 'File upload failed. What to do?', action: () => 'continue', actionCancel: () => 'cancel', labelSecondary: '🔄️ Retry', actionSecondary: () => 'retry' })) {
+							case 'cancel':
+								break;
+							break;
+							case 'continue':
+								continue;
+							break;
+							case 'retry':
+								// ... find out how to handle this
+							break;
+						}
+					}
+				}
+			};
+			addButton.onclick = (ev) => ev.srcElement.querySelector('input[type="file"]')?.click();
+			$`#LayoutPackGrid`.appendChild(addButton);
+		};
+		return packButton;
+	}
+
+	function DisplayAccountSelect () {
+		ResetLayouts();
+		for (const account of Config.accounts) {
+			const accountButton = $().createElement('button');
+			accountButton.style.width = 'calc(100% - 3em)';
+			accountButton.innerHTML += `🐱️ ${GetMatrixUserTag(account)}`;
+			accountButton.onclick = () => PreparePacksEditor(account);
+			$`#LayoutAccountSelect`.appendChild(accountButton);
+			const deleteButton = $().createElement('button');
+			deleteButton.innerHTML += `❌️`;
+			deleteButton.onclick = () => Spacc.ShowModal({ label: '❌️ Confirm remove account?', action: () => {
+				Config.accounts.pop(account);
+				Config.Save();
+				DisplayAccountSelectLogin();
+			} });
+			$`#LayoutAccountSelect`.appendChild(deleteButton);
+		}
+		const addButton = $().createElement('button');
+		addButton.innerHTML += '🆕️ Add new account';
+		addButton.onclick = () => DisplayAccountLogin();
+		$`#LayoutAccountSelect`.appendChild(addButton);
+	}
+
+	function DisplayAccountLogin() {
+		ResetLayouts();
+		$`#LayoutAccountLogin`.hidden = false;
+	}
+
+	function DisplayAccountSelectLogin () {
+		(Config.accounts.length > 0 ? DisplayAccountSelect : DisplayAccountLogin)();
+	}
+
+	RegisterLayouts();
+	DisplayAccountSelectLogin();
 </script>
+
+<div id="Main" hidden="true">
+	<div id="LayoutAccountSelect"></div>
+
+	<div id="LayoutAccountLogin">
+		<label>
+			Homeserver
+			<input type="text"/>
+		</label>
+		<label>
+			Username
+			<input type="text"/>
+		</label>
+		<label>
+			Password
+			<input type="password"/>
+		</label>
+		<label>
+			Add account via session token instead
+			<input type="checkbox"/>
+		</label>
+		<label>
+			<input type="button" value="Add"/>
+		</label>
+	</div>
+
+	<div id="LayoutCollectionActions">
+		<button name="back">🔙️ Go Back</button>
+		<button name="commit" disabled="true">📝️ Commit Changes</button>
+	</div>
+
+	<div id="LayoutPacksList"></div>
+	<div id="LayoutPackGrid"></div>
+	<div id="LayoutInfo"></div>
+
+	<details class="col border margin" id="LayoutCollectionOptions">
+		<summary>
+			<p>Options</p>
+		</summary>
+		<p>
+			Reinitializing sticker data for your account will simply override
+			<!-- the <code>stickerpicker</code> subfield in --> its <code>m.widgets</code> field.
+		</p>
+		<button name="reinit">💡️ Reinitialize sticker data as new</button>
+		<details class="col border margin">
+			<summary>
+				<p>Advanced</p>
+			</summary>
+			<label>
+				Sticker selector app URL
+				<input name="pickerUrl" type="text"/>
+			</label>
+		</details>
+	</details>
+</div>
+
+<p>
+	🃏️ [Matrix] Sticker Helper <a name="version" href="javascript:;">WIP</a>,
+	created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
+	<br/>
+	Made possible by <a href="https://github.com/maunium/stickerpicker">Maunium sticker picker</a>,
+	brought to paper thanks to <a href="https://www.getpapercss.com">PaperCSS</a>.
+</p>
+
+<style>
+	:root {
+		--margin: 8px;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+	
+	body, .ActionForm, .TableForm {
+		margin: var(--margin);
+		overflow-x: hidden;
+	}
+	
+	details > summary > * {
+		display: inline-block;
+	}
+
+/*
+	#CollectionList {
+		max-width: 100%;
+		overflow: auto;
+	}
+
+	#CollectionList > div {
+		width: max-content;
+	}
+
+	#CollectionList > div > * {
+		width: 64px;
+		margin: var(--margin);
+	}
+
+	.ActionButton,
+	.ActionForm > *,
+	.TableForm td > * {
+		display: block;
+		height: 2em;
+		width: 100%;
+	}
+	
+	.ActionForm > * > * {
+		height: 2em;
+	}
+	
+	#CollectionGrid > *,
+	.ClickImg {
+		display: inline-block;
+		margin: 8px;
+	}
+	
+	.ClickImg,
+	.ClickImg img {
+		width: 128px;
+	}
+
+	.ClickImg[data-opened="1"], .ClickImg[data-opened="1"] > img {
+		width: calc(100% - var(--margin));
+	}
+*/
+</style>
