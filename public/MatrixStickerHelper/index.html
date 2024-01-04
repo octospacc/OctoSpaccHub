@@ -20,8 +20,17 @@
 <!--
 TODO:
 * more error handling
-* add a way to delete a sticker or a pack
-* allow reordering stickers and packs
+* allow reordering, renaming, deleting stickers and packs
+* import from file, telegram, line
+* save a linkback to a sticker pack in every single sticker optionally, allowing stickers to be copied, possibly from matrix.to URL
+** set this and other options as persisting in the user account data
+* write changelog, help, license
+* fix sticker reimport protection not working?
+* operations/status log
+* animated sticker and automatic media conversion
+* in a lot of places that only do HTTP(s), handle also mxc:// URLs
+* maybe show the sticker packs in the same order in the list as the picker does
+* PWA things (webmanifest, worker for offline support)
 -->
 
 <div id="Main" hidden="true">
@@ -60,7 +69,7 @@ TODO:
 <hr class="margin-large"/>
 
 <p>
-	🃏️ [Matrix] Sticker Helper <a name="version" href="javascript:;">Early Version</a>,
+	🃏️ [Matrix] Sticker Helper <a name="version" title="Click to show changelog" href="javascript:;">Early Version</a>,
 	created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
 	<br/>
 	Made possible by <a href="https://github.com/maunium/stickerpicker" target="_blank">Maunium sticker picker</a>,
@@ -69,11 +78,54 @@ TODO:
 
 <details class="col border margin">
 	<summary>
-		<p>Help</p>
+		<p>Help and Information</p>
 	</summary>
+	<h3>What is [Matrix] Sticker Helper?</h3>
 	<p>
-		There is no one around to help... yet.
-		Maybe join my Matrix space if you need some: <a href="https://matrix.to/#/#Spacc:matrix.org">https://matrix.to/#/#Spacc:matrix.org</a>.
+		I created this app for the pursuit of an user-friendly way
+		of managing sticker packs on <a href="https://matrix.org" target="_blank">Matrix</a>,
+		that could also work well for other people,
+		after finding the <code>maunium/stickerpicker</code> import procedure uncomfortable.
+		<br/>
+		Read more (and follow the development I guess?) at
+		<a href="https://octospacc.altervista.org/tag/matrixstickerhelper/">https://octospacc.altervista.org/tag/matrixstickerhelper/</a>.
+	</p>
+	<h3>How can I add sticker packs to my collection?</h3>
+	<p>
+		To add new sticker packs to your collection, you can use the dedicated section to
+		input an URL pointing to the JSON data file (in the format used by <code>maunium/stickerpicker</code>)
+		of an already existing collection (<code>index.json</code>) or individual pack (created by other users, or from your backups).
+		<br/>
+		The ability to create sticker packs by uploading files from your device's storage will soon be available,
+		as well as from the messages sent by other Matrix users.
+		<br/>
+		Importing stickers from LINE or Telegram is planned for the more distant future.
+	</p>
+	<h3>Stickerpicker information</h3>
+	<p>
+		This project is not a substitute of <code>maunium/stickerpicker</code>, and is not affiliated with it, but rather complements it.
+		It sets that up as the sticker picker integration for your Matrix account if you don't have it already,
+		and allows you to manage your sticker collection in a way that is fully compatible with it, but without the manual setup.
+	</p>
+	<h3>Open-source, licensing, security, collaboration</h3>
+	<p>
+		This app is open-source, and licensed under the
+		<a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank">GNU Affero General Public License Version 3</a>.
+		To modify the app, or to check its code for security reasons, you can simply "View Page Source" in your browser.
+		<br/>
+		This project additionally relies on the following third-party libraries:
+		<li><a href="https://gitlab.com/SpaccInc/SpaccDotWeb" target="_blank">SpaccDotWeb</a></li>
+		<br/>
+		Additionally, if there is any issue you want to report, or if you want to send a pull request,
+		feel free to do so at the OctoSpacc Hub repository:
+		<a href="https://gitlab.com/octospacc/octospacc.gitlab.io">https://gitlab.com/octospacc/octospacc.gitlab.io</a>
+		(or contact me via Matrix, see below).
+	</p>
+	<h3>Other help</h3>
+	<p>
+		There is no one around to actually help here though... yet.
+		Maybe join my Matrix space, if you need some support:
+		<a href="https://matrix.to/#/#Spacc:matrix.org">https://matrix.to/#/#Spacc:matrix.org</a>.
 	</p>
 </details>
 
@@ -99,7 +151,7 @@ TODO:
 				<!-- Otherwise, leave the field empty --> The option to create a brand-new pack will soon be available.
 			`,
 			mLoginHint: `
-				Please login with your [Matrix] account.
+				Please login with your Matrix account.
 				<br/>
 				(Your login details are processed locally and only sent to the homeserver you specified.)
 			`,
@@ -144,6 +196,21 @@ TODO:
 	function InitializeState () {
 		$`#LayoutCollectionActions button[name="back"]`.onclick = () => DisplayAccountSelect();
 		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerSelectorUrl;
+		$`a[name="version"]`.onclick = () => Spacc.ShowModal({ extraHTML: `
+			<p>
+				[2024-01-04]
+				<li>Importing entire sticker collections from URL</li>
+				<li>Fix stickers not loaded from accounts already setup with stock stickerpicker</li>
+				<li>Add help and changelog</li>
+			</p>
+			<p>
+				[2024-01-03]
+				<li>First release</li>
+				<li>Account management (logging in, reading and writing data)</li>
+				<li>Visualization of current account stickers</li>
+				<li>Importing sticker packs from URL</li>
+			</p>
+		`});
 	}
 
 	async function RequestAccountWidgetsData (postData) {
@@ -206,6 +273,14 @@ TODO:
 					`;
 					$`#LayoutInfo > button[name="continue"]`.onclick = () => {
 						$`#LayoutCollectionOptions`.open = false;
+						if (State.widgetsData?.stickerpicker?.content?.url && !packsUrl) {
+							// assuming the user is probably coming from stock maunium/stickerpicker,
+							// and we know that it loads data from a fixed URL when no config param is specified,
+							// we can try loading that when a generic URL is present
+							const packsUrlsPrefix = `${State.widgetsData?.stickerpicker?.content?.url.split('?')[0]}/packs/`;
+							DisplayPacksEditor(`${packsUrlsPrefix}index.json`, packsUrlsPrefix);
+							return;
+						}
 						DisplayPacksEditor(packsUrl);
 					};
 				}
@@ -215,7 +290,7 @@ TODO:
 		}
 	}
 
-	async function DisplayPacksEditor (packsUrl) {
+	async function DisplayPacksEditor (packsUrl, packsUrlPrefix) {
 		ResetLayouts();
 		$`#LayoutCollectionActions`.hidden = false;
 		$`#LayoutCollectionOptions`.hidden = false;
@@ -233,11 +308,16 @@ TODO:
 				Spacc.ShowModal(`${err} ${packsUrl}`);
 			}
 		}
+		if (packsUrlPrefix) {
+			for (const packIndex in State.packsData.packs) {
+				State.packsData.packs[packIndex] = `${packsUrlPrefix}${State.packsData.packs[packIndex]}`;
+			}
+		}
 		const addButton = $().createElement('button');
 		addButton.name = 'add';
 		addButton.innerHTML = '➕️ Create/Import New Pack';
 		addButton.onclick = (event) => Spacc.ShowModal({ label: Defaults.Strings.mCreatePackHint, extraHTML: `
-			<input name="packUrl" type="text" style="width: 100%;"/>
+			<input name="packUrl" type="text" placeholder="https://example.com/packs/example.json" style="width: 100%;"/>
 		`, action: (event, modalButton) => CreateNewPack(event, modalButton) });
 		$`#LayoutPacksList`.appendChild(addButton);
 		LoadStickerPacksList();
@@ -256,10 +336,10 @@ TODO:
 		}
 	}
 	
-	async function CreateNewPack (event, modalButton) {
+	async function CreateNewPack (event, modalButton, packUrl) {
 		let packData = { stickers: [] };
 		// if the user specified an URL, try downloading data from there
-		const packUrl = modalButton.parentElement.querySelector('input[name="packUrl"]').value;
+		packUrl ||= modalButton.parentElement.querySelector('input[name="packUrl"]').value;
 		// TODO: warn if an existing pack is imported from that URL and let the user choose if to continue or cancel
 		//if (packUrl && IsAnyPackImportedFrom(packUrl) && await Spacc.ShowModal({ label: Defaults.Strings.mAlreadyImported, action: () => 'continue', actionCancel: () => 'cancel' }) === 'continue') {
 		//	return;
@@ -268,6 +348,15 @@ TODO:
 			try {
 				const request = await fetch(packUrl);
 				packData = await request.json();
+				// import JSON is an index, so we try to import all its packs
+				if (packData.packs && !packData.stickers) {
+					for (const pack of packData.packs) {
+						const packLower = pack.toLowerCase();
+						const packUrlPrefix = (packLower.startsWith('http://') || packLower.startsWith('http://') ? '' : packUrl.split('/').slice(0, -1).join('/'));
+						await CreateNewPack(null, null, `${packUrlPrefix}/${pack}`);
+					}
+					return;
+				}
 				$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
 			} catch(err) {
 				Spacc.ShowModal(`${err} ${packUrl}`);
@@ -470,7 +559,7 @@ TODO:
 					<input name="password" type="password" placeholder="*******"/>
 				</label>
 				<label>
-					Import account via session token instead
+					Alternatively, import account via <code>access_token</code> instead
 					<input name="useToken" type="checkbox"/>
 				</label>
 			`, action: async (event, modalButton) => {
