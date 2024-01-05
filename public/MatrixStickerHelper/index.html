@@ -161,7 +161,7 @@ TODO:
 		<p>
 			[2024-01-05]
 			<li>Uploading stickers from (multiple) local image files</li>
-			<li>Deleting individual stickers from packs</li>
+			<li>Deleting individual stickers from packs (+ bug hotfix)</li>
 			<li>Various bugfixes and UX improvements</li>
 		</p>
 		<p>
@@ -470,11 +470,13 @@ TODO:
 	}
 
 	function ShowStickerPack (event, packObject) {
-		const thisElem = (event.target.tagName.toLowerCase() === 'button' ? event.target : event.target.parentElement);
-		for (const elem of thisElem.parentElement.querySelectorAll('button')) {
-			elem.disabled = false;
+		if (event) {
+			const thisElem = (event.target.tagName.toLowerCase() === 'button' ? event.target : event.target.parentElement);
+			for (const elem of thisElem.parentElement.querySelectorAll('button')) {
+				elem.disabled = false;
+			}
+			thisElem.disabled = true;
 		}
-		thisElem.disabled = true;
 		$`#LayoutPackActions input[name="packName"]`.value = packObject.data.title;
 		$`#LayoutPackActions button[name="packDelete"]`.onclick = () => {
 		// TODO: this makes the commit button go usable even if the pack was just created and had no stickers... not important but would be a small UI improvement
@@ -561,9 +563,10 @@ TODO:
 					},
 				};
 				//stickerData[Defaults.appIdentity] = {};
+				const globalStickerIndex = (packObject.data.stickers.length + newPackStickers.length);
 				const stickerElem = $().createElement('button');
 				stickerElem.innerHTML = `<img src="${img.src}"/>`;
-				stickerElem.onclick = () => OnClickStickerButton(event, packObject, stickerData, newPackStickers.length);
+				stickerElem.onclick = () => OnClickStickerButton(null, packObject, stickerData, globalStickerIndex);
 				$`#LayoutPackGrid`.insertBefore(stickerElem, event.target.parentElement);
 				newPackStickers.push(stickerData);
 			} else {
