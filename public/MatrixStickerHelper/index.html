@@ -20,17 +20,21 @@
 <!--
 TODO:
 * more error handling
+* immediately show an image after uploading in the grid
 * allow reordering, renaming, deleting stickers and packs
-* import from file, telegram, line
+** update grid when adding a new sticker!
+** maybe by default show the sticker packs in the same order in the list as the picker does, or at the very least commit them with recent stickers being at the beginning of the list
+* import from telegram, line
 * save a linkback to a sticker pack in every single sticker optionally, allowing stickers to be copied, possibly from matrix.to URL
 ** set this and other options as persisting in the user account data
-* write changelog, help, license
 * fix sticker reimport protection not working?
 * operations/status log
-* animated sticker and automatic media conversion
+* importing animated stickers, and handling automatic media conversion from video to GIF
 * in a lot of places that only do HTTP(s), handle also mxc:// URLs
-* maybe show the sticker packs in the same order in the list as the picker does
-* PWA things (webmanifest, worker for offline support)
+* open graph, PWA things (webmanifest, worker for offline support)
+* guest/demo mode
+* fix race conditions between actions like user going back while app is committing or loading packs
+* compatibility build / add polyfills
 -->
 
 <div id="Main" hidden="true">
@@ -38,11 +42,20 @@ TODO:
 
 	<div id="LayoutCollectionActions">
 		<button name="back">🔙️ Go Back</button>
-		<button name="commit" disabled="true">📝️ Commit Changes</button>
+		<button name="commit">📝️ Commit Changes</button>
+		<button name="commitFake" hidden>📝️ Can't commit changes in Demo Mode</button>
 	</div>
 
-	<div id="LayoutPacksList"></div>
-	<div id="LayoutPackGrid"></div>
+	<div style="overflow: auto;">
+		<div id="LayoutPacksList" class="margin-small" style="width: max-content;"></div>
+	</div>
+
+	<div class="margin-small" id="LayoutPackActions">
+		<input name="packName" type="text" placeholder="Pack Name/Description" style="display: inline-block;" disabled/>
+		<button name="packDelete" disabled title="Coming soon!">❌️ Delete Pack</button>
+	</div>
+
+	<div class="margin-small" id="LayoutPackGrid"></div>
 	<div id="LayoutInfo"></div>
 
 	<details class="col border margin" id="LayoutCollectionOptions">
@@ -51,7 +64,7 @@ TODO:
 		</summary>
 		<p>
 			Reinitializing sticker data for your account will simply override
-			<!-- the <code>stickerpicker</code> subfield in --> its <code>m.widgets</code> field.
+			the <code>stickerpicker</code> subfield in its <code>m.widgets</code> field.
 		</p>
 		<button name="reinit">💡️ Reinitialize sticker data as new</button>
 		<details class="col border margin">
@@ -66,14 +79,23 @@ TODO:
 	</details>
 </div>
 
+<p class="noscript">
+	This application requires modern JavaScript.
+</p>
+
 <hr class="margin-large"/>
 
 <p>
-	🃏️ [Matrix] Sticker Helper <a name="version" title="Click to show changelog" href="javascript:;">Early Version</a>,
-	created with ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
+	🃏️ [Matrix] Sticker Helper <a name="version" title="Click to show changelog" href="javascript:;">WIP Version</a>,
+	created with 💕️ and ☕️ by <a href="https://hub.octt.eu.org">OctoSpacc</a>.
 	<br/>
 	Made possible by <a href="https://github.com/maunium/stickerpicker" target="_blank">Maunium sticker picker</a>,
 	brought to paper thanks to <a href="https://www.getpapercss.com" target="_blank">PaperCSS</a>.
+</p>
+
+<p>
+	<b>Note</b>: importing stickers from files is currently experimental, and error handling isn't the best.
+	Make sure that your Internet connection is stable when uploading files.
 </p>
 
 <details class="col border margin">
@@ -88,22 +110,29 @@ TODO:
 		after finding the <code>maunium/stickerpicker</code> import procedure uncomfortable.
 		<br/>
 		Read more (and follow the development I guess?) at
-		<a href="https://octospacc.altervista.org/tag/matrixstickerhelper/">https://octospacc.altervista.org/tag/matrixstickerhelper/</a>.
+		<a href="https://octospacc.altervista.org/?s=%22%23MatrixStickerHelper%22">octospacc.altervista.org/#MatrixStickerHelper</a>.
 	</p>
 	<h3>How can I add sticker packs to my collection?</h3>
 	<p>
-		To add new sticker packs to your collection, you can use the dedicated section to
-		input an URL pointing to the JSON data file (in the format used by <code>maunium/stickerpicker</code>)
-		of an already existing collection (<code>index.json</code>) or individual pack (created by other users, or from your backups).
+		To add new sticker packs to your collection, you can use the dedicated section, which offers 2 options. You can:
+		<li>
+			Either leave the optional text field blank to create a brand-new pack, to be filled with stickers by importing media files;
+		</li>
+		<li>
+			Or, input an URL pointing to the JSON data file (in the format used by <code>maunium/stickerpicker</code>)
+			of an already existing collection (<code>index.json</code>) or individual pack (created by other users, or from your backups).
+		</li>
 		<br/>
-		The ability to create sticker packs by uploading files from your device's storage will soon be available,
-		as well as from the messages sent by other Matrix users.
+		Currently, you can import common picture files (JPEG, WebP, PNG, GIF) from your device's storage as stickers.
+		Sooner, you will be able to also import media files from URL, as well as importing video files (like MP4) for automatic conversion into GIF.
 		<br/>
-		Importing stickers from LINE or Telegram is planned for the more distant future.
+		Importing stickers and packs from Matrix messages, or the LINE or Telegram library, is planned for the more distant future.
 	</p>
 	<h3>Stickerpicker information</h3>
 	<p>
-		This project is not a substitute of <code>maunium/stickerpicker</code>, and is not affiliated with it, but rather complements it.
+		This project is not a substitute of <code>maunium/stickerpicker</code>,
+		is not affiliated with it, and doesn't use any part of its code, but rather complements it.
+		<br/>
 		It sets that up as the sticker picker integration for your Matrix account if you don't have it already,
 		and allows you to manage your sticker collection in a way that is fully compatible with it, but without the manual setup.
 	</p>
@@ -127,6 +156,28 @@ TODO:
 		Maybe join my Matrix space, if you need some support:
 		<a href="https://matrix.to/#/#Spacc:matrix.org">https://matrix.to/#/#Spacc:matrix.org</a>.
 	</p>
+	<div id="LayoutChangelog">
+		<h3>Changelog</h3>
+		<p>
+			[2024-01-05]
+			<li>Uploading stickers from (multiple) local image files</li>
+			<li>Deleting individual stickers from packs</li>
+			<li>Various bugfixes and UX improvements</li>
+		</p>
+		<p>
+			[2024-01-04]
+			<li>Importing entire sticker collections from URL</li>
+			<li>Fix stickers not loading from accounts already setup with stock stickerpicker</li>
+			<li>Add help and changelog</li>
+		</p>
+		<p>
+			[2024-01-03]
+			<li>First release</li>
+			<li>Account management (logging in, reading and writing data)</li>
+			<li>Visualization of current account stickers</li>
+			<li>Importing sticker packs from URL</li>
+		</p>
+	</div>
 </details>
 
 <script module="Main" type="module">
@@ -147,8 +198,8 @@ TODO:
 				You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
 			`,
 			mCreatePackHint: `
-				<!-- Optionally include --> Include the URL of a sticker pack in JSON format to import it.
-				<!-- Otherwise, leave the field empty --> The option to create a brand-new pack will soon be available.
+				Optionally include the URL of a sticker pack in JSON format to import it.
+				Otherwise, leave the field empty to create a brand-new pack, importing media files as stickers.
 			`,
 			mLoginHint: `
 				Please login with your Matrix account.
@@ -180,12 +231,23 @@ TODO:
 
 	const GetMatrixMediaUrl = (mxcId, props) => (mxcId ? `${props?.homeserver || `https://${mxcId.split('mxc://')[1].split('/')[0]}`}/_matrix/media/r0/${props?.type || 'download'}/${mxcId.split('mxc://')[1]}` : undefined);
 
+	const SafeStripFileExtension = (name, extensions) => {
+		const parts = name.split('.');
+		return (parts.length === 1
+			? name
+			: (extensions.includes(parts.slice(-1)[0].toLowerCase())
+				? parts.slice(0, -1)
+				: parts
+			).join('.')
+		);
+	};
+
 	function ResetLayouts () {
 		$`#Main`.hidden = false;
 		for (const id of ['LayoutInfo', 'LayoutAccountSelect', 'LayoutPacksList', 'LayoutPackGrid']) {
 			$`#${id}`.innerHTML = '';
 		}
-		for (const id of ['LayoutCollectionActions', 'LayoutCollectionOptions']) {
+		for (const id of ['LayoutCollectionActions', 'LayoutPackActions', 'LayoutCollectionOptions']) {
 			$`#${id}`.hidden = true;
 		}
 		for (const id of ['LayoutCollectionOptions']) {
@@ -194,23 +256,16 @@ TODO:
 	}
 
 	function InitializeState () {
+		for (const elem of document.querySelectorAll('.noscript')) {
+			elem.remove();
+		}
 		$`#LayoutCollectionActions button[name="back"]`.onclick = () => DisplayAccountSelect();
-		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerSelectorUrl;
-		$`a[name="version"]`.onclick = () => Spacc.ShowModal({ extraHTML: `
-			<p>
-				[2024-01-04]
-				<li>Importing entire sticker collections from URL</li>
-				<li>Fix stickers not loaded from accounts already setup with stock stickerpicker</li>
-				<li>Add help and changelog</li>
-			</p>
-			<p>
-				[2024-01-03]
-				<li>First release</li>
-				<li>Account management (logging in, reading and writing data)</li>
-				<li>Visualization of current account stickers</li>
-				<li>Importing sticker packs from URL</li>
-			</p>
-		`});
+		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerPickerUrl;
+		$`#LayoutChangelog > h3`.remove();
+		const changelogHtml = $`#LayoutChangelog`.innerHTML;
+		$`#LayoutChangelog`.remove();
+		$`a[name="version"]`.innerHTML = `v${changelogHtml.split('[')[1].split(']')[0]}`;
+		$`a[name="version"]`.onclick = () => Spacc.ShowModal({ extraHTML: changelogHtml });
 	}
 
 	async function RequestAccountWidgetsData (postData) {
@@ -220,8 +275,10 @@ TODO:
 			body: JSON.stringify(postData),
 		});
 		const result = await request.json();
-		if (request.status === 200 || result.errcode === 'M_NOT_FOUND') {
+		if (request.status === 200) {
 			return result;
+		} else if (result.errcode === 'M_NOT_FOUND') {
+			return {};
 		} else {
 			Spacc.ShowModal(`Error: ${JSON.stringify(result)}`);
 		}
@@ -235,7 +292,7 @@ TODO:
 		});
 		const result = await request.json();
 		if (request.status === 200) {
-			return await result;
+			return result;
 		} else {
 			Spacc.ShowModal(`Error: ${JSON.stringify(result)}`);
 		}
@@ -250,6 +307,7 @@ TODO:
 		State.stickersData = [];
 		$`#LayoutCollectionActions`.hidden = false;
 		$`#LayoutCollectionOptions`.hidden = false;
+		$`#LayoutCollectionActions button[name="commit"]`.disabled = true;
 		$`#LayoutCollectionOptions button[name="reinit"]`.onclick = () => Spacc.ShowModal({
 			label: Defaults.Strings.mConfirmCommit,
 			action: () => ReinitStickersAccountData(),
@@ -259,12 +317,19 @@ TODO:
 		</p>`;
 		State.widgetsData = await RequestAccountWidgetsData();
 		if (State.widgetsData) {
+			const pickerUrlFull = State.widgetsData?.stickerpicker?.content?.url;
 			const isManaged = State.widgetsData?.stickerpicker?.content?.managedBy?.includes(`${Defaults.appIdentity}/${Defaults.appInterface}`);
-			const packsUrl = (new URLSearchParams(State.widgetsData?.stickerpicker?.content?.url?.split('?')[1])).get('config');
+			const packsUrl = (new URLSearchParams(pickerUrlFull?.split('?')[1])).get('config');
+			if (pickerUrlFull) {
+				$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = pickerUrlFull.split('?')[0];
+			}
 			if (!isManaged || !State.widgetsData?.stickerpicker) {
 				$`#LayoutCollectionOptions`.open = true;
 				if (!State.widgetsData?.stickerpicker) {
 					$`#LayoutInfo`.innerHTML = `<p>${Defaults.Strings.mMustInit}</p>`;
+					// we always init sticker data from the default URL to avoid headaches
+					$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = '';
+					$`#LayoutCollectionOptions input[name="pickerUrl"]`.disabled = true;
 				} else
 				if (!isManaged) {
 					$`#LayoutInfo`.innerHTML = `
@@ -287,6 +352,8 @@ TODO:
 			} else {
 				DisplayPacksEditor(packsUrl);
 			}
+		} else {
+			State.widgetsData = {};
 		}
 	}
 
@@ -315,23 +382,27 @@ TODO:
 		}
 		const addButton = $().createElement('button');
 		addButton.name = 'add';
-		addButton.innerHTML = '➕️ Create/Import New Pack';
+		addButton.innerHTML = '➕️ Create/Import Pack';
 		addButton.onclick = (event) => Spacc.ShowModal({ label: Defaults.Strings.mCreatePackHint, extraHTML: `
-			<input name="packUrl" type="text" placeholder="https://example.com/packs/example.json" style="width: 100%;"/>
+			<label>
+				<input name="packUrl" type="text" placeholder="https://example.com/packs/example.json"/>
+			</label>
 		`, action: (event, modalButton) => CreateNewPack(event, modalButton) });
 		$`#LayoutPacksList`.appendChild(addButton);
 		LoadStickerPacksList();
 	}
 	
 	async function LoadStickerPacksList () {
-		for (const pack of State.packsData?.packs) {
+		for (const packIndex in State.packsData.packs) {
+			const packUrl = State.packsData.packs[packIndex];
 			try {
-				const request = await fetch(pack);
+				const request = await fetch(packUrl);
 				const packData = await request.json();
-				State.stickersData.push({ edited: false, data: packData });
-				AddNewPackButton(packData);
+				const packObject = { data: packData, index: packIndex, edited: false };
+				State.stickersData.push(packObject);
+				AddNewPackButton(packObject);
 			} catch(err) {
-				Spacc.ShowModal(`${err} ${pack}`);
+				Spacc.ShowModal(`${err} ${packUrl}`);
 			}
 		}
 	}
@@ -367,8 +438,9 @@ TODO:
 			...(packUrl && { importedFrom: packUrl }),
 		};
 		State.packsData.packs.push(null);
-		State.stickersData.push({ edited: true, data: packData });
-		AddNewPackButton(packData, event, modalButton);
+		const packObject = { data: packData, index: State.stickersData.length, edited: true };
+		State.stickersData.push(packObject);
+		AddNewPackButton(packObject, event, modalButton);
 	}
 	
 	function IsAnyPackImportedFrom (packUrl) {
@@ -380,32 +452,46 @@ TODO:
 		return false;
 	}
 	
-	function AddNewPackButton (packData, event, modalButton) {
+	function AddNewPackButton (packObject, event, modalButton) {
 		for (const elem of $`#LayoutPacksList`.querySelectorAll('button')) {
 			elem.disabled = false;
 		}
-		const packButton = MakeStickerPackButton(packData);
+		const packButton = MakeStickerPackButton(packObject);
 		$`#LayoutPacksList`.insertBefore(packButton, $`#LayoutPacksList > button[name="add"]`.nextElementSibling);
-		packButton.click();
+		$`#LayoutPackActions`.hidden = true;
+		$`#LayoutPackGrid`.innerHTML = '';
 	}
 
-	function MakeStickerPackButton (packData) {
+	function MakeStickerPackButton (packObject) {
 		const packButton = $().createElement('button');
-		packButton.innerHTML = `<img src="${GetMatrixMediaUrl(packData.stickers[0]?.info?.thumbnail_url, { homeserver: State.packsData?.homeserver_url, type: 'thumbnail' }) || ''}?&height=64&width=64&method=scale"/>`;
-		packButton.onclick = (event) => ShowStickerPack(event, packData);
+		packButton.innerHTML = `<img src="${GetMatrixMediaUrl(packObject.data.stickers[0]?.info?.thumbnail_url, { homeserver: State.packsData?.homeserver_url, type: 'thumbnail' }) || ''}?&height=64&width=64&method=scale"/>`;
+		packButton.onclick = (event) => ShowStickerPack(event, packObject);
 		return packButton;
 	}
 
-	function ShowStickerPack (event, packData) {
-		const thisElem = (event.srcElement.tagName.toLowerCase() === 'button' ? event.srcElement : event.srcElement.parentElement);
+	function ShowStickerPack (event, packObject) {
+		const thisElem = (event.target.tagName.toLowerCase() === 'button' ? event.target : event.target.parentElement);
 		for (const elem of thisElem.parentElement.querySelectorAll('button')) {
 			elem.disabled = false;
 		}
 		thisElem.disabled = true;
+		$`#LayoutPackActions input[name="packName"]`.value = packObject.data.title;
+		$`#LayoutPackActions button[name="packDelete"]`.onclick = () => {
+		// TODO: this makes the commit button go usable even if the pack was just created and had no stickers... not important but would be a small UI improvement
+			Spacc.ShowModal({ label: 'Are you sure to delete this pack?', action: () => {
+				State.packsData.packs.splice(packObject.index, 1);
+				State.stickersData.splice(packObject.index, 1);
+				$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+				//$`#LayoutPackGrid`.innerHTML = '';
+			} });
+		};
+		$`#LayoutPackActions`.hidden = false;
 		$`#LayoutPackGrid`.innerHTML = '';
-		for (const sticker of (packData.stickers || [])) {
+		for (const stickerIndex in (packObject.data.stickers || [])) {
+			const sticker = packObject.data.stickers[stickerIndex];
 			const stickerElem = $().createElement('button');
 			stickerElem.innerHTML = `<img src="${GetMatrixMediaUrl(sticker.info.thumbnail_url, { homeserver: State.packsData?.homeserver_url, type: 'thumbnail' }) || ''}?&height=128&width=128&method=scale"/>`;
+			stickerElem.onclick = () => OnClickStickerButton(event, packObject, sticker, stickerIndex);
 			$`#LayoutPackGrid`.appendChild(stickerElem);
 		}
 		const addButton = $().createElement('button');
@@ -413,83 +499,114 @@ TODO:
 			➕️ Upload New Sticker(s)
 			<input type=file hidden="true" multiple="true" accept="image/jpeg,image/gif,image/png,image/webp"/>
 		`;
-		/* TODO
-		addButton.querySelector('input[type="file"]').onchange = async (event) => {
-			let newPackStickers = [];
-			for (const file of event.target.files) {
-				const result = await RequestUploadFile(State.account, file);
-				if (result) {
-					newPackStickers.push({
-						id: result.content_uri,
-						url: result.content_uri,
-						msgtype: "m.sticker",
-						body: file.name,
-						info: {
-							// ... TODO read real image dimensions
-							w: 256,
-							h: 256,
+		addButton.querySelector('input[type="file"]').onchange = (event) => AddStickerFromFile(event, packObject);
+		addButton.onclick = (event) => event.target.querySelector('input[type="file"]')?.click();
+		// TODO: 
+		$`#LayoutPackGrid`.appendChild(addButton);
+	}
+
+	async function OnClickStickerButton (showStickerPackEvent, packObject, sticker, stickerIndex) {
+		const stickerModal = await Spacc.ShowModal({ extraHTML: `
+			<img src="${GetMatrixMediaUrl(sticker.url, { homeserver: State.packsData?.homeserver_url, type: 'download' }) || ''}?&height=512&width=512&method=scale"/>
+			<div class="margin-small">
+				<input name="stickerName" type="text" placeholder="Sticker Name/Description" value="${sticker.body}" style="display: inline-block;" disabled/>
+				<button name="stickerDelete">❌️ Delete Sticker</button>
+			</div>
+		` });
+		stickerModal.querySelector('button[name="stickerDelete"]').onclick = () => Spacc.ShowModal({ label: 'Are you sure to delete this sticker?', action: () => {
+			//stickerElem.remove();
+			stickerModal.close();
+			packObject.data.stickers.splice(stickerIndex, 1);
+			packObject.edited = true;
+			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+			ShowStickerPack(showStickerPackEvent, packObject);
+		} });
+	}
+
+	function readFileAsync(file, method='readAsDataURL') {
+		return new Promise((resolve) => {
+			const reader = new FileReader();
+			reader.onload = (event) => {
+				resolve(event.target.result);
+			};
+			reader[method](file);
+		});
+	}
+
+	async function AddStickerFromFile (event, packObject) {
+		let newPackStickers = [];
+		for (const file of event.target.files) {
+			const result = await RequestUploadFile(file);
+			if (result) {
+				const img = new Image();
+				img.src = await readFileAsync(file);
+				await img.decode();
+				const stickerData = {
+					id: result.content_uri,
+					url: result.content_uri,
+					msgtype: "m.sticker",
+					body: SafeStripFileExtension(file.name, ['jpeg', 'jpg', 'gif', 'png', 'webp']),
+					info: {
+						w: img.width,
+						h: img.height,
+						size: file.size,
+						mimetype: file.type,
+						thumbnail_url: result.content_uri,
+						thumbnail_info: {
+							w: img.width,
+							h: img.height,
 							size: file.size,
 							mimetype: file.type,
-							thumbnail_url: result.content_uri,
-							thumbnail_info: {
-								// ... TODO read real image dimensions
-								w: 256,
-								h: 256,
-								size: file.size,
-								mimetype: file.type,
-							},
 						},
-					});
-					// ... we must use the result.content_uri to add the new sticker to the screen, add it somewhere keeping the current pack state, and the packs state, ready for committing
-				} else {
-					const answer = await Spacc.ShowModal({
-						label: 'File upload failed. What to do?',
-						action: () => 'continue',
-						actionCancel: () => 'cancel',
-						labelSecondary: '🔄️ Retry', actionSecondary: () => 'retry',
-					});
-					if (answer === 'cancel') {
-						newPackStickers = [];
-						break;
-					} else if (answer === 'retry') {
-						// ... find out how to handle this
-					} else if (answer === 'continue') {
-						continue;
-					}
+					},
+				};
+				//stickerData[Defaults.appIdentity] = {};
+				const stickerElem = $().createElement('button');
+				stickerElem.innerHTML = `<img src="${img.src}"/>`;
+				stickerElem.onclick = () => OnClickStickerButton(event, packObject, stickerData, newPackStickers.length);
+				$`#LayoutPackGrid`.insertBefore(stickerElem, event.target.parentElement);
+				newPackStickers.push(stickerData);
+			} else {
+				const answer = await Spacc.ShowModal({
+					label: 'File upload failed. What to do?',
+					action: () => 'continue',
+					actionCancel: () => 'cancel',
+					labelSecondary: '🔄️ Retry', actionSecondary: () => 'retry',
+				});
+				if (answer === 'cancel') {
+					newPackStickers = [];
+					break;
+				} else if (answer === 'retry') {
+					// ... find out how to handle this
+				} else if (answer === 'continue') {
+					continue;
 				}
 			}
-			// ... we must handle new stickers to add them to the initial object
-			packData.stickers = [...packData.stickers, newPackStickers];
-			if (newPackStickers.length > 0) {
-				$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
-			}
-		};
-		*/
-		addButton.onclick = (event) => event.srcElement.querySelector('input[type="file"]')?.click();
-		// TODO: $`#LayoutPackGrid`.appendChild(addButton);
+		}
+		if (newPackStickers.length > 0) {
+			packObject.data.stickers = [...packObject.data.stickers, ...newPackStickers];
+			packObject.edited = true;
+			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+		}
 	}
 
 	async function ReinitStickersAccountData () {
-		const userTag = GetMatrixUserTag(State.account);
 		State.packsData = { homeserver_url: State.account.homeserver, packs: [] };
 		State.stickersData = [];
-		State.widgetsData = {
-			stickerpicker: {
-				content: {
-					type: "m.stickerpicker",
-					url: `${$`#LayoutCollectionOptions input[name="pickerUrl"]`.value}?&config=&theme=$theme`,
-					name: "Stickerpicker",
-					creatorUserId: userTag,
-					managedBy: [
-						`${Defaults.appIdentity}`,
-						`${Defaults.appIdentity}/${Defaults.appInterface}`,
-					],
-				},
-				sender: userTag,
-				state_key: "stickerpicker",
-				type: "m.widget",
-				id: "stickerpicker",
+		State.widgetsData.stickerpicker = {
+			content: {
+				type: "m.stickerpicker",
+				url: `${Defaults.stickerPickerUrl}?&config=&theme=$theme`,
+				name: "Stickerpicker",
+				managedBy: [
+					`${Defaults.appIdentity}`,
+					`${Defaults.appIdentity}/${Defaults.appInterface}`,
+				],
 			},
+			sender: GetMatrixUserTag(State.account),
+			state_key: "stickerpicker",
+			type: "m.widget",
+			id: "stickerpicker",
 		};
 		await RequestAccountWidgetsData(State.widgetsData);
 		PreparePacksEditor();
@@ -516,6 +633,10 @@ TODO:
 		const uploadResult = await RequestUploadFile(JSON.stringify(State.packsData), 'application/json');
 		const packsUrlNew = GetMatrixMediaUrl(uploadResult.content_uri);
 		State.widgetsData.stickerpicker.content.url = `${$`#LayoutCollectionOptions input[name="pickerUrl"]`.value}?&config=${packsUrlNew}&theme=$theme`;
+		State.widgetsData.stickerpicker.content.managedBy = [
+			`${Defaults.appIdentity}`,
+			`${Defaults.appIdentity}/${Defaults.appInterface}`,
+		];
 		if (await RequestAccountWidgetsData(State.widgetsData)) {
 			PreparePacksEditor();
 		} else {
@@ -544,80 +665,84 @@ TODO:
 		}
 		const addButton = $().createElement('button');
 		addButton.innerHTML += '🆕️ Add new account';
-		addButton.onclick = async () => {
-			const modal = await Spacc.ShowModal({ label: Defaults.Strings.mLoginHint, extraHTML: `
-				<label>
-					Homeserver
-					<input name="homeserver" type="url" placeholder="https://matrix.example.com" value="https://matrix.org"/>
-				</label>
-				<label>
-					Username
-					<input name="username" type="text" placeholder="AzureDiamond"/>
-				</label>
-				<label>
-					Password
-					<input name="password" type="password" placeholder="*******"/>
-				</label>
-				<label>
-					Alternatively, import account via <code>access_token</code> instead
-					<input name="useToken" type="checkbox"/>
-				</label>
-			`, action: async (event, modalButton) => {
-				const modal = modalButton.parentElement;
-				const homeserver = modal.querySelector('input[name="homeserver"]').value;
-				const username = modal.querySelector('input[name="username"]').value;
-				const password = modal.querySelector('input[name="password"]').value;
-				const loginData = {
-					homeserver: homeserver,
-					username: username,
-				};
-				if (modal.querySelector('input[name="useToken"]').checked) {
-					loginData.token = password;
-				} else {
-					try {
-						const response = await fetch(`${homeserver}/_matrix/client/v3/login`, {
-							method: "POST",
-							body: JSON.stringify({
-								type: "m.login.password",
-								identifier: {
-									type: "m.id.user",
-									user: username,
-								},
-								password: password,
-							}),
-						});
-						const result = await response.json();
-						if (response.status === 200) {
-							loginData.token = result.access_token;
-						} else {
-							throw JSON.stringify(result);
-						}
-					} catch(err) {
-						Spacc.ShowModal(`Error trying to get a session token: ${err}`);
-						return;
-					}
-				}
-				Config.accounts.push(loginData);
-				Config.Save();
-				DisplayAccountSelect();
-			} });
-			const buttonConfirm = modal.querySelector('button[name="confirm"]');
-			buttonConfirm.disabled = true;
-			for (const requiredElem of modal.querySelectorAll('input[type="url"], input[type="text"], input[type="password"]')) {
-				for (const event of ['change', 'input', 'paste']) {
-					requiredElem[`on${event}`] = () => {
-						let allFilled = true;
-						for (const requiredElem of modal.querySelectorAll('input[type="url"], input[type="text"], input[type="password"]')) {
-							if (!requiredElem.value) {
-								allFilled = false;
-							}
-						}
-						buttonConfirm.disabled = !allFilled;
-					};
-				}
-			}
-		};
+		addButton.onclick = () => ShowLoginDialog();
 		$`#LayoutAccountSelect`.appendChild(addButton);
+	}
+
+	async function ShowLoginDialog () {
+		const modal = await Spacc.ShowModal({ label: Defaults.Strings.mLoginHint, extraHTML: `
+			<label>
+				Homeserver
+				<input name="homeserver" type="url" placeholder="https://matrix.example.com" value="https://matrix.org"/>
+			</label>
+			<label>
+				Username
+				<input name="username" type="text" placeholder="AzureDiamond"/>
+			</label>
+			<label>
+				Password
+				<input name="password" type="password" placeholder="*******"/>
+			</label>
+			<label>
+				Alternatively, import account via <code>access_token</code> instead
+				<input name="useToken" type="checkbox"/>
+			</label>
+		`, action: (event, modalButton) => TryUserLogin(event, modalButton) });
+		const buttonConfirm = modal.querySelector('button[name="confirm"]');
+		buttonConfirm.disabled = true;
+		for (const requiredElem of modal.querySelectorAll('input[type="url"], input[type="text"], input[type="password"]')) {
+			for (const event of ['change', 'input', 'paste']) {
+				requiredElem[`on${event}`] = () => {
+					let allFilled = true;
+					for (const requiredElem of modal.querySelectorAll('input[type="url"], input[type="text"], input[type="password"]')) {
+						if (!requiredElem.value) {
+							allFilled = false;
+						}
+					}
+					buttonConfirm.disabled = !allFilled;
+				};
+			}
+		}
+	}
+
+	async function TryUserLogin (event, modalButton) {
+		const modal = modalButton.parentElement;
+		const homeserver = modal.querySelector('input[name="homeserver"]').value;
+		const username = modal.querySelector('input[name="username"]').value;
+		const password = modal.querySelector('input[name="password"]').value;
+		const loginData = {
+			homeserver: homeserver,
+			username: username,
+		};
+		if (modal.querySelector('input[name="useToken"]').checked) {
+			loginData.token = password;
+		} else {
+			try {
+				const response = await fetch(`${homeserver}/_matrix/client/v3/login`, {
+					method: "POST",
+					body: JSON.stringify({
+						type: "m.login.password",
+						identifier: {
+							type: "m.id.user",
+							user: username,
+						},
+						password: password,
+					}),
+				});
+				const result = await response.json();
+				if (response.status === 200) {
+					loginData.token = result.access_token;
+				} else {
+					throw JSON.stringify(result);
+				}
+			} catch(err) {
+				Spacc.ShowModal(`Error trying to get a session token: ${err}`);
+				return;
+			}
+		}
+		Config.accounts.push(loginData);
+		Config.Save();
+		DisplayAccountSelect();
 	}
 
 	function Main () {
@@ -643,6 +768,10 @@ TODO:
 	
 	details > summary > * {
 		display: inline-block;
+	}
+	
+	label > * {
+		width: 100%;
 	}
 
 	#LayoutPacksList img {
