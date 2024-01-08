@@ -19,22 +19,25 @@
 
 <!--
 TODO:
-* more error handling
+* more error handling and debug logging
+** manage consistency between modal errors and messages in debug log (probably will need a SpaccDotWeb function for that)
 * immediately show an image after uploading in the grid
 * allow reordering, renaming, deleting stickers and packs
-** update grid when adding a new sticker!
 ** maybe by default show the sticker packs in the same order in the list as the picker does, or at the very least commit them with recent stickers being at the beginning of the list
-* import from telegram, line
+* import from line, import video telegram stickers, import video files, import files from URL
 * save a linkback to a sticker pack in every single sticker optionally, allowing stickers to be copied, possibly from matrix.to URL
 ** set this and other options as persisting in the user account data
 * fix sticker reimport protection not working?
-* operations/status log
-* importing animated stickers, and handling automatic media conversion from video to GIF
 * in a lot of places that only do HTTP(s), handle also mxc:// URLs
 * open graph, PWA things (webmanifest, worker for offline support)
 * guest/demo mode
-* fix race conditions between actions like user going back while app is committing or loading packs
+* UI improvements like blocking buttons in inconsistent states, adding more feedbacks for long operations
+** create and view sticker pack in gui immediately after started importing new stickers, not only after
+** more loading messages and overlays
+** fix race conditions between actions like user going back while app is committing or loading packs
 * compatibility build / add polyfills
+* multilanguage?
+* gif encoding without webserver (without ES import)
 -->
 
 <div id="Main" hidden="true">
@@ -46,6 +49,8 @@ TODO:
 		<button name="commitFake" hidden>📝️ Can't commit changes in Demo Mode</button>
 	</div>
 
+	<div id="LayoutFeedback"></div>
+
 	<div style="overflow: auto;">
 		<div id="LayoutPacksList" class="margin-small" style="width: max-content;"></div>
 	</div>
@@ -56,7 +61,6 @@ TODO:
 	</div>
 
 	<div class="margin-small" id="LayoutPackGrid"></div>
-	<div id="LayoutInfo"></div>
 
 	<details class="col border margin" id="LayoutCollectionOptions">
 		<summary>
@@ -77,10 +81,12 @@ TODO:
 			</label>
 		</details>
 	</details>
+	
+	<tgs-player style="display: none;" hidden="true"></tgs-player>
 </div>
 
 <p class="noscript">
-	This application requires modern JavaScript.
+	This application requires modern JavaScript and cutting-edge web standards.
 </p>
 
 <hr class="margin-large"/>
@@ -94,8 +100,8 @@ TODO:
 </p>
 
 <p>
-	<b>Note</b>: importing stickers from files is currently experimental, and error handling isn't the best.
-	Make sure that your Internet connection is stable when uploading files.
+	<b>Note</b>: importing stickers from files/Telegram is currently experimental, and error handling isn't the best.
+	Make sure that your Internet connection is stable when uploading/importing stickers, and be patient if it seems like the app does nothing for a long time.
 </p>
 
 <details class="col border margin">
@@ -115,18 +121,38 @@ TODO:
 	<h3>How can I add sticker packs to my collection?</h3>
 	<p>
 		To add new sticker packs to your collection, you can use the dedicated section, which offers 2 options. You can:
+	</p>
+	<ul>
 		<li>
 			Either leave the optional text field blank to create a brand-new pack, to be filled with stickers by importing media files;
 		</li>
 		<li>
-			Or, input an URL pointing to the JSON data file (in the format used by <code>maunium/stickerpicker</code>)
-			of an already existing collection (<code>index.json</code>) or individual pack (created by other users, or from your backups).
+			Or, to import packs from one of a few different supported sources, input an URL. Supported URLs are:
+			<ul>
+				<li>
+					Those pointing to the JSON data file (in the format used by <code>maunium/stickerpicker</code>)
+					of an already existing collection (<code>index.json</code>) or individual pack (shared by other users, or backed-up by you),
+					assuming the file is fetchable with CORS restrictions.
+					<br/>
+					The URL must begin with <code>http://</code> or <code>https://</code>.
+					For example, <code>https://maunium.net/stickers-demo/packs/pusheen02.json</code>.
+				</li>
+				<li>
+					URLs of Telegram sticker packs, either Static (PNG/WebP) or Animated (TGS). Video stickers will be supported in the future.
+					(For the technical details, see <a href="https://core.telegram.org/stickers">https://core.telegram.org/stickers</a>.)
+					<br/>
+					The URL must be in the format "{optionally, <code>http://</code> or <code>https://</code>}<!--
+					-->{<code>t.me</code> or <code>telegram.me</code>}<code>/addstickers/</code>{name of the pack}".
+					For example, <code>t.me/addstickers/FishPuffer</code>.
+				</li>
+			</ul>
 		</li>
-		<br/>
+		</ul>
+	<p>
 		Currently, you can import common picture files (JPEG, WebP, PNG, GIF) from your device's storage as stickers.
 		Sooner, you will be able to also import media files from URL, as well as importing video files (like MP4) for automatic conversion into GIF.
 		<br/>
-		Importing stickers and packs from Matrix messages, or the LINE or Telegram library, is planned for the more distant future.
+		Importing stickers and packs from Matrix messages, or the LINE store, is planned for the more distant future.
 	</p>
 	<h3>Stickerpicker information</h3>
 	<p>
@@ -143,9 +169,15 @@ TODO:
 		To modify the app, or to check its code for security reasons, you can simply "View Page Source" in your browser.
 		<br/>
 		This project additionally relies on the following third-party libraries:
-		<li><a href="https://gitlab.com/SpaccInc/SpaccDotWeb" target="_blank">SpaccDotWeb</a></li>
-		<br/>
-		Additionally, if there is any issue you want to report, or if you want to send a pull request,
+	</p>
+	<ul>
+		<li><a target="_blank" href="https://gitlab.com/SpaccInc/SpaccDotWeb">SpaccDotWeb</a></li>
+		<li><a target="_blank" href="https://github.com/gram-js/gramjs">GramJS</a></li>
+		<li><a target="_blank" href="https://github.com/LottieFiles/lottie-player">Lottie-Player</a></li>
+		<li><a target="_blank" href="https://github.com/jamsinclair/gifski-wasm">gifski-wasm</a></li>
+	</ul>
+	<p>
+		Additionally, if there is any issue you want to report, tip you want to give, or if you want to send a pull request,
 		feel free to do so at the OctoSpacc Hub repository:
 		<a href="https://gitlab.com/octospacc/octospacc.gitlab.io">https://gitlab.com/octospacc/octospacc.gitlab.io</a>
 		(or contact me via Matrix, see below).
@@ -158,26 +190,34 @@ TODO:
 	</p>
 	<div id="LayoutChangelog">
 		<h3>Changelog</h3>
-		<p>
-			[2024-01-05]
+		<p>[2024-01-08]</p>
+		<ul>
+			<li>Importing Static and Animated sticker packs from Telegram URLs</li>
+			<li>Minor bugfixes and UX improvements</li>
+		</ul>
+		<p>[2024-01-05]</p>
+		<ul>
 			<li>Uploading stickers from (multiple) local image files</li>
 			<li>Deleting individual stickers from packs (+ bug hotfix)</li>
 			<li>Various bugfixes and UX improvements</li>
-		</p>
-		<p>
-			[2024-01-04]
+		</ul>
+		<p>[2024-01-04]</p>
+		<ul>
 			<li>Importing entire sticker collections from URL</li>
 			<li>Fix stickers not loading from accounts already setup with stock stickerpicker</li>
 			<li>Add help and changelog</li>
-		</p>
-		<p>
-			[2024-01-03]
+		</ul>
+		<p>[2024-01-05]</p>
+		<ul>
 			<li>First release</li>
 			<li>Account management (logging in, reading and writing data)</li>
 			<li>Visualization of current account stickers</li>
 			<li>Importing sticker packs from URL</li>
+		</ul>
 		</p>
 	</div>
+	<h3>Debug Log</h3>
+	<textarea id="LayoutDebugLog" readonly="true" style="width: 100%;" rows="10"></textarea>
 </details>
 
 <script module="Main" type="module">
@@ -188,6 +228,11 @@ TODO:
 		stickerSelectorUrl: "https://maunium.net/stickers-demo/",
 		appIdentity: "org.eu.octt.MatrixStickerHelper",
 		appInterface: "v1",
+		wpPastebin: "https://octospacc.altervista.org",
+		telegramTokens: [
+			"17349:344583e45741c457fe1862106095a5eb",  // <https://github.com/telegramdesktop/tdesktop/blob/dev/Telegram/SourceFiles/config.h>
+			"611335:d524b414d21f4d37f08684c1df41ac9c", // <https://github.com/telegramdesktop/tdesktop/blob/dev/.github/workflows/win.yml>
+		],
 		Strings: {
 			mConfirmCommit: "Confirm committing account data?",
 			mMustInit: "Your account must first be initialized to handle stickers.",
@@ -219,6 +264,15 @@ TODO:
 	}
 	Config.Save = () => localStorage.setItem('SpaccInc-Matrix-Config', JSON.stringify(Config));
 
+	const Logger = (content, type) => {
+		if (['f', 'feedback'].includes(type.toLowerCase())) {
+			$`#LayoutFeedback`.innerHTML = content;
+		}
+		$`#LayoutDebugLog`.innerHTML += `[${type}] [${new Date().toISOString().split('.').slice(0, -1).join('.')}] ${content}\n`;
+	}
+
+	const ArrayRandom = (array) => array[~~(Math.random() * array.length)];
+
 	const $ = (query, ...params) => (query
 		? document.querySelector(Array.isArray(query)
 			? (params.length > 0
@@ -231,6 +285,15 @@ TODO:
 
 	const GetMatrixMediaUrl = (mxcId, props) => (mxcId ? `${props?.homeserver || `https://${mxcId.split('mxc://')[1].split('/')[0]}`}/_matrix/media/r0/${props?.type || 'download'}/${mxcId.split('mxc://')[1]}` : undefined);
 
+	//const GetHttpOrMatrixUrl = (url) => ;
+
+	const IsUrlHttpOrS = (url) => {
+		url = url.toLowerCase();
+		if (url.startsWith('http://')) return 'http'
+		else if (url.startsWith('https://')) return 'https'
+		else return false
+	};
+
 	const SafeStripFileExtension = (name, extensions) => {
 		const parts = name.split('.');
 		return (parts.length === 1
@@ -242,9 +305,43 @@ TODO:
 		);
 	};
 
+	function ReadFileAsync (file, method='readAsDataURL') {
+		return new Promise((resolve) => {
+			const reader = new FileReader();
+			reader.onload = (event) => {
+				resolve(event.target.result);
+			};
+			reader[method](file);
+		});
+	}
+
+	// <https://stackoverflow.com/questions/12710001/how-to-convert-uint8-array-to-base64-encoded-string/66046176#66046176>
+	async function BufferToBase64 (buffer) {
+		return await new Promise((resolve) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result);
+			reader.readAsDataURL(new Blob([buffer]));
+		});
+	}
+
+	// <https://stackoverflow.com/questions/45365571/convert-an-image-to-imagedata-uint8clampedarray/68319943#68319943>
+	async function GetImageDataFromSource (source, sizeDivisor=1) {
+		const image = Object.assign(new Image(), { src: source });
+		await new Promise((resolve) => image.addEventListener('load', () => resolve()));
+		const context = Object.assign(document.createElement('canvas'), {
+			width: (image.width / sizeDivisor),
+			height: (image.height / sizeDivisor),
+		}).getContext('2d');
+		context.imageSmoothingEnabled = false;
+		context.drawImage(image, 0, 0, (image.width / sizeDivisor), (image.height / sizeDivisor));
+		return context.getImageData(0, 0, (image.width / sizeDivisor), (image.height / sizeDivisor));
+	}
+
+	const ReadBufferOrBlob = async (data) => await (data instanceof Uint8Array ? await BufferToBase64 : ReadFileAsync)(data);
+
 	function ResetLayouts () {
 		$`#Main`.hidden = false;
-		for (const id of ['LayoutInfo', 'LayoutAccountSelect', 'LayoutPacksList', 'LayoutPackGrid']) {
+		for (const id of ['LayoutFeedback', 'LayoutAccountSelect', 'LayoutPacksList', 'LayoutPackGrid']) {
 			$`#${id}`.innerHTML = '';
 		}
 		for (const id of ['LayoutCollectionActions', 'LayoutPackActions', 'LayoutCollectionOptions']) {
@@ -262,10 +359,10 @@ TODO:
 		$`#LayoutCollectionActions button[name="back"]`.onclick = () => DisplayAccountSelect();
 		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerPickerUrl;
 		$`#LayoutChangelog > h3`.remove();
-		const changelogHtml = $`#LayoutChangelog`.innerHTML;
+		const changelogHtml = `<a style="visibility: hidden; position: absolute; top: 0;"></a>${$`#LayoutChangelog`.innerHTML}`;
 		$`#LayoutChangelog`.remove();
 		$`a[name="version"]`.innerHTML = `v${changelogHtml.split('[')[1].split(']')[0]}`;
-		$`a[name="version"]`.onclick = () => Spacc.ShowModal({ extraHTML: changelogHtml });
+		$`a[name="version"]`.onclick = async () => (await Spacc.ShowModal({ extraHTML: changelogHtml })).querySelector('a').scrollIntoView('a');
 	}
 
 	async function RequestAccountWidgetsData (postData) {
@@ -284,7 +381,7 @@ TODO:
 		}
 	}
 
-	async function RequestUploadFile (fileData, fileMime) {
+	async function RequestMatrixUploadFile (fileData, fileMime) {
 		const request = await fetch(`${State.account.homeserver}/_matrix/media/v3/upload`, {
 			method: "POST",
 			headers: { Authorization: `Bearer ${State.account.token}`, ...(fileMime && { "Content-Type": fileMime }) },
@@ -293,13 +390,78 @@ TODO:
 		const result = await request.json();
 		if (request.status === 200) {
 			return result;
+			Logger(`Uploaded ${fileMime} data to ${result.content_uri}.`, 'd');
 		} else {
 			Spacc.ShowModal(`Error: ${JSON.stringify(result)}`);
 		}
 	}
 
+	const IsUrlTelegramSticker = (url) => {
+		const [domain, path] = url.toLowerCase().split('://')[IsUrlHttpOrS(url) ? 1 : 0].split('/');
+		return (['t.me', 'telegram.me'].includes(domain) && path === 'addstickers');
+	};
+
+	async function TryGetTelegramSession () {
+		if (!window.telegram) {
+			await Spacc.RequireScript('telegram.js');
+		}
+		try {
+			Logger(`Initializing a Telegram session, please wait...`, 'f');
+			const [apiId, apiToken] = ArrayRandom(Defaults.telegramTokens).split(':');
+			const request = await fetch(`${Defaults.wpPastebin}/wp-content/uploads/octospacc/scripts/stuff.php?&Thing=SiteWpJsonCors&AccessToken=9ab6e20c&$Query=wp/v2/paste/958?password=${Defaults.wpPastebin}/paste/958/?ppt=4c7f6ed8f9f268e05bd7509bd22f578247567be02369dba2707383cdd20f26dd`);
+			const result = await request.json();
+			const token = atob(result.content.rendered.split(',')[1].split('"')[0]).split('\0').slice(-3)[0];
+			const sessionString = new telegram.sessions.StringSession(Config.lastTelegramSession);
+			const client = new telegram.TelegramClient(sessionString, Number(apiId), apiToken, { connectionRetries: 5 });
+			await client.start({ botAuthToken: token });
+			Config.lastTelegramSession = client.session.save();
+			Config.Save();
+			await client.connect();
+			State.telegramClient = client;
+			return client;
+		} catch (err) {
+			Spacc.ShowModal(`Error trying to initialize a Telegram session: ${err}`);
+		}
+	}
+
+	async function ConvertTgsToGif (stickerDocument, stickerBuffer) {
+		await Spacc.RequireScript('tgs-player.js');
+		if (!window.GifSkiEncoder) {
+			const script = document.createElement('script');
+			script.type = 'module';
+			script.innerHTML = `
+				import gifskiWasm from './gifskiWasm.mjs';
+				window.GifSkiEncoder = gifskiWasm;
+			`;
+			document.body.appendChild(script);
+		}
+		while (!window.GifSkiEncoder) {
+			await SpaccDotWeb.Sleep(50);
+		}
+		const renderedFrames = [];
+		// reducing frames and dimensions since gifski is slow (TODO: make it user-customizable, and optionally provide a faster encoder)
+		const sizeDivisor = 3;
+		const framesDivisor = 3;
+		const tgsPlayer = document.querySelector('tgs-player');
+		tgsPlayer.load(await BufferToBase64(stickerBuffer));
+		await new Promise((resolve) => tgsPlayer.addEventListener('ready', () => resolve()));
+		for (let i=0; i<tgsPlayer._lottie.totalFrames; i+=framesDivisor) {
+			tgsPlayer.seek(i);
+			const svgFrame = tgsPlayer.snapshot(false);
+			const renderedFrame = await GetImageDataFromSource(`data:image/svg+xml;base64,${btoa(svgFrame)}`, sizeDivisor);
+			renderedFrames.push(renderedFrame);
+		}
+		return await GifSkiEncoder({
+			frames: renderedFrames,
+			width: (512 / sizeDivisor),
+			height: (512 / sizeDivisor),
+			fps: (60 / framesDivisor),
+			quality: 60,
+		});
+	}
+
 	async function PreparePacksEditor (account) {
-		if (account) {
+		if (account !== undefined) {
 			State.account = account;
 		}
 		ResetLayouts();
@@ -312,9 +474,7 @@ TODO:
 			label: Defaults.Strings.mConfirmCommit,
 			action: () => ReinitStickersAccountData(),
 		});
-		$`#LayoutInfo`.innerHTML = `<p>
-			Fetching account data...
-		</p>`;
+		Logger(`Fetching Matrix account data, please wait...`, 'f');
 		State.widgetsData = await RequestAccountWidgetsData();
 		if (State.widgetsData) {
 			const pickerUrlFull = State.widgetsData?.stickerpicker?.content?.url;
@@ -326,17 +486,17 @@ TODO:
 			if (!isManaged || !State.widgetsData?.stickerpicker) {
 				$`#LayoutCollectionOptions`.open = true;
 				if (!State.widgetsData?.stickerpicker) {
-					$`#LayoutInfo`.innerHTML = `<p>${Defaults.Strings.mMustInit}</p>`;
+					Logger(Defaults.Strings.mMustInit, 'f');
 					// we always init sticker data from the default URL to avoid headaches
 					$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = '';
 					$`#LayoutCollectionOptions input[name="pickerUrl"]`.disabled = true;
 				} else
 				if (!isManaged) {
-					$`#LayoutInfo`.innerHTML = `
+					$`#LayoutFeedback`.innerHTML = `
 						<p>${Defaults.Strings.mNotManaged}</p>
 						<button name="continue">⏭️ Continue</button>
 					`;
-					$`#LayoutInfo > button[name="continue"]`.onclick = () => {
+					$`#LayoutFeedback > button[name="continue"]`.onclick = () => {
 						$`#LayoutCollectionOptions`.open = false;
 						if (State.widgetsData?.stickerpicker?.content?.url && !packsUrl) {
 							// assuming the user is probably coming from stock maunium/stickerpicker,
@@ -385,7 +545,7 @@ TODO:
 		addButton.innerHTML = '➕️ Create/Import Pack';
 		addButton.onclick = (event) => Spacc.ShowModal({ label: Defaults.Strings.mCreatePackHint, extraHTML: `
 			<label>
-				<input name="packUrl" type="text" placeholder="https://example.com/packs/example.json"/>
+				<input name="packUrl" type="text" placeholder="https://example.com/example.json, t.me/addstickers/Pack, ..."/>
 			</label>
 		`, action: (event, modalButton) => CreateNewPack(event, modalButton) });
 		$`#LayoutPacksList`.appendChild(addButton);
@@ -415,15 +575,14 @@ TODO:
 		//if (packUrl && IsAnyPackImportedFrom(packUrl) && await Spacc.ShowModal({ label: Defaults.Strings.mAlreadyImported, action: () => 'continue', actionCancel: () => 'cancel' }) === 'continue') {
 		//	return;
 		//};
-		if (packUrl) {
+		if (packUrl && !IsUrlTelegramSticker(packUrl)) {
 			try {
 				const request = await fetch(packUrl);
 				packData = await request.json();
 				// import JSON is an index, so we try to import all its packs
 				if (packData.packs && !packData.stickers) {
 					for (const pack of packData.packs) {
-						const packLower = pack.toLowerCase();
-						const packUrlPrefix = (packLower.startsWith('http://') || packLower.startsWith('http://') ? '' : packUrl.split('/').slice(0, -1).join('/'));
+						const packUrlPrefix = (IsUrlHttpOrS(pack) ? '' : packUrl.split('/').slice(0, -1).join('/'));
 						await CreateNewPack(null, null, `${packUrlPrefix}/${pack}`);
 					}
 					return;
@@ -440,6 +599,40 @@ TODO:
 		State.packsData.packs.push(null);
 		const packObject = { data: packData, index: State.stickersData.length, edited: true };
 		State.stickersData.push(packObject);
+		if (packUrl && IsUrlTelegramSticker(packUrl)) {
+			const tgClient = (State.telegramClient || await TryGetTelegramSession());
+			try {
+				Logger(`Fetching Telegram sticker data...`, 'f');
+				const packResult = await tgClient.invoke(
+					new telegram.Api.messages.GetStickerSet({
+						stickerset: new telegram.Api.InputStickerSetShortName({
+							shortName: packUrl.split('/').slice(-1)[0],
+						}),
+						hash: 0,
+					})
+				);
+				for (const stickerDocument of packResult.documents) {
+					let mimeType = stickerDocument.mimeType;
+					let stickerImage = await tgClient.downloadMedia(stickerDocument);
+					// TODO: video stickers
+					if (mimeType === 'application/x-tgsticker') {
+						mimeType = 'image/gif';
+						stickerImage = await ConvertTgsToGif(stickerDocument, stickerImage);
+					}
+					// TODO: write provenance information in sticker meta like the manium importer does
+					await TryAddStickerFromDataFile({
+						file: stickerImage,
+						mime: mimeType,
+						size: parseInt(stickerDocument.size.value),
+						dimensions: stickerDocument.attributes[0].originalArgs,
+						text: stickerDocument.attributes[1].alt,
+					}, packObject);
+				}
+			} catch(err) {
+				Spacc.ShowModal(`Error trying to import stickers from Telegram: ${err}`);
+			}
+			$`#LayoutFeedback`.innerHTML = '';
+		}
 		AddNewPackButton(packObject, event, modalButton);
 	}
 	
@@ -501,7 +694,7 @@ TODO:
 			➕️ Upload New Sticker(s)
 			<input type=file hidden="true" multiple="true" accept="image/jpeg,image/gif,image/png,image/webp"/>
 		`;
-		addButton.querySelector('input[type="file"]').onchange = (event) => AddStickerFromFile(event, packObject);
+		addButton.querySelector('input[type="file"]').onchange = (event) => TryAddStickersFromLocalFiles(event, packObject);
 		addButton.onclick = (event) => event.target.querySelector('input[type="file"]')?.click();
 		// TODO: 
 		$`#LayoutPackGrid`.appendChild(addButton);
@@ -525,51 +718,69 @@ TODO:
 		} });
 	}
 
-	function readFileAsync(file, method='readAsDataURL') {
-		return new Promise((resolve) => {
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				resolve(event.target.result);
+	async function TryUploadStickerMediaAndMakeObject (props) {
+		const result = await RequestMatrixUploadFile(props.file, props.mime);
+		if (result) {
+			if (!props.dimensions) {
+				const img = new Image();
+				img.src = await ReadBufferOrBlob(props.file);
+				await img.decode();
+				props.dimensions = { w: img.width, h: img.height };
+			}
+			return {
+				id: result.content_uri,
+				url: result.content_uri,
+				msgtype: "m.sticker",
+				body: props.text,
+				info: {
+					w: props.dimensions.w,
+					h: props.dimensions.h,
+					size: props.size,
+					mimetype: props.mime,
+					thumbnail_url: result.content_uri,
+					thumbnail_info: {
+						w: props.dimensions.w,
+						h: props.dimensions.h,
+						size: props.size,
+						mimetype: props.mime,
+					},
+				},
 			};
-			reader[method](file);
-		});
+		}
 	}
 
-	async function AddStickerFromFile (event, packObject) {
+	async function TryAddStickerFromDataFile (stickerProps, packObject) {
+		const stickerData = await TryUploadStickerMediaAndMakeObject(stickerProps);
+		if (stickerData) {
+			//stickerData[Defaults.appIdentity] = {};
+			const stickerElem = $().createElement('button');
+			stickerElem.innerHTML = `<img src="${await ReadBufferOrBlob(stickerProps.file)}"/>`;
+			stickerElem.onclick = () => OnClickStickerButton(null, packObject, stickerData, packObject.data.stickers.length);
+			$`#LayoutPackGrid`.insertBefore(stickerElem, event.target.parentElement);
+			packObject.data.stickers.push(stickerData);
+			packObject.edited = true;
+			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+		}
+	}
+
+	async function TryAddStickersFromLocalFiles (event, packObject) {
 		let newPackStickers = [];
 		for (const file of event.target.files) {
-			const result = await RequestUploadFile(file);
-			if (result) {
-				const img = new Image();
-				img.src = await readFileAsync(file);
-				await img.decode();
-				const stickerData = {
-					id: result.content_uri,
-					url: result.content_uri,
-					msgtype: "m.sticker",
-					body: SafeStripFileExtension(file.name, ['jpeg', 'jpg', 'gif', 'png', 'webp']),
-					info: {
-						w: img.width,
-						h: img.height,
-						size: file.size,
-						mimetype: file.type,
-						thumbnail_url: result.content_uri,
-						thumbnail_info: {
-							w: img.width,
-							h: img.height,
-							size: file.size,
-							mimetype: file.type,
-						},
-					},
-				};
+			const stickerData = await TryUploadStickerMediaAndMakeObject({
+				file: file,
+				size: file.size,
+				mime: file.type,
+				text: SafeStripFileExtension(file.name, ['jpeg', 'jpg', 'gif', 'png', 'webp']),
+			});
+			if (stickerData) {
 				//stickerData[Defaults.appIdentity] = {};
 				const globalStickerIndex = (packObject.data.stickers.length + newPackStickers.length);
 				const stickerElem = $().createElement('button');
-				stickerElem.innerHTML = `<img src="${img.src}"/>`;
+				stickerElem.innerHTML = `<img src="${await ReadFileAsync(file)}"/>`;
 				stickerElem.onclick = () => OnClickStickerButton(null, packObject, stickerData, globalStickerIndex);
 				$`#LayoutPackGrid`.insertBefore(stickerElem, event.target.parentElement);
 				newPackStickers.push(stickerData);
-			} else {
+			} else { // TODO fix this, I think it doesn't actually wait for user input and just continues execution
 				const answer = await Spacc.ShowModal({
 					label: 'File upload failed. What to do?',
 					action: () => 'continue',
@@ -621,7 +832,7 @@ TODO:
 		for (const packIndex in State.stickersData) {
 			const pack = State.stickersData[packIndex];
 			if (pack.edited && pack.data.stickers.length > 0) {
-				const uploadResult = await RequestUploadFile(JSON.stringify(pack.data), 'application/json');
+				const uploadResult = await RequestMatrixUploadFile(JSON.stringify(pack.data), 'application/json');
 				State.packsData.packs[packIndex] = GetMatrixMediaUrl(uploadResult.content_uri);
 			}
 		}
@@ -633,7 +844,7 @@ TODO:
 			}
 		}
 		// finally upload new index file and update profile data
-		const uploadResult = await RequestUploadFile(JSON.stringify(State.packsData), 'application/json');
+		const uploadResult = await RequestMatrixUploadFile(JSON.stringify(State.packsData), 'application/json');
 		const packsUrlNew = GetMatrixMediaUrl(uploadResult.content_uri);
 		State.widgetsData.stickerpicker.content.url = `${$`#LayoutCollectionOptions input[name="pickerUrl"]`.value}?&config=${packsUrlNew}&theme=$theme`;
 		State.widgetsData.stickerpicker.content.managedBy = [
@@ -670,6 +881,10 @@ TODO:
 		addButton.innerHTML += '🆕️ Add new account';
 		addButton.onclick = () => ShowLoginDialog();
 		$`#LayoutAccountSelect`.appendChild(addButton);
+		const demoButton = $().createElement('button');
+		demoButton.innerHTML += '🎭️ Guest / Demo Mode';
+		demoButton.onclick = () => PreparePacksEditor(null);
+		//$`#LayoutAccountSelect`.appendChild(demoButton);
 	}
 
 	async function ShowLoginDialog () {
