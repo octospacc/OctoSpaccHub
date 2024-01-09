@@ -3,10 +3,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>🃏️ [Matrix] Sticker Helper</title>
 
-<!--
-<script src="../../../SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
-<script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.js" module="SpaccDotWeb"></script>
--->
 <script src="../../../SpaccDotWeb/SpaccDotWeb.Alt.js" module="SpaccDotWeb"></script>
 <script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.Alt.js" module="SpaccDotWeb"></script>
 <link rel="stylesheet" href="./paper.min.css"/>
@@ -30,11 +26,10 @@ TODO:
 * fix sticker reimport protection not working?
 * in a lot of places that only do HTTP(s), handle also mxc:// URLs
 * open graph, PWA things (webmanifest, worker for offline support)
-* guest/demo mode
+* fix stickers from file/Telegram in demo mode (we must store the data uri img srcs in RAM for viewing)
 * UI improvements like blocking buttons in inconsistent states, adding more feedbacks for long operations
-** create and view sticker pack in gui immediately after started importing new stickers, not only after
 ** more loading messages and overlays
-** fix race conditions between actions like user going back while app is committing or loading packs
+** fix race conditions between actions like user going back while app is committing or loading packs (including commit button)
 * compatibility build / add polyfills
 * multilanguage?
 * gif encoding without webserver (without ES import)
@@ -46,7 +41,7 @@ TODO:
 	<div id="LayoutCollectionActions">
 		<button name="back">🔙️ Go Back</button>
 		<button name="commit">📝️ Commit Changes</button>
-		<button name="commitFake" hidden>📝️ Can't commit changes in Demo Mode</button>
+		<button name="commitFake" disabled="true">📝️ Can't commit changes in Demo Mode</button>
 	</div>
 
 	<div id="LayoutFeedback"></div>
@@ -138,8 +133,8 @@ TODO:
 					For example, <code>https://maunium.net/stickers-demo/packs/pusheen02.json</code>.
 				</li>
 				<li>
-					URLs of Telegram sticker packs, either Static (PNG/WebP) or Animated (TGS). Video stickers will be supported in the future.
-					(For the technical details, see <a href="https://core.telegram.org/stickers">https://core.telegram.org/stickers</a>.)
+					URLs of Telegram sticker packs, either Static (PNG/WebP) or Animated (TGS). Video stickers (WebM) will be supported in the future.
+					(For the technical details, see <a href="https://core.telegram.org/stickers" target="_blank">https://core.telegram.org/stickers</a>.)
 					<br/>
 					The URL must be in the format "{optionally, <code>http://</code> or <code>https://</code>}<!--
 					-->{<code>t.me</code> or <code>telegram.me</code>}<code>/addstickers/</code>{name of the pack}".
@@ -190,6 +185,11 @@ TODO:
 	</p>
 	<div id="LayoutChangelog">
 		<h3>Changelog</h3>
+		<p>[2024-01-09]</p>
+		<ul>
+			<li>Experimental guest/demo mode</li>
+			<li>Minor bugfixes (including for Firefox compatibility, and Telegram) and UX improvements (including debug log)</li>
+		</ul>
 		<p>[2024-01-08]</p>
 		<ul>
 			<li>Importing Static and Animated sticker packs from Telegram URLs</li>
@@ -243,8 +243,8 @@ TODO:
 				You can try to continue anyway if you think it should work, otherwise you should reinitialize sticker data.
 			`,
 			mCreatePackHint: `
-				Optionally include the URL of a sticker pack in JSON format to import it.
-				Otherwise, leave the field empty to create a brand-new pack, importing media files as stickers.
+				Optionally include the URL of a sticker pack for Maunium (JSON format) or from Telegram to import it.
+				Otherwise, leave the field empty to create a brand-new pack, importing your own media files as stickers.
 			`,
 			mLoginHint: `
 				Please login with your Matrix account.
@@ -254,19 +254,19 @@ TODO:
 		}
 	};
 
-	let Config = localStorage.getItem('SpaccInc-Matrix-Config');
-	if (Config) {
-		Config = JSON.parse(Config);
-	} else {
-		Config = {
-			accounts: [],
-		};
-	}
-	Config.Save = () => localStorage.setItem('SpaccInc-Matrix-Config', JSON.stringify(Config));
+	let SpaccConfig = localStorage.getItem('SpaccInc-Matrix-Config');
+	SpaccConfig = (SpaccConfig ? JSON.parse(SpaccConfig) : {
+		accounts: [],
+	});
+	SpaccConfig.Save = () => localStorage.setItem('SpaccInc-Matrix-Config', JSON.stringify(SpaccConfig));
+
+	let AppConfig = localStorage.getItem(Defaults.appIdentity);
+	AppConfig = (AppConfig ? JSON.parse(AppConfig) : {});
+	AppConfig.Save = () => localStorage.setItem(Defaults.appIdentity, JSON.stringify(AppConfig));
 
 	const Logger = (content, type) => {
 		if (['f', 'feedback'].includes(type.toLowerCase())) {
-			$`#LayoutFeedback`.innerHTML = content;
+			$`#LayoutFeedback`.innerHTML = `<p>${content}</p>`;
 		}
 		$`#LayoutDebugLog`.innerHTML += `[${type}] [${new Date().toISOString().split('.').slice(0, -1).join('.')}] ${content}\n`;
 	}
@@ -280,6 +280,11 @@ TODO:
 				: query.join(''))
 			: query)
 		: document);
+
+	const LogFetch = (url, options) => {
+		Logger(`Trying to fetch ${url}`, 'd');
+		return fetch(url, options);
+	}
 
 	const GetMatrixUserTag = (account) => `@${account.username}:${account.homeserver.split('://')[1]}`;
 
@@ -356,6 +361,7 @@ TODO:
 		for (const elem of document.querySelectorAll('.noscript')) {
 			elem.remove();
 		}
+		SetCommittable(false);
 		$`#LayoutCollectionActions button[name="back"]`.onclick = () => DisplayAccountSelect();
 		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerPickerUrl;
 		$`#LayoutChangelog > h3`.remove();
@@ -382,6 +388,7 @@ TODO:
 	}
 
 	async function RequestMatrixUploadFile (fileData, fileMime) {
+		if (!State.account) return {};
 		const request = await fetch(`${State.account.homeserver}/_matrix/media/v3/upload`, {
 			method: "POST",
 			headers: { Authorization: `Bearer ${State.account.token}`, ...(fileMime && { "Content-Type": fileMime }) },
@@ -389,8 +396,8 @@ TODO:
 		});
 		const result = await request.json();
 		if (request.status === 200) {
-			return result;
 			Logger(`Uploaded ${fileMime} data to ${result.content_uri}.`, 'd');
+			return result;
 		} else {
 			Spacc.ShowModal(`Error: ${JSON.stringify(result)}`);
 		}
@@ -411,11 +418,11 @@ TODO:
 			const request = await fetch(`${Defaults.wpPastebin}/wp-content/uploads/octospacc/scripts/stuff.php?&Thing=SiteWpJsonCors&AccessToken=9ab6e20c&$Query=wp/v2/paste/958?password=${Defaults.wpPastebin}/paste/958/?ppt=4c7f6ed8f9f268e05bd7509bd22f578247567be02369dba2707383cdd20f26dd`);
 			const result = await request.json();
 			const token = atob(result.content.rendered.split(',')[1].split('"')[0]).split('\0').slice(-3)[0];
-			const sessionString = new telegram.sessions.StringSession(Config.lastTelegramSession);
+			const sessionString = new telegram.sessions.StringSession(AppConfig.lastTelegramSession);
 			const client = new telegram.TelegramClient(sessionString, Number(apiId), apiToken, { connectionRetries: 5 });
 			await client.start({ botAuthToken: token });
-			Config.lastTelegramSession = client.session.save();
-			Config.Save();
+			AppConfig.lastTelegramSession = client.session.save();
+			AppConfig.Save();
 			await client.connect();
 			State.telegramClient = client;
 			return client;
@@ -453,23 +460,38 @@ TODO:
 		}
 		return await GifSkiEncoder({
 			frames: renderedFrames,
-			width: (512 / sizeDivisor),
-			height: (512 / sizeDivisor),
-			fps: (60 / framesDivisor),
+			width: (stickerDocument.attributes[0].originalArgs.w / sizeDivisor),
+			height: (stickerDocument.attributes[0].originalArgs.h / sizeDivisor),
+			fps: (tgsPlayer._lottie.frameRate / framesDivisor),
 			quality: 60,
 		});
 	}
 
+	function SetCommittable (status) {
+		// TODO: make state consistent in other places to avoid resetting the buttons every time
+		if (State.account) {
+			$`#LayoutCollectionActions button[name="commit"]`.hidden = false;
+			$`#LayoutCollectionActions button[name="commitFake"]`.hidden = true;
+			$`#LayoutCollectionActions button[name="commit"]`.disabled = !status;
+		} else {
+			$`#LayoutCollectionActions button[name="commit"]`.hidden = true;
+			$`#LayoutCollectionActions button[name="commitFake"]`.hidden = false;
+		}
+	}
+
 	async function PreparePacksEditor (account) {
-		if (account !== undefined) {
+		if (account) {
 			State.account = account;
 		}
 		ResetLayouts();
-		State.packsData = { homeserver_url: State.account.homeserver, packs: [] };
+		State.packsData = { homeserver_url: State.account?.homeserver, packs: [] };
 		State.stickersData = [];
+		if (account === null) {
+			return DisplayPacksEditor();
+		}
 		$`#LayoutCollectionActions`.hidden = false;
 		$`#LayoutCollectionOptions`.hidden = false;
-		$`#LayoutCollectionActions button[name="commit"]`.disabled = true;
+		SetCommittable(false);
 		$`#LayoutCollectionOptions button[name="reinit"]`.onclick = () => Spacc.ShowModal({
 			label: Defaults.Strings.mConfirmCommit,
 			action: () => ReinitStickersAccountData(),
@@ -527,7 +549,7 @@ TODO:
 		});
 		if (packsUrl) {
 			try {
-				const request = await fetch(packsUrl);
+				const request = await LogFetch(packsUrl);
 				if (request.status === 200) {
 					State.packsData = await request.json();
 				}
@@ -556,7 +578,7 @@ TODO:
 		for (const packIndex in State.packsData.packs) {
 			const packUrl = State.packsData.packs[packIndex];
 			try {
-				const request = await fetch(packUrl);
+				const request = await LogFetch(packUrl);
 				const packData = await request.json();
 				const packObject = { data: packData, index: packIndex, edited: false };
 				State.stickersData.push(packObject);
@@ -577,9 +599,9 @@ TODO:
 		//};
 		if (packUrl && !IsUrlTelegramSticker(packUrl)) {
 			try {
-				const request = await fetch(packUrl);
+				const request = await LogFetch(packUrl);
 				packData = await request.json();
-				// import JSON is an index, so we try to import all its packs
+				// imported JSON is an index, so we try to import all its packs
 				if (packData.packs && !packData.stickers) {
 					for (const pack of packData.packs) {
 						const packUrlPrefix = (IsUrlHttpOrS(pack) ? '' : packUrl.split('/').slice(0, -1).join('/'));
@@ -587,7 +609,7 @@ TODO:
 					}
 					return;
 				}
-				$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+				SetCommittable(true);
 			} catch(err) {
 				Spacc.ShowModal(`${err} ${packUrl}`);
 				return;
@@ -600,42 +622,53 @@ TODO:
 		const packObject = { data: packData, index: State.stickersData.length, edited: true };
 		State.stickersData.push(packObject);
 		if (packUrl && IsUrlTelegramSticker(packUrl)) {
-			const tgClient = (State.telegramClient || await TryGetTelegramSession());
-			try {
-				Logger(`Fetching Telegram sticker data...`, 'f');
-				const packResult = await tgClient.invoke(
-					new telegram.Api.messages.GetStickerSet({
-						stickerset: new telegram.Api.InputStickerSetShortName({
-							shortName: packUrl.split('/').slice(-1)[0],
-						}),
-						hash: 0,
-					})
-				);
-				for (const stickerDocument of packResult.documents) {
-					let mimeType = stickerDocument.mimeType;
-					let stickerImage = await tgClient.downloadMedia(stickerDocument);
-					// TODO: video stickers
-					if (mimeType === 'application/x-tgsticker') {
-						mimeType = 'image/gif';
-						stickerImage = await ConvertTgsToGif(stickerDocument, stickerImage);
-					}
-					// TODO: write provenance information in sticker meta like the manium importer does
-					await TryAddStickerFromDataFile({
-						file: stickerImage,
-						mime: mimeType,
-						size: parseInt(stickerDocument.size.value),
-						dimensions: stickerDocument.attributes[0].originalArgs,
-						text: stickerDocument.attributes[1].alt,
-					}, packObject);
-				}
-			} catch(err) {
-				Spacc.ShowModal(`Error trying to import stickers from Telegram: ${err}`);
-			}
-			$`#LayoutFeedback`.innerHTML = '';
+			TryImportTelegramPack(packUrl, packObject);
 		}
-		AddNewPackButton(packObject, event, modalButton);
+		AddNewPackButton(packObject, event, modalButton).click();
 	}
-	
+
+	async function TryImportTelegramPack (packUrl, packObject) {
+		const tgClient = (State.telegramClient || await TryGetTelegramSession());
+		try {
+			Logger(`Fetching Telegram sticker data...`, 'f');
+			const packResult = await tgClient.invoke(
+				new telegram.Api.messages.GetStickerSet({
+					stickerset: new telegram.Api.InputStickerSetShortName({
+						shortName: packUrl.split('/').slice(-1)[0],
+					}),
+					hash: 0,
+				})
+			);
+			// TODO: write all important provenance information in pack and sticker meta like the manium importer does, after checking what's actually useful
+			packObject.data = { ...packObject.data,
+				title: packResult.set.title,
+				// accessHash.value (👇️)
+				// hash
+				// id.value (👇️)
+				// shortName
+			};
+			for (const stickerDocument of packResult.documents) {
+				let mimeType = stickerDocument.mimeType;
+				let stickerImage = await tgClient.downloadMedia(stickerDocument);
+				// TODO: video stickers
+				if (mimeType === 'application/x-tgsticker') {
+					mimeType = 'image/gif';
+					stickerImage = await ConvertTgsToGif(stickerDocument, stickerImage);
+				}
+				await TryAddStickerFromDataFile({
+					file: stickerImage,
+					mime: mimeType,
+					size: parseInt(stickerDocument.size.value),
+					dimensions: stickerDocument.attributes[0].originalArgs,
+					text: stickerDocument.attributes[1].alt,
+				}, packObject);
+			}
+		} catch(err) {
+			Spacc.ShowModal(`Error trying to import stickers from Telegram: ${err}`);
+		}
+		$`#LayoutFeedback`.innerHTML = '';
+	}
+
 	function IsAnyPackImportedFrom (packUrl) {
 		for (const pack of State.stickersData) {
 			if (pack.data[Defaults.appIdentity].importedFrom === packUrl) {
@@ -653,6 +686,7 @@ TODO:
 		$`#LayoutPacksList`.insertBefore(packButton, $`#LayoutPacksList > button[name="add"]`.nextElementSibling);
 		$`#LayoutPackActions`.hidden = true;
 		$`#LayoutPackGrid`.innerHTML = '';
+		return packButton;
 	}
 
 	function MakeStickerPackButton (packObject) {
@@ -676,7 +710,7 @@ TODO:
 			Spacc.ShowModal({ label: 'Are you sure to delete this pack?', action: () => {
 				State.packsData.packs.splice(packObject.index, 1);
 				State.stickersData.splice(packObject.index, 1);
-				$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+				SetCommittable(true);
 				//$`#LayoutPackGrid`.innerHTML = '';
 			} });
 		};
@@ -709,11 +743,10 @@ TODO:
 			</div>
 		` });
 		stickerModal.querySelector('button[name="stickerDelete"]').onclick = () => Spacc.ShowModal({ label: 'Are you sure to delete this sticker?', action: () => {
-			//stickerElem.remove();
 			stickerModal.close();
 			packObject.data.stickers.splice(stickerIndex, 1);
 			packObject.edited = true;
-			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+			SetCommittable(true);
 			ShowStickerPack(showStickerPackEvent, packObject);
 		} });
 	}
@@ -756,10 +789,10 @@ TODO:
 			const stickerElem = $().createElement('button');
 			stickerElem.innerHTML = `<img src="${await ReadBufferOrBlob(stickerProps.file)}"/>`;
 			stickerElem.onclick = () => OnClickStickerButton(null, packObject, stickerData, packObject.data.stickers.length);
-			$`#LayoutPackGrid`.insertBefore(stickerElem, event.target.parentElement);
+			$`#LayoutPackGrid`.appendChild(stickerElem);
 			packObject.data.stickers.push(stickerData);
 			packObject.edited = true;
-			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+			SetCommittable(true);
 		}
 	}
 
@@ -800,7 +833,7 @@ TODO:
 		if (newPackStickers.length > 0) {
 			packObject.data.stickers = [...packObject.data.stickers, ...newPackStickers];
 			packObject.edited = true;
-			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+			SetCommittable(true);
 		}
 	}
 
@@ -827,7 +860,7 @@ TODO:
 	}
 
 	async function CommitNewAccountStickersAndData () {
-		$`#LayoutCollectionActions button[name="commit"]`.disabled = true;
+		SetCommittable(false);
 		// upload new metadata for sticker packs which have been edited
 		for (const packIndex in State.stickersData) {
 			const pack = State.stickersData[packIndex];
@@ -854,15 +887,15 @@ TODO:
 		if (await RequestAccountWidgetsData(State.widgetsData)) {
 			PreparePacksEditor();
 		} else {
-			$`#LayoutCollectionActions button[name="commit"]`.disabled = false;
+			SetCommittable(true);
 		}
 		
 	}
 
 	function DisplayAccountSelect () {
 		ResetLayouts();
-		for (const accountIndex in Config.accounts) {
-			const account = Config.accounts[accountIndex];
+		for (const accountIndex in SpaccConfig.accounts) {
+			const account = SpaccConfig.accounts[accountIndex];
 			const accountButton = $().createElement('button');
 			accountButton.style.width = 'calc(100% - 3em)';
 			accountButton.innerHTML += `🐱️ ${GetMatrixUserTag(account)}`;
@@ -871,8 +904,8 @@ TODO:
 			const deleteButton = $().createElement('button');
 			deleteButton.innerHTML += `❌️`;
 			deleteButton.onclick = () => Spacc.ShowModal({ label: '❌️ Confirm remove account?', action: () => {
-				Config.accounts.splice(accountIndex, 1);
-				Config.Save();
+				SpaccConfig.accounts.splice(accountIndex, 1);
+				SpaccConfig.Save();
 				DisplayAccountSelect();
 			} });
 			$`#LayoutAccountSelect`.appendChild(deleteButton);
@@ -884,7 +917,7 @@ TODO:
 		const demoButton = $().createElement('button');
 		demoButton.innerHTML += '🎭️ Guest / Demo Mode';
 		demoButton.onclick = () => PreparePacksEditor(null);
-		//$`#LayoutAccountSelect`.appendChild(demoButton);
+		$`#LayoutAccountSelect`.appendChild(demoButton);
 	}
 
 	async function ShowLoginDialog () {
@@ -958,8 +991,8 @@ TODO:
 				return;
 			}
 		}
-		Config.accounts.push(loginData);
-		Config.Save();
+		SpaccConfig.accounts.push(loginData);
+		SpaccConfig.Save();
 		DisplayAccountSelect();
 	}
 
