@@ -96,7 +96,7 @@ TODO:
 
 <p>
 	<b>Note</b>: importing stickers from files/Telegram is currently experimental, and error handling isn't the best.
-	Make sure that your Internet connection is stable when uploading/importing stickers, and be patient if it seems like the app does nothing for a long time.
+	Make sure that your Internet connection is stable when uploading/importing stickers, and be patient if it seems like the app does nothing for some time. Don't navigate around the app when stickers are loading or importing.
 </p>
 
 <details class="col border margin">
@@ -355,13 +355,13 @@ TODO:
 		for (const id of ['LayoutCollectionOptions']) {
 			$`#${id}`.open = false;
 		}
+		SetCommittable(false);
 	}
 
 	function InitializeState () {
 		for (const elem of document.querySelectorAll('.noscript')) {
 			elem.remove();
 		}
-		SetCommittable(false);
 		$`#LayoutCollectionActions button[name="back"]`.onclick = () => DisplayAccountSelect();
 		$`#LayoutCollectionOptions input[name="pickerUrl"]`.value = Defaults.stickerPickerUrl;
 		$`#LayoutChangelog > h3`.remove();
@@ -480,7 +480,7 @@ TODO:
 	}
 
 	async function PreparePacksEditor (account) {
-		if (account) {
+		if (account !== undefined) {
 			State.account = account;
 		}
 		ResetLayouts();
