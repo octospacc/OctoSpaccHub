@@ -324,12 +324,12 @@ var TWeb = {
 					}
 					var time3 = +(new Date);
 					//console.log('inserted ' + (time3 - time2) + 'ms');
-					if (scrollToLast) {
-						//$('#BottomAnchor')[0].scrollIntoView();
-						$('.tgme_widget_message_wrap').last().scrollIntoView();
-					}
 					if (!IsScrollableY($('html')[0])) {
 						TWeb.loadMore($('.js-messages_more_wrap > a'), true);
+					}
+					if (scrollToLast) {
+						$('#BottomAnchor')[0].scrollIntoView();
+						$('.tgme_widget_message_wrap').last().scrollIntoView();
 					}
 				},
 				error: function(data) {

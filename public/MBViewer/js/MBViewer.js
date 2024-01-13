@@ -13,19 +13,19 @@ let MbState = {};
 
 // <https://stackoverflow.com/questions/29956338/how-to-accurately-determine-if-an-element-is-scrollable/71170105#71170105>
 function CanScrollEl(el, scrollAxis) {
-    if (0 === el[scrollAxis]) {
-        el[scrollAxis] = 1;
-        if (1 === el[scrollAxis]) {
-            el[scrollAxis] = 0;
-            return true;
-        }
-    } else {
-        return true;
-    }
-    return false;
+	if (0 === el[scrollAxis]) {
+		el[scrollAxis] = 1;
+		if (1 === el[scrollAxis]) {
+			el[scrollAxis] = 0;
+			return true;
+		}
+	} else {
+		return true;
+	}
+	return false;
 }
 function IsScrollableY(el) {
-    return (el.scrollHeight > el.clientHeight) && CanScrollEl(el, 'scrollTop') && ('hidden' !== getComputedStyle(el).overflowY);
+	return (el.scrollHeight > el.clientHeight) && CanScrollEl(el, 'scrollTop') && ('hidden' !== getComputedStyle(el).overflowY);
 }
 
 function GetDomainFromUrl (url) {
