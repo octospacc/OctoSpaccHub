@@ -328,6 +328,9 @@ var TWeb = {
 						//$('#BottomAnchor')[0].scrollIntoView();
 						$('.tgme_widget_message_wrap').last().scrollIntoView();
 					}
+					if (!IsScrollableY($('html')[0])) {
+						TWeb.loadMore($('.js-messages_more_wrap > a'), true);
+					}
 				},
 				error: function(data) {
 					var timeout = $moreEl.data('timeout') || 1000;
