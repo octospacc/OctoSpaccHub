@@ -98,6 +98,7 @@ async function MbViewerInit () {
 
 	//$('section.tgme_channel_history.js-message_history').append(MakeMoreWrapperHtml(postsData[0].id, 'before'));
 	$('section.tgme_channel_history.js-message_history').append(MakeMoreWrapperHtml(0, 'before'));
+	MbState.lastMustScroll = 2;
 	TWeb.loadMore($('.js-messages_more_wrap > a'), true);
 	// TODO: scroll to the very bottom of the document somehow after showing a first message, to have a less jarring visual effect?
 }

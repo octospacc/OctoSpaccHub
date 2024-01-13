@@ -189,19 +189,19 @@ var TWeb = {
 			if ($before.length) {
 				var bottom = $before.offset().top + $before.height() - scrollTop;
 				if (bottom > -wheight * 3) {
-					TWeb.loadMore($before);
+					TWeb.loadMore($before, false);
 				}
 			}
 			if ($after.length) {
 				var top = $after.offset().top - scrollTop;
 				if (top < wheight * 3) {
-					TWeb.loadMore($after);
+					TWeb.loadMore($after, false);
 				}
 			}
 		});
 		$document.on('click', '.js-messages_more', function() {
 			var $el = $(this);
-			TWeb.loadMore($el);
+			TWeb.loadMore($el, false);
 		});
 	},
 	initViews: function() {
@@ -324,12 +324,13 @@ var TWeb = {
 					}
 					var time3 = +(new Date);
 					//console.log('inserted ' + (time3 - time2) + 'ms');
-					if (!IsScrollableY($('html')[0])) {
-						TWeb.loadMore($('.js-messages_more_wrap > a'), true);
-					}
-					if (scrollToLast) {
+					if (scrollToLast || MbState.lastMustScroll > 0) {
 						$('#BottomAnchor')[0].scrollIntoView();
 						$('.tgme_widget_message_wrap').last().scrollIntoView();
+						MbState.lastMustScroll--;
+					}
+					if (!IsScrollableY($('html')[0])) {
+						TWeb.loadMore($('.js-messages_more_wrap > a'), true);
 					}
 				},
 				error: function(data) {
