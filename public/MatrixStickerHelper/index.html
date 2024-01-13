@@ -33,6 +33,8 @@ TODO:
 * compatibility build / add polyfills
 * multilanguage?
 * gif encoding without webserver (without ES import)
+* APNG encoding, if it works
+* allow copying the JSON (and optionally reuploading images? probably not needed tho) when importing existing Maunium packs
 -->
 
 <div id="Main" hidden="true">
@@ -849,6 +851,7 @@ TODO:
 					`${Defaults.appIdentity}`,
 					`${Defaults.appIdentity}/${Defaults.appInterface}`,
 				],
+				creatorUserId: GetMatrixUserTag(State.account),
 			},
 			sender: GetMatrixUserTag(State.account),
 			state_key: "stickerpicker",

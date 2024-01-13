@@ -1,9 +1,9 @@
 # The OctoSpacc Hub
 
-* Website: <https://hub.octt.eu.org/>
+* Website: <https://hub.octt.eu.org/>.
 
-Main hosting for my web stuff.
-Secondary content is hosted in other repos.
+This is the main hosting for my web stuff.
+Secondary or more specific content is hosted in other repos.
 
-* Main repository: <https://gitlab.com/octospacc/octospacc.gitlab.io>
-* Backup repositories: <https://github.com/octospacc/OctoSpaccHub/>
+* Main repository: <https://gitlab.com/octospacc/octospacc.gitlab.io/>.
+* Backup repositories: <https://github.com/octospacc/OctoSpaccHub/>, <https://gitea.it/octospacc/OctoSpaccHub/>.
