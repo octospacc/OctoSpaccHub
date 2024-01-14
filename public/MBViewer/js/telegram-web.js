@@ -93,6 +93,9 @@ function formatDate(datetime) {
 	if (cur_date.getFullYear() == date.getFullYear()) {
 		return M + ' ' + j;
 	}
+	if (!j && !M && !Y) {
+		return 'Undefined';
+	}
 	return M + ' ' + j + ', ' + Y;
 }
 
@@ -277,7 +280,7 @@ var TWeb = {
 			$wrapEl.toggleClass('date_visible', date_visible);
 		}
 	},
-	loadMore: function($moreEl, scrollToLast) {
+	loadMore: function($moreEl, scrollToLast, dataOverride) {
 		var loading = $moreEl.data('loading');
 		if (loading) {
 			return false;
@@ -290,55 +293,61 @@ var TWeb = {
 		var time0 = +(new Date);
 		//console.log('loading...', before, after);
 		var _load = function(url, before, after) {
-			$.ajax(url, {
-				success: function(data) {
-					var time1 = +(new Date);
-					//console.log('loaded ' + (time1 - time0) + 'ms');
-					var $data = $(MakeMbHtml(data));
-					var $helper = $('<div class="tgme_widget_messages_helper"></div>');
-					$helper.append($data);
-					$('.js-message_history').append($helper);
-					$helper.find('.js-widget_message').each(function() {
-						TPost.init(this);
-					});
-					$helper.remove();
-					var wrapEls = $data.filter('.js-widget_message_wrap').get();
-					var time2 = +(new Date);
-					//console.log('prepared ' + (time2 - time1) + 'ms');
-					var $moreElWrap = $moreEl.parents('.js-messages_more_wrap');
-					if (before) {
-						var firstWrapEl = $moreElWrap.next('.js-widget_message_wrap').get();
-						var $wrapEls = $(wrapEls.concat(firstWrapEl));
-						TWeb.updateServiceDate($wrapEls);
-						var y = $moreElWrap.offset().top + $moreElWrap.outerHeight(true) - $(document).scrollTop();
-						$data.insertBefore($moreElWrap);
-						var st = $moreElWrap.offset().top - y;
-						$moreElWrap.remove();
-						$(window).scrollTop(st);
-					} else {
-						var lastWrapEl = $moreElWrap.prev('.js-widget_message_wrap').get();
-						var $wrapEls = $(lastWrapEl.concat(wrapEls));
-						TWeb.updateServiceDate($wrapEls, lastWrapEl.length > 0);
-						$data.insertBefore($moreElWrap);
-						$moreElWrap.remove();
+			if (dataOverride) {
+				_loadContinue(dataOverride);
+			} else if (url) {
+				$.ajax(url, {
+					success: function(data) { _loadContinue(data) },
+					error: function(data) {
+						var timeout = $moreEl.data('timeout') || 1000;
+						$moreEl.data('timeout', timeout > 60000 ? timeout : timeout * 2);
+						setTimeout(function(){ _load(url, before, after); }, timeout);
 					}
-					var time3 = +(new Date);
-					//console.log('inserted ' + (time3 - time2) + 'ms');
-					if (scrollToLast || MbState.lastMustScroll > 0) {
-						$('#BottomAnchor')[0].scrollIntoView();
-						$('.tgme_widget_message_wrap').last().scrollIntoView();
-						MbState.lastMustScroll--;
-					}
-					if (!IsScrollableY($('html')[0])) {
-						TWeb.loadMore($('.js-messages_more_wrap > a'), true);
-					}
-				},
-				error: function(data) {
-					var timeout = $moreEl.data('timeout') || 1000;
-					$moreEl.data('timeout', timeout > 60000 ? timeout : timeout * 2);
-					setTimeout(function(){ _load(url, before, after); }, timeout);
-				}
+				});
+			}
+		};
+		function _loadContinue(data) {
+			var time1 = +(new Date);
+			//console.log('loaded ' + (time1 - time0) + 'ms');
+			var $data = $(MakeMbHtml(data));
+			var $helper = $('<div class="tgme_widget_messages_helper"></div>');
+			$helper.append($data);
+			$('.js-message_history').append($helper);
+			$helper.find('.js-widget_message').each(function() {
+				TPost.init(this);
 			});
+			$helper.remove();
+			var wrapEls = $data.filter('.js-widget_message_wrap').get();
+			var time2 = +(new Date);
+			//console.log('prepared ' + (time2 - time1) + 'ms');
+			var $moreElWrap = $moreEl.parents('.js-messages_more_wrap');
+			if (before) {
+				var firstWrapEl = $moreElWrap.next('.js-widget_message_wrap').get();
+				var $wrapEls = $(wrapEls.concat(firstWrapEl));
+				TWeb.updateServiceDate($wrapEls);
+				var y = $moreElWrap.offset().top + $moreElWrap.outerHeight(true) - $(document).scrollTop();
+				$data.insertBefore($moreElWrap);
+				var st = $moreElWrap.offset().top - y;
+				$moreElWrap.remove();
+				$(window).scrollTop(st);
+			} else {
+				var lastWrapEl = $moreElWrap.prev('.js-widget_message_wrap').get();
+				var $wrapEls = $(lastWrapEl.concat(wrapEls));
+				TWeb.updateServiceDate($wrapEls, lastWrapEl.length > 0);
+				$data.insertBefore($moreElWrap);
+				$moreElWrap.remove();
+			}
+			var time3 = +(new Date);
+			//console.log('inserted ' + (time3 - time2) + 'ms');
+			if (scrollToLast || MbState.lastMustScroll > 0) {
+				$('#BottomAnchor')[0].scrollIntoView();
+				$('.tgme_widget_message_wrap').last().scrollIntoView();
+				MbState.lastMustScroll--;
+			}
+			if (!IsScrollableY($('html')[0])) {
+				TWeb.loadMore($('.js-messages_more_wrap > a'), true);
+				MbState.lastMustScroll--;
+			}
 		};
 		_load(url, before, after);
 	},

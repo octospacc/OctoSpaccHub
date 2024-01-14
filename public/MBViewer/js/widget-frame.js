@@ -1024,7 +1024,9 @@ function checkFrameSize() {
     if (H < 10) H = '0' + H;
     var i = date.getMinutes();
     if (i < 10) i = '0' + i;
-    return H + ':' + i;
+    if (H && i) {
+      return H + ':' + i;
+    }
   }
 
   function formatDuration(duration) {
