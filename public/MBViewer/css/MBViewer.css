@@ -1,8 +1,8 @@
-.MBPost * {
+.MbPost * {
 	max-width: 100%;
 	height: auto;
 }
 
-.MBPost figure {
+.MbPost figure {
 	margin: 1em;
 }

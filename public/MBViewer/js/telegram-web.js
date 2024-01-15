@@ -192,19 +192,19 @@ var TWeb = {
 			if ($before.length) {
 				var bottom = $before.offset().top + $before.height() - scrollTop;
 				if (bottom > -wheight * 3) {
-					TWeb.loadMore($before, false);
+					TWeb.loadMore($before);
 				}
 			}
 			if ($after.length) {
 				var top = $after.offset().top - scrollTop;
 				if (top < wheight * 3) {
-					TWeb.loadMore($after, false);
+					TWeb.loadMore($after);
 				}
 			}
 		});
 		$document.on('click', '.js-messages_more', function() {
 			var $el = $(this);
-			TWeb.loadMore($el, false);
+			TWeb.loadMore($el);
 		});
 	},
 	initViews: function() {
@@ -280,7 +280,7 @@ var TWeb = {
 			$wrapEl.toggleClass('date_visible', date_visible);
 		}
 	},
-	loadMore: function($moreEl, scrollToLast, dataOverride) {
+	loadMore: function($moreEl, dataOverride) {
 		var loading = $moreEl.data('loading');
 		if (loading) {
 			return false;
@@ -290,8 +290,6 @@ var TWeb = {
 		var url = $moreEl.attr('href');
 		$moreEl.data('loading', true);
 		$moreEl.addClass('dots-animated');
-		var time0 = +(new Date);
-		//console.log('loading...', before, after);
 		var _load = function(url, before, after) {
 			if (dataOverride) {
 				_loadContinue(dataOverride);
@@ -306,10 +304,9 @@ var TWeb = {
 				});
 			}
 		};
-		function _loadContinue(data) {
-			var time1 = +(new Date);
-			//console.log('loaded ' + (time1 - time0) + 'ms');
-			var $data = $(MakeMbHtml(data));
+		async function _loadContinue(data) {
+			var [initialHtmlScroll, initialHtmlHeight] = [$('html').scrollTop(), $('html').height()];
+			var $data = $(await MakeMbHtml(data));
 			var $helper = $('<div class="tgme_widget_messages_helper"></div>');
 			$helper.append($data);
 			$('.js-message_history').append($helper);
@@ -318,8 +315,6 @@ var TWeb = {
 			});
 			$helper.remove();
 			var wrapEls = $data.filter('.js-widget_message_wrap').get();
-			var time2 = +(new Date);
-			//console.log('prepared ' + (time2 - time1) + 'ms');
 			var $moreElWrap = $moreEl.parents('.js-messages_more_wrap');
 			if (before) {
 				var firstWrapEl = $moreElWrap.next('.js-widget_message_wrap').get();
@@ -337,17 +332,25 @@ var TWeb = {
 				$data.insertBefore($moreElWrap);
 				$moreElWrap.remove();
 			}
-			var time3 = +(new Date);
-			//console.log('inserted ' + (time3 - time2) + 'ms');
-			if (scrollToLast || MbState.lastMustScroll > 0) {
-				$('#BottomAnchor')[0].scrollIntoView();
-				$('.tgme_widget_message_wrap').last().scrollIntoView();
-				MbState.lastMustScroll--;
-			}
 			if (!IsScrollableY($('html')[0])) {
-				TWeb.loadMore($('.js-messages_more_wrap > a'), true);
-				MbState.lastMustScroll--;
+				MbState.wasEverNonScrollable = true;
+				MbState.lastMustScroll = true;
+				TWeb.loadMore($('.js-messages_more_wrap > a'));
+				return;
 			}
+			if (MbState.lastMustScroll) {
+				//$('#BottomAnchor')[0].scrollIntoView();
+				$('.tgme_widget_message_wrap').last().scrollIntoView();
+				MbState.lastMustScroll = false;
+				return;
+			}
+			if (MbState.wasEverNonScrollable) {
+				//$('#BottomAnchor')[0].scrollIntoView();
+				$('.tgme_widget_message_wrap').last().scrollIntoView();
+				MbState.wasEverNonScrollable = false;
+				return;
+			}
+			$('html').scrollTop(initialHtmlScroll + $('html').height() - initialHtmlHeight);
 		};
 		_load(url, before, after);
 	},

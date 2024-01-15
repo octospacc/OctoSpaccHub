@@ -2,18 +2,18 @@
 <html>
 	<head>
 		<meta charset="utf-8">
-		<title>MBViewer</title>
+		<title>👁️‍🗨️️ MBViewer</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 		<meta name="format-detection" content="telephone=no"/>
 		<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
 		<meta name="MobileOptimized" content="176"/>
 		<meta name="HandheldFriendly" content="True"/>
-		<meta property="og:title" content="MBViewer"/>
+		<meta property="og:title" content="👁️‍🗨️️ MBViewer"/>
 		<!--
 		<meta property="og:image" content=""/>
 		<meta property="og:description" content=""/>
 		-->
-		<meta property="twitter:title" content="MBViewer"/>
+		<meta property="twitter:title" content="👁️‍🗨️️ MBViewer"/>
 		<!--
 		<meta property="twitter:image" content=""/>
 		<meta name="twitter:card" content="summary"/>
@@ -26,12 +26,14 @@
 			document.documentElement.classList &&
 			document.documentElement.classList.add('theme_dark');
 		</script>
+		<!--
 		<link rel="icon" type="image/svg+xml" href="img/website_icon.svg"/>
 		<link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png"/>
 		<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png"/>
 		<link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png"/>
 		<link rel="alternate icon" href="img/favicon.ico" type="image/x-icon"/>
 		<link href="css/font-roboto.css" rel="stylesheet" type="text/css"/>
+		-->
 		<link href="css/widget-frame.css" rel="stylesheet" media="screen"/>
 		<link href="css/telegram-web.css" rel="stylesheet" media="screen"/>
 		<link rel="stylesheet" href="css/MBViewer.css"/>
@@ -74,6 +76,11 @@
 					<section class="tgme_right_column">
 						<div class="tgme_channel_info">
 							<div class="tgme_channel_info_header">
+								<a href="javascript:;" name="closeColumn" style="float: right;" hidden="true">
+									<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+										<path d="M23.057 7.057a1.333 1.333 0 1 1 1.886 1.886L17.886 16l7.057 7.057a1.333 1.333 0 1 1-1.886 1.886L16 17.886l-7.057 7.057a1.333 1.333 0 1 1-1.886-1.886L14.114 16 7.057 8.943a1.333 1.333 0 1 1 1.886-1.886L16 14.114l7.057-7.057z"/>
+									</svg>
+								</a>
 								<i class="tgme_page_photo_image"></i>
 								<div class="tgme_channel_info_header_title_wrap">
 									<div class="tgme_channel_info_header_title"></div>
@@ -181,7 +188,13 @@
 		</header>
 		<main class="tgme_main">
 			<div class="tgme_container">
-				<section class="tgme_channel_history js-message_history"></section>
+				<section class="tgme_channel_history js-message_history">
+					<noscript>
+						<p>
+							This application requires modern JavaScript.
+						</p>
+					</noscript>
+				</section>
 			</div>
 		</main>
 		<div id="BottomAnchor"></div>
@@ -194,6 +207,7 @@
 		<script src="js/MBViewer.js"></script>
 		<script>
 			TWeb.init();
+			ResizeLayouts();
 			MbViewerInit();
 		</script>
 	</body>

@@ -1,20 +1,41 @@
 // TODO:
 // * handle opening the feed at a specific post id in time
+// ** support opening from not only id but also permalink
 // * custom colors
-// * author profiles, bios, and showing only their messages instead of the full site
+// * reduce lag on mobile somehow
+// * open author profiles/bios as a channel and show only their messages instead of the full site
 // * show site/profile info on click of navbar for mobile
 // * in-app search of site content
 // * homepage with history and sponsored sources
 // * don't show redundant day markers
-// * navigate markdown Wordpress export pages from Git
-// * app info in page without JS
+// * other supported sources
+// ** Markdown WordPress export pages from Git?
+// ** Atom/RSS feeds
+// * app info in page without JS?
+// * fix some messages being skipped when connection errors happen
+// * optionally show post titles?
+// * fix unfinished tasks still executing when clicking back
+// * fix imported SVG buttons not fitting with dark theme
+// * I think we might need to handle acronicized names for users when needed?
 
 let MbState = {};
+
+function ArgsRewrite (props={}) {
+	for (const key in props) {
+		const value = props[key];
+		value ? (MbState.args[key] = value) : (delete MbState.args[key]);
+	}
+	let hash = '/';
+	for (const arg in MbState.args) {
+		hash += `${arg}=${MbState.args[arg]}|`;
+	}
+	location.hash = hash;
+}
 
 const SureArray = (obj) => (Array.isArray(obj) ? obj : [obj]);
 
 // <https://stackoverflow.com/questions/29956338/how-to-accurately-determine-if-an-element-is-scrollable/71170105#71170105>
-function CanScrollEl(el, scrollAxis) {
+function CanScrollEl (el, scrollAxis) {
 	if (0 === el[scrollAxis]) {
 		el[scrollAxis] = 1;
 		if (1 === el[scrollAxis]) {
@@ -26,8 +47,19 @@ function CanScrollEl(el, scrollAxis) {
 	}
 	return false;
 }
-function IsScrollableY(el) {
+function IsScrollableY (el) {
 	return (el.scrollHeight > el.clientHeight) && CanScrollEl(el, 'scrollTop') && ('hidden' !== getComputedStyle(el).overflowY);
+}
+
+// <https://www.javascripttutorial.net/dom/css/check-if-an-element-is-visible-in-the-viewport/>
+function IsElemInViewport (elem) {
+	const rect = elem.getBoundingClientRect();
+	return (
+		rect.top >= 0 &&
+		rect.left >= 0 &&
+		rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+		rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+	);
 }
 
 function GetDomainFromUrl (url) {
@@ -48,8 +80,35 @@ function MakeSiteRestUrl (path='') {
 	}
 }
 
-function MakeApiEndpoint (platform, options) {
-	// ...
+function MakeApiEndpoint (type, options={}) {
+	const translations = {
+		"wordpress.org": {
+			count: "per_page",
+		},
+		"wordpress.com": {
+			count: "number",
+		}
+	}
+	let query = '';
+	for (const option in options) {
+		if (option !== 'id') {
+			query += `&${translations[MbState.platform][option] || option}=${options[option]}`;
+		}
+	}
+	query = `${options.id || ''}?${query.slice(1)}`;
+	switch (MbState.platform) {
+		case 'wordpress.org': query = `wp/v2/${type}/${query}`; break;
+		case 'wordpress.com': query = `${type}/${query}`;       break;
+	}
+	return query;
+}
+
+function MakeAcroName(name) {
+	let acro = '';
+	for (const word of name.split(' ').slice(0,3)) {
+		acro += word[0].toUpperCase();
+	}
+	return acro;
 }
 
 async function MbViewerInit () {
@@ -57,58 +116,105 @@ async function MbViewerInit () {
 		location.hash = '/';
 	}
 	MbState = {
+		args: {},
 		siteData: {
-			name: "MBViewer",
+			name: "👁️‍🗨️️ MBViewer",
+			acroName: '👁️‍🗨️️ MBV',
 			description: `
 				The messages of this channel are baked inside the app,
 				and serve as the centralized place for all kinds of information about it,
 				while at the same time acting as a demo.
 				Please enjoy your time here, or use the search bar to input a supported URL.
+				<br/>
+				For other projects, visit the Octo Hub at <a href="https://hub.octt.eu.org">hub.octt.eu.org</a>!
 			`,
 		},
-		platform: "wordpress.org",
+		authors: {},
 	};
 	$('form.tgme_header_search_form')[0].action = '';
 	$('form.tgme_header_search_form')[0].onsubmit = function(event){
-		location.hash = `/siteUrl=${event.target.querySelector('input').value}`;
+		let url = event.target.querySelector('input').value;
+		const urlLow = url.toLowerCase();
+		if (!urlLow.startsWith('http://') && !urlLow.startsWith('https://')) {
+			url = `https://${url}`;
+		}
+		if (["t.me", "telegram.me"].includes(url.toLowerCase().split('://')[1].split('/')[0])) {
+			location = url;
+		} else {
+			ArgsRewrite({ siteurl: url });
+		}
 		event.preventDefault();
 	};
-	$('a.tgme_header_link')[0].href = '';
+	$('a.tgme_header_link')[0].onclick = function(){
+		if (window.innerWidth <= 720 ) { // .tgme_header_right_column @media max-width
+			if (!$('.tgme_header_right_column')[0].style.display) {
+				$('main.tgme_main')[0].style.visibility = 'hidden';
+				$('.tgme_header_right_column')[0].style.display = 'revert';
+				$('.tgme_header_right_column')[0].style.width = 'revert';
+				$('.tgme_header_right_column .tgme_channel_info')[0].style.height = 'calc(100% - 32px)';
+				$('.tgme_header_right_column a[name="closeColumn"]')[0].hidden = false;
+			} else {
+				HideMobileRightColumn();
+			}
+		}
+	};
+	$('.tgme_header_right_column a[name="closeColumn"]')[0].onclick = HideMobileRightColumn;
+	//$('a.tgme_header_link')[0].removeAttribute('href');
 	$('.tgme_channel_info_header_username').html('');
 	$('.tgme_page_photo_image').html('');
-	$('.tgme_page_photo_image').removeClass('bgcolor0');
+	$('.tgme_page_photo_image').removeClass('bgcolor0 bgcolor1 bgcolor2 bgcolor3 bgcolor4 bgcolor5 bgcolor6');
 	$('.tgme_page_photo_image').attr('data-content', '');
+	$('.tgme_header_title, .tgme_channel_info_header_title').html('');
+	$('.tgme_channel_info_description').html('');
 	$('section.tgme_channel_history.js-message_history').html('');
 	for (const arg of location.hash.split('/').slice(1).join('/').split('|')) {
-		const argTokens = arg.split('=');
-		MbState[argTokens[0]] = argTokens.slice(1).join('=');
-	}
-	if (MbState.siteUrl) {
-		if (GetDomainFromUrl(MbState.siteUrl).toLowerCase().endsWith('wordpress.com')) {
-			MbState.platform = 'wordpress.com';
+		if (arg) {
+			const argTokens = arg.split('=');
+			const valueItems = argTokens.slice(1).join('=').split(',');
+			MbState.args[argTokens[0].toLowerCase()] = (valueItems.length > 1 ? valueItems : valueItems[0]);
 		}
-		const siteRequest = await fetch(MakeSiteRestUrl());
-		MbState.siteData = await siteRequest.json();
-		$('form.tgme_header_search_form')[0].action = `${MbState.siteUrl}/?s`;
+	}
+	MbState.siteUrl = MbState.args.siteurl;
+	MbState.platform = /*SureArray(*/MbState.args.platform/*)*/;
+	if (MbState.siteUrl) {
+		if (!MbState.platform) {
+			if (GetDomainFromUrl(MbState.siteUrl).toLowerCase().endsWith('wordpress.com')) {
+				MbState.platform = 'wordpress.com';
+			} else {
+				MbState.platform = 'wordpress.org';
+			}
+		}
+		try {
+			const siteRequest = await fetch(MakeSiteRestUrl());
+			MbState.siteData = await siteRequest.json();
+		} catch(err) {
+			setTimeout(MbViewerInit, 1000);
+		}
+		const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteUrl);
+		$('form.tgme_header_search_form')[0].action = `${siteLink}/?s`;
 		$('form.tgme_header_search_form')[0].onsubmit = null;
-		$('a.tgme_header_link')[0].href = MbState.siteUrl;
-		$('.tgme_channel_info_header_username').html(`<a href="${MbState.siteUrl}">${GetDomainFromUrl(MbState.siteUrl).toLowerCase()}</a>`);
-		$('.tgme_page_photo_image').html(`<img src="${MbState.siteUrl}${MbState.siteData.site_icon_url}"/>`);
+		//$('a.tgme_header_link')[0].href = siteLink;
+		$('.tgme_channel_info_header_username').html(`<a href="${siteLink}">${GetDomainFromUrl(siteLink).toLowerCase()}</a>`);
 		$('a[name="goBack"]')[0].hidden = false;
 		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml(0, 'before'));
-		MbState.lastMustScroll = 3; // Firefox fix
-		TWeb.loadMore($('.js-messages_more_wrap > a'), true);
-	} else {
+		MbState.lastMustScroll = true;
+		TWeb.loadMore($('.js-messages_more_wrap > a'));
+	}
+	MbState.siteData.iconUrl = (MbState.siteData.site_icon_url || MbState.siteData.icon?.img || MbState.siteData.icon?.ico);
+	MbState.siteData.acroName ||= (!MbState.siteData.iconUrl ? MakeAcroName(MbState.siteData.name) : '');
+	MbState.siteData.bgColor = ~~(Math.random() * 7);
+	if (MbState.siteData.iconUrl && !["http", "https"].includes(MbState.siteData.iconUrl.split('://')[0])) {
+		MbState.siteData.iconUrl = `${MbState.siteUrl}${MbState.siteData.iconUrl}`;
+	}
+	if (!MbState.siteUrl) {
 		$('a[name="goBack"]')[0].hidden = true;
-		$('.tgme_page_photo_image').addClass('bgcolor0');
-		$('.tgme_page_photo_image').attr('data-content', 'MBV');
 		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
-		TWeb.loadMore($('.js-messages_more_wrap > a'), true, [{ content: `<p>
-			Here I am doing, another strange thing of mine.
+		TWeb.loadMore($('.js-messages_more_wrap > a'), [{ content: `<p>
+			Here I am, doing another strange thing of mine.
 			This is my personal experiment to make an MB-style frontend for sources that are by default not really friendly to that concept.
 			Since this first day, we will start with just WordPress, and we'll see what comes from that.
 			See <a href="https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/">https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/</a>.
-		</p>`, date: '2024-01-13' }, { content: `<p>
+		</p>`, date: '2024-01-13T21:00' }, { content: `<p>
 			After fixing a few post-release issues driving me insane (scrolling cough cough), here are some new improvements:
 			<br/> * Handling of posts without date is just a bit nicer.
 			<br/> * Added a back button to return to this page here from a real site stream.
@@ -118,6 +224,16 @@ async function MbViewerInit () {
 			I also just now realized that wordpress.com uses a different REST API with different endpoints and parameters,
 			so I will need to handle that...
 		</p>`, date: '2024-01-14T02:00' }, { content: `<p>
+			New changes:
+			<br/> * Correctly handle wordpress.com blogs
+			<br/> * Show specific users as post authors whenever possible
+			<br/> * Made the navigation bar smarter: now handles URLs without schema, and t.me links (redirects to official site)
+			<br/> * Made the info box (right column on desktop) visible on small screens (by clicking the screen header)
+			<br/> * Added an Altervista workaround for videos not loading (bypass anti-hotlinking)
+			<br/> * Made URL hash parameter names case-insensitive
+			<br/> * Now sites without an icon will display a random color and their acronicized name
+			<br/> * Hopefully fixed all the scrolling-loading issues for real this time...
+		</p>`, date: '2024-01-15T01:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
@@ -125,9 +241,15 @@ async function MbViewerInit () {
 			all rights upon the original materials (which are: everything not strictly related to the "MBViewer" mod) belong to the original owners.
 		</p>` }]);
 	}
-
+	$('.tgme_page_photo_image').attr('data-content', MbState.siteData.acroName);
 	$('.tgme_header_title, .tgme_channel_info_header_title').html(MbState.siteData.name);
 	$('.tgme_channel_info_description').html(MbState.siteData.description);
+	if (MbState.siteData.iconUrl) {
+		$('.tgme_page_photo_image').html(`<img src="${MbState.siteData.iconUrl}"/>`);
+	} else {
+		$('.tgme_page_photo_image').addClass(`bgcolor${MbState.siteData.bgColor}`);
+	}
+	MbState.lastMustScroll = true;
 }
 
 function MakeMoreWrapperHtml (postOffset, wrapType) {
@@ -135,23 +257,34 @@ function MakeMoreWrapperHtml (postOffset, wrapType) {
 		MbState.lastPostOffset = (postOffset + 1);
 	}
 	return `<div class="tgme_widget_message_centered js-messages_more_wrap">
-		<a href="${MbState.siteUrl && MakeSiteRestUrl(`wp/v2/posts/?offset=${postOffset}&per_page=1`)}" data-${wrapType}="" class="tme_messages_more js-messages_more"></a>
+		<a href="${MbState.siteUrl && MakeSiteRestUrl(MakeApiEndpoint('posts', { offset: postOffset, count: 1 }))}" data-${wrapType}="" class="tme_messages_more js-messages_more"></a>
 	</div>`;
 }
 
-function MakeMbHtml (postData) {
+async function MakeMbHtml (postData) {
 	postData = (typeof(postData) === 'string' ? JSON.parse(postData) : postData);
-	let html = '';
-	const siteHref = (MbState.siteUrl ? `href="${MbState.siteUrl}"` : '');
-	for (postData of SureArray(postData)) {
+	let html = (MbState.siteUrl ? MakeMoreWrapperHtml(MbState.lastPostOffset, 'before') : '');
+	const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteLink);
+	const siteHref = (siteLink ? `href="${siteLink}"` : '');
+	for (postData of (postData.posts ? postData.posts : SureArray(postData))) {
+		const postLink = (postData.link || postData.URL);
+		const authorId = (postData.author?.ID || postData.author || postData._links?.author[0]?.href?.split('/')?.slice(-1)[0]);
+		if (authorId && !MbState.authors[authorId]) {
+			MbState.authors[authorId] = (typeof(postData.author) === 'object'
+				? postData.author
+				: await (await fetch(MakeSiteRestUrl(MakeApiEndpoint('users', { id: authorId })))).json());
+		}
+		const authorData = MbState.authors[authorId];
+		const authorLink = (authorData?.link || (siteLink && `${siteLink}/author/${authorData?.name}`));
+		const authorHref = (authorLink ? `href="${authorLink}"` : '');
+		const iconUrl = (Object.values(authorData?.avatar_urls || {}).slice(-1)[0] || authorData?.avatar_URL || MbState.siteData.iconUrl);
 		html += `
-			${MbState.siteUrl ? MakeMoreWrapperHtml(MbState.lastPostOffset, 'before') : ''}
 			<div class="tgme_widget_message_wrap js-widget_message_wrap date_visible">
 				<div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="">
 					<div class="tgme_widget_message_user">
-						<a ${siteHref}>
-							<i class="tgme_widget_message_user_photo ${MbState.siteUrl ? '' : 'bgcolor0'}" style="background-color: unset;" data-content="${MbState.siteUrl ? '' : 'MBV'}">
-								${MbState.siteUrl ? `<img src="${MbState.siteUrl}${MbState.siteData.site_icon_url}"/>` : ''}
+						<a ${authorHref || siteHref}>
+							<i class="tgme_widget_message_user_photo ${iconUrl ? '' : `bgcolor${MbState.siteData.bgColor}`}" style="background-color: unset;" data-content="${MbState.siteData.acroName}">
+								${iconUrl ? `<img src="${iconUrl}"/>` : ''}
 							</i>
 						</a>
 					</div>
@@ -167,21 +300,24 @@ function MakeMbHtml (postData) {
 							</svg>
 						</i>
 						<div class="tgme_widget_message_author accent_color">
-							<a class="tgme_widget_message_owner_name" ${siteHref}>
+							<a class="tgme_widget_message_owner_name" ${authorHref || siteHref}>
 								<span dir="auto">
-									${MbState.siteData.name}
+									${MbState.authors[authorId]?.name
+										? `${MbState.authors[authorId]?.name} [${MbState.siteData.name}]`
+										: MbState.siteData.name
+									}
 								</span>
 							</a>
 						</div>
 						<div class="tgme_widget_message_text js-message_text before_footer" dir="auto">
-							<div class="MBPost">
-								${postData.content?.rendered || postData.content}
+							<div class="MbPost">
+								${ReformatPostHtml(postData.content?.rendered || postData.content)}
 							</div>
 						</div>
 						<div class="tgme_widget_message_footer compact js-message_footer">
 							<div class="tgme_widget_message_info short js-message_info">
 								<span class="tgme_widget_message_meta">
-									<a class="tgme_widget_message_date" ${postData.link ? `href="${postData.link}"` : ''}>
+									<a class="tgme_widget_message_date" ${postLink ? `href="${postLink}"` : ''}>
 										<time datetime="${postData.date}" class="time"></time>
 										<!-- TODO: show edited status -->
 									</a>
@@ -196,8 +332,62 @@ function MakeMbHtml (postData) {
 	return html;
 }
 
+function ReformatPostHtml (html) {
+	const content = $(`<div>${html}</div>`);
+	// bypass Altervista's anti-hotlinking protection by hiding our HTTP Referer header
+	// TODO: only do this for altervista sites maybe
+	for (const videoElem of content.find('video').toArray()) {
+		const frameElem = document.createElement('iframe');
+		frameElem.style = 'border: none; width: 100%;';
+		frameElem.allow = 'fullscreen';
+		frameElem.src = `data:text/html;utf8,
+			<style>
+				html, body { margin: 0; overflow: hidden; }
+				video { max-width: 100%; }
+			</style>
+			${encodeURIComponent(videoElem.outerHTML)}
+			<script>
+				var videoElem = document.querySelector('video');
+				var oldVideoHeight = getComputedStyle(videoElem).height;
+				setInterval(function(){
+					var newVideoHeight = getComputedStyle(videoElem).height;
+					if (newVideoHeight !== oldVideoHeight) {
+						top.postMessage((videoElem.src + ' ' + newVideoHeight), '*');
+						oldVideoHeight = oldVideoHeight;
+					}
+				}, 750);
+			</script>
+		`;
+		videoElem.replaceWith(frameElem);
+	}
+	return content.html();
+}
+
+function HideMobileRightColumn () {
+	$('main.tgme_main')[0].style.visibility = '';
+	$('.tgme_header_right_column')[0].style.display = '';
+	$('.tgme_header_right_column')[0].style.width = '';
+	$('.tgme_header_right_column .tgme_channel_info')[0].style.height = '';
+	$('.tgme_header_right_column a[name="closeColumn"]')[0].hidden = true;
+}
+
+function ResizeLayouts () {
+	if (window.innerWidth <= 720 ) { // .tgme_header_right_column @media max-width
+		$('a.tgme_header_link')[0].href = 'javascript:;';
+	} else {
+		HideMobileRightColumn();
+		$('a.tgme_header_link')[0].removeAttribute('href');
+	}
+}
+
 $('a[name="goBack"]')[0].onclick = function(){
-	location.hash = '/';
+	ArgsRewrite({ siteurl: null, postid: null });
 };
 
+window.onmessage = function(event){
+	const tokens = event.data.split(' ');
+	$(`iframe[src*="${encodeURIComponent(tokens[0])}"]`).height(tokens[1]);
+};
+
+window.addEventListener('resize', ResizeLayouts);
 window.addEventListener('hashchange', MbViewerInit);
