@@ -1,3 +1,11 @@
+html.theme_dark svg.IconBlack {
+	filter: invert(1);
+}
+
+body {
+	overflow-x: hidden;
+}
+
 .MbPost * {
 	max-width: 100%;
 	height: auto;

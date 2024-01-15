@@ -1,6 +1,5 @@
 // TODO:
-// * handle opening the feed at a specific post id in time
-// ** support opening from not only id but also permalink
+// * support opening posts from not only id but also permalink
 // * custom colors
 // * reduce lag on mobile somehow
 // * open author profiles/bios as a channel and show only their messages instead of the full site
@@ -17,6 +16,7 @@
 // * fix unfinished tasks still executing when clicking back
 // * fix imported SVG buttons not fitting with dark theme
 // * I think we might need to handle acronicized names for users when needed?
+// * show, and/or sort by, posts tags/categories
 
 let MbState = {};
 
@@ -84,9 +84,11 @@ function MakeApiEndpoint (type, options={}) {
 	const translations = {
 		"wordpress.org": {
 			count: "per_page",
+			orderBy: "orderby",
 		},
 		"wordpress.com": {
 			count: "number",
+			orderBy: "order_by",
 		}
 	}
 	let query = '';
@@ -130,6 +132,9 @@ async function MbViewerInit () {
 			`,
 		},
 		authors: {},
+		lastPostOffsetAfter: 0,
+		lastPostOffsetBefore: 0,
+		lastMustScroll: true,
 	};
 	$('form.tgme_header_search_form')[0].action = '';
 	$('form.tgme_header_search_form')[0].onsubmit = function(event){
@@ -148,9 +153,11 @@ async function MbViewerInit () {
 	$('a.tgme_header_link')[0].onclick = function(){
 		if (window.innerWidth <= 720 ) { // .tgme_header_right_column @media max-width
 			if (!$('.tgme_header_right_column')[0].style.display) {
+				$('body')[0].style.overflow = 'hidden';
 				$('main.tgme_main')[0].style.visibility = 'hidden';
+				$('.tgme_header_search')[0].style.display = 'none';
 				$('.tgme_header_right_column')[0].style.display = 'revert';
-				$('.tgme_header_right_column')[0].style.width = 'revert';
+				$('.tgme_header_right_column')[0].style.width = 'calc(100% - 24px)';
 				$('.tgme_header_right_column .tgme_channel_info')[0].style.height = 'calc(100% - 32px)';
 				$('.tgme_header_right_column a[name="closeColumn"]')[0].hidden = false;
 			} else {
@@ -159,7 +166,6 @@ async function MbViewerInit () {
 		}
 	};
 	$('.tgme_header_right_column a[name="closeColumn"]')[0].onclick = HideMobileRightColumn;
-	//$('a.tgme_header_link')[0].removeAttribute('href');
 	$('.tgme_channel_info_header_username').html('');
 	$('.tgme_page_photo_image').html('');
 	$('.tgme_page_photo_image').removeClass('bgcolor0 bgcolor1 bgcolor2 bgcolor3 bgcolor4 bgcolor5 bgcolor6');
@@ -176,6 +182,8 @@ async function MbViewerInit () {
 	}
 	MbState.siteUrl = MbState.args.siteurl;
 	MbState.platform = /*SureArray(*/MbState.args.platform/*)*/;
+	MbState.postId = MbState.args.postid;
+	//MbState.postSlug = MbState.args.postslug;
 	if (MbState.siteUrl) {
 		if (!MbState.platform) {
 			if (GetDomainFromUrl(MbState.siteUrl).toLowerCase().endsWith('wordpress.com')) {
@@ -189,16 +197,30 @@ async function MbViewerInit () {
 			MbState.siteData = await siteRequest.json();
 		} catch(err) {
 			setTimeout(MbViewerInit, 1000);
+			return;
 		}
 		const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteUrl);
+		MbState.startingPost = MbState.postId;//!!(MbState.postId || MbState.postSlug);
+		if (MbState.startingPost) {
+			try {
+				const postRequest = await fetch(MakeSiteRestUrl(MakeApiEndpoint('posts', { id: MbState.postId })));
+				MbState.startingPost = await postRequest.json();
+				$('section.tgme_channel_history.js-message_history').append(MakeMoreWrapperHtml('after'));
+				MbState.lastPostOffsetAfter = 0; // for some reason we need to clear this after making the wrapper or else we lose a post
+				TWeb.loadMore($('.js-messages_more_wrap > a[data-after]'), MbState.startingPost);
+				$('section.tgme_channel_history.js-message_history').prepend(MakeMoreWrapperHtml('before'));
+			} catch(err) {
+				setTimeout(MbViewerInit, 1000);
+				return;
+			}
+		} else {
+			$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml('before'));
+			TWeb.loadMore($('.js-messages_more_wrap > a'));
+		}
 		$('form.tgme_header_search_form')[0].action = `${siteLink}/?s`;
 		$('form.tgme_header_search_form')[0].onsubmit = null;
-		//$('a.tgme_header_link')[0].href = siteLink;
 		$('.tgme_channel_info_header_username').html(`<a href="${siteLink}">${GetDomainFromUrl(siteLink).toLowerCase()}</a>`);
 		$('a[name="goBack"]')[0].hidden = false;
-		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml(0, 'before'));
-		MbState.lastMustScroll = true;
-		TWeb.loadMore($('.js-messages_more_wrap > a'));
 	}
 	MbState.siteData.iconUrl = (MbState.siteData.site_icon_url || MbState.siteData.icon?.img || MbState.siteData.icon?.ico);
 	MbState.siteData.acroName ||= (!MbState.siteData.iconUrl ? MakeAcroName(MbState.siteData.name) : '');
@@ -234,6 +256,12 @@ async function MbViewerInit () {
 			<br/> * Now sites without an icon will display a random color and their acronicized name
 			<br/> * Hopefully fixed all the scrolling-loading issues for real this time...
 		</p>`, date: '2024-01-15T01:00' }, { content: `<p>
+			New changes:
+			<br/> * Adapt newly-added icons for dark mode
+			<br/> * Improved visualization of info column for small screens
+			<br/> * Improved video anti-hotlinking bypass, added fullscreen button for browsers which wouldn't otherwise show the native one
+			<br/> * Allow opening the stream at the point in time of a specific post ID for a website
+		</p>`, date: '2024-01-16T00:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
@@ -249,21 +277,34 @@ async function MbViewerInit () {
 	} else {
 		$('.tgme_page_photo_image').addClass(`bgcolor${MbState.siteData.bgColor}`);
 	}
-	MbState.lastMustScroll = true;
 }
 
-function MakeMoreWrapperHtml (postOffset, wrapType) {
-	if (postOffset >= 0) {
-		MbState.lastPostOffset = (postOffset + 1);
+function MakeMoreWrapperHtml (wrapType) {
+	let offset, order, relativeOpts;
+	switch (wrapType) {
+		case 'after':
+			offset = MbState.lastPostOffsetAfter;
+			MbState.lastPostOffsetAfter--;
+			order = 'asc';
+		break;
+		case 'before':
+			offset = MbState.lastPostOffsetBefore;
+			MbState.lastPostOffsetBefore++;
+			order = 'desc';
+		break;
+	}
+	if (MbState.startingPost) {
+		relativeOpts = { order: order, exclude: (MbState.startingPost.id || MbState.startingPost.ID) };
+		relativeOpts[wrapType] = MbState.startingPost.date;
 	}
 	return `<div class="tgme_widget_message_centered js-messages_more_wrap">
-		<a href="${MbState.siteUrl && MakeSiteRestUrl(MakeApiEndpoint('posts', { offset: postOffset, count: 1 }))}" data-${wrapType}="" class="tme_messages_more js-messages_more"></a>
+		<a href="${MbState.siteUrl && MakeSiteRestUrl(MakeApiEndpoint('posts', { count: 1, offset: offset, orderBy: "date", ...(MbState.startingPost && relativeOpts) }))}" data-${wrapType}="" class="tme_messages_more js-messages_more"></a>
 	</div>`;
 }
 
-async function MakeMbHtml (postData) {
+async function MakeMbHtml (postData, makeMoreWrap) {
 	postData = (typeof(postData) === 'string' ? JSON.parse(postData) : postData);
-	let html = (MbState.siteUrl ? MakeMoreWrapperHtml(MbState.lastPostOffset, 'before') : '');
+	let html = '';
 	const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteLink);
 	const siteHref = (siteLink ? `href="${siteLink}"` : '');
 	for (postData of (postData.posts ? postData.posts : SureArray(postData))) {
@@ -280,7 +321,7 @@ async function MakeMbHtml (postData) {
 		const iconUrl = (Object.values(authorData?.avatar_urls || {}).slice(-1)[0] || authorData?.avatar_URL || MbState.siteData.iconUrl);
 		html += `
 			<div class="tgme_widget_message_wrap js-widget_message_wrap date_visible">
-				<div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="">
+				<div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="${postData.id || postData.ID}">
 					<div class="tgme_widget_message_user">
 						<a ${authorHref || siteHref}>
 							<i class="tgme_widget_message_user_photo ${iconUrl ? '' : `bgcolor${MbState.siteData.bgColor}`}" style="background-color: unset;" data-content="${MbState.siteData.acroName}">
@@ -329,6 +370,18 @@ async function MakeMbHtml (postData) {
 			</div>
 		`;
 	}
+	if (!html) {
+		// no more messages?
+		return;
+	}
+	if (makeMoreWrap && MbState.siteUrl) {
+		const wrapHtml = MakeMoreWrapperHtml(makeMoreWrap);
+		switch (makeMoreWrap) {
+			case 'after': html = `${html}${wrapHtml}`; break;
+			case 'before': html = `${wrapHtml}${html}`; break;
+		}
+	}
+	MbState.lastMoreWrap = makeMoreWrap;
 	return html;
 }
 
@@ -337,10 +390,11 @@ function ReformatPostHtml (html) {
 	// bypass Altervista's anti-hotlinking protection by hiding our HTTP Referer header
 	// TODO: only do this for altervista sites maybe
 	for (const videoElem of content.find('video').toArray()) {
+		videoElem.preload = 'none';
 		const frameElem = document.createElement('iframe');
 		frameElem.style = 'border: none; width: 100%;';
 		frameElem.allow = 'fullscreen';
-		frameElem.src = `data:text/html;utf8,
+		frameElem.src = `data:text/html;utf8,<!DOCTYPE html><body>
 			<style>
 				html, body { margin: 0; overflow: hidden; }
 				video { max-width: 100%; }
@@ -348,23 +402,26 @@ function ReformatPostHtml (html) {
 			${encodeURIComponent(videoElem.outerHTML)}
 			<script>
 				var videoElem = document.querySelector('video');
-				var oldVideoHeight = getComputedStyle(videoElem).height;
-				setInterval(function(){
-					var newVideoHeight = getComputedStyle(videoElem).height;
-					if (newVideoHeight !== oldVideoHeight) {
-						top.postMessage((videoElem.src + ' ' + newVideoHeight), '*');
-						oldVideoHeight = oldVideoHeight;
-					}
-				}, 750);
+				videoElem.onloadedmetadata = function(){
+					top.postMessage((videoElem.src + ' ' + getComputedStyle(videoElem).height), '*');
+					var buttonElem = document.createElement('button');
+					buttonElem.style = 'position: absolute; top: 0; right: 0; z-index: 1;';
+					buttonElem.innerHTML = 'Fullscreen';
+					buttonElem.onclick = function(){ videoElem.requestFullscreen(); };
+					document.body.appendChild(buttonElem);
+				};
+				videoElem.load();
 			</script>
-		`;
+		</body>`;
 		videoElem.replaceWith(frameElem);
 	}
 	return content.html();
 }
 
 function HideMobileRightColumn () {
+	$('body')[0].style.overflow = '';
 	$('main.tgme_main')[0].style.visibility = '';
+	$('.tgme_header_search')[0].style.display = '';
 	$('.tgme_header_right_column')[0].style.display = '';
 	$('.tgme_header_right_column')[0].style.width = '';
 	$('.tgme_header_right_column .tgme_channel_info')[0].style.height = '';
@@ -381,7 +438,7 @@ function ResizeLayouts () {
 }
 
 $('a[name="goBack"]')[0].onclick = function(){
-	ArgsRewrite({ siteurl: null, postid: null });
+	ArgsRewrite({ siteurl: null, postid: null, /*postslug: null*/ });
 };
 
 window.onmessage = function(event){

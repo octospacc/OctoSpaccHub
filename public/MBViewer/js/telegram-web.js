@@ -285,8 +285,14 @@ var TWeb = {
 		if (loading) {
 			return false;
 		}
-		var before = $moreEl.attr('data-before');
+		var wrapType = '';
 		var after = $moreEl.attr('data-after');
+		var before = $moreEl.attr('data-before');
+		if (after !== undefined) {
+			wrapType = 'after';
+		} else if (before !== undefined) {
+			wrapType = 'before';
+		}
 		var url = $moreEl.attr('href');
 		$moreEl.data('loading', true);
 		$moreEl.addClass('dots-animated');
@@ -304,9 +310,10 @@ var TWeb = {
 				});
 			}
 		};
-		async function _loadContinue(data) {
+		var _loadContinue = async function(data) {
+			var messageHistoryCountBefore = $('section.tgme_channel_history.js-message_history .tgme_widget_message_wrap.js-widget_message_wrap').length;
 			var [initialHtmlScroll, initialHtmlHeight] = [$('html').scrollTop(), $('html').height()];
-			var $data = $(await MakeMbHtml(data));
+			var $data = $(await MakeMbHtml(data, wrapType));
 			var $helper = $('<div class="tgme_widget_messages_helper"></div>');
 			$helper.append($data);
 			$('.js-message_history').append($helper);
@@ -332,6 +339,7 @@ var TWeb = {
 				$data.insertBefore($moreElWrap);
 				$moreElWrap.remove();
 			}
+			// load more messages if the current viewport is not tall enough to be scrolled
 			if (!IsScrollableY($('html')[0])) {
 				MbState.wasEverNonScrollable = true;
 				MbState.lastMustScroll = true;
@@ -339,19 +347,32 @@ var TWeb = {
 				return;
 			}
 			if (MbState.lastMustScroll) {
-				//$('#BottomAnchor')[0].scrollIntoView();
-				$('.tgme_widget_message_wrap').last().scrollIntoView();
-				MbState.lastMustScroll = false;
-				return;
+				return _scrollToLastMessage();
 			}
 			if (MbState.wasEverNonScrollable) {
-				//$('#BottomAnchor')[0].scrollIntoView();
-				$('.tgme_widget_message_wrap').last().scrollIntoView();
-				MbState.wasEverNonScrollable = false;
-				return;
+				return _scrollToLastMessage();
 			}
-			$('html').scrollTop(initialHtmlScroll + $('html').height() - initialHtmlHeight);
+			if (wrapType === 'before') {
+				$('html').scrollTop(initialHtmlScroll + $('html').height() - initialHtmlHeight);
+			}
+			if (MbState.startingPost && messageHistoryCountBefore === 1) {
+				TWeb.highlightPost(MbState.startingPost?.id || MbState.startingPost?.ID);
+			}
 		};
+		var _scrollToLastMessage = function() {
+			//$('#BottomAnchor')[0].scrollIntoView();
+			var lastMessageElem = $('.tgme_widget_message_wrap').last()[0];
+			lastMessageElem.scrollIntoView();
+			// scroll a bit more to show the message nicely if it's taller than viewport
+			if (lastMessageElem.clientHeight > ($('html')[0].clientHeight - 48)) {
+				$('html')[0].scrollTop -= 48;
+			}
+			MbState.lastMustScroll = false;
+		};
+		// avoid automatic infinite upscrolling
+		if ($('html')[0].scrollTop === 0) {
+			$('html')[0].scrollTop = 16;
+		}
 		_load(url, before, after);
 	},
 }
