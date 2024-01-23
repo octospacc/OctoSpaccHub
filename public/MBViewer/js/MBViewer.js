@@ -19,6 +19,7 @@
 // * show, and/or sort by, posts tags/categories
 
 let MbState = {};
+let MbApiTransformer;
 
 function ArgsRewrite (props={}) {
 	for (const key in props) {
@@ -71,9 +72,9 @@ function MakeSiteRestUrl (path='') {
 	if (GetDomainFromUrl(siteUrl).toLowerCase() === 'octospacc.altervista.org') {
 		return `${siteUrl}/wp-content/uploads/${siteUrl.split('.').slice(0, 1)[0].split('//')[1]}/scripts/stuff.php?&Thing=SiteWpJsonCors&AccessToken=9ab6e20c&$Query=${encodeURIComponent(path)}`;
 	} else {
-		if (MbState.platform === 'wordpress.org') {
+		if (["atom", "rss", "wordpress.org"].includes(MbState.platform)) {
 			const proxies = ["corsproxy.io", "corsproxy.org"];
-			return `https://${proxies[~~(Math.random() * proxies.length)]}/?${siteUrl}/wp-json/${path}`;
+			return `https://${proxies[~~(Math.random() * proxies.length)]}/?${siteUrl}/${MbState.platform === 'wordpress.org' ? `wp-json/${path}` : ''}`;
 		} else if (MbState.platform === 'wordpress.com') {
 			return `https://public-api.wordpress.com/rest/v1.1/sites/${GetDomainFromUrl(siteUrl)}/${path}`;
 		}
@@ -89,7 +90,7 @@ function MakeApiEndpoint (type, options={}) {
 		"wordpress.com": {
 			count: "number",
 			orderBy: "order_by",
-		}
+		},
 	}
 	let query = '';
 	for (const option in options) {
@@ -116,6 +117,9 @@ function MakeAcroName(name) {
 async function MbViewerInit () {
 	if (!location.hash) {
 		location.hash = '/';
+	}
+	if (!MbApiTransformer) {
+		MbApiTransformer = Trasformapi(MbViewerTrasformapiSchema).TransformForInput;
 	}
 	MbState = {
 		args: {},
@@ -194,7 +198,9 @@ async function MbViewerInit () {
 		}
 		try {
 			const siteRequest = await fetch(MakeSiteRestUrl());
-			MbState.siteData = await siteRequest.json();
+			MbState.siteData = (["atom", "rss"].includes(MbState.platform)
+				? new DOMParser().parseFromString(await siteRequest.text(), 'text/xml')
+				: await siteRequest.json());
 		} catch(err) {
 			setTimeout(MbViewerInit, 1000);
 			return;
@@ -213,7 +219,7 @@ async function MbViewerInit () {
 				setTimeout(MbViewerInit, 1000);
 				return;
 			}
-		} else {
+		} else if (!["atom", "rss"].includes(MbState.platform)) {
 			$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml('before'));
 			TWeb.loadMore($('.js-messages_more_wrap > a'));
 		}
@@ -223,10 +229,14 @@ async function MbViewerInit () {
 		$('a[name="goBack"]')[0].hidden = false;
 	}
 	MbState.siteData.iconUrl = (MbState.siteData.site_icon_url || MbState.siteData.icon?.img || MbState.siteData.icon?.ico);
-	MbState.siteData.acroName ||= (!MbState.siteData.iconUrl ? MakeAcroName(MbState.siteData.name) : '');
+	MbState.siteData.acroName ||= (!MbState.siteData.iconUrl ? MbState.siteData.name && MakeAcroName(MbState.siteData.name) : '');
 	MbState.siteData.bgColor = ~~(Math.random() * 7);
 	if (MbState.siteData.iconUrl && !["http", "https"].includes(MbState.siteData.iconUrl.split('://')[0])) {
 		MbState.siteData.iconUrl = `${MbState.siteUrl}${MbState.siteData.iconUrl}`;
+	}
+	if (["atom", "rss"].includes(MbState.platform)) {
+		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
+		TWeb.loadMore($('.js-messages_more_wrap > a'), MbState.siteData);
 	}
 	if (!MbState.siteUrl) {
 		$('a[name="goBack"]')[0].hidden = true;
@@ -236,7 +246,7 @@ async function MbViewerInit () {
 			This is my personal experiment to make an MB-style frontend for sources that are by default not really friendly to that concept.
 			Since this first day, we will start with just WordPress, and we'll see what comes from that.
 			See <a href="https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/">https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/</a>.
-		</p>`, date: '2024-01-13T21:00' }, { content: `<p>
+		</p>`, time: '2024-01-13T21:00' }, { content: `<p>
 			After fixing a few post-release issues driving me insane (scrolling cough cough), here are some new improvements:
 			<br/> * Handling of posts without date is just a bit nicer.
 			<br/> * Added a back button to return to this page here from a real site stream.
@@ -245,7 +255,7 @@ async function MbViewerInit () {
 			<br/>
 			I also just now realized that wordpress.com uses a different REST API with different endpoints and parameters,
 			so I will need to handle that...
-		</p>`, date: '2024-01-14T02:00' }, { content: `<p>
+		</p>`, time: '2024-01-14T02:00' }, { content: `<p>
 			New changes:
 			<br/> * Correctly handle wordpress.com blogs
 			<br/> * Show specific users as post authors whenever possible
@@ -255,13 +265,22 @@ async function MbViewerInit () {
 			<br/> * Made URL hash parameter names case-insensitive
 			<br/> * Now sites without an icon will display a random color and their acronicized name
 			<br/> * Hopefully fixed all the scrolling-loading issues for real this time...
-		</p>`, date: '2024-01-15T01:00' }, { content: `<p>
+		</p>`, time: '2024-01-15T01:00' }, { content: `<p>
 			New changes:
 			<br/> * Adapt newly-added icons for dark mode
 			<br/> * Improved visualization of info column for small screens
 			<br/> * Improved video anti-hotlinking bypass, added fullscreen button for browsers which wouldn't otherwise show the native one
 			<br/> * Allow opening the stream at the point in time of a specific post ID for a website
-		</p>`, date: '2024-01-16T00:00' }, { content: `<p>
+		</p>`, time: '2024-01-16T00:00' }, { content: `<p>
+			I was thinking this tool would now just start to die,
+			since I should try to get some time to develop my actual well-made and non-kanged frontend,
+			but I will need a few libraries and things first, that I can actually already start developing and introduce here.
+			<br/>
+			So, here are some new changes:
+			<br/> * Fixed video embed fullscreen, and added a reload button in case load fails
+			<br/> * Initial support for handling data via Trasformapi lib
+			<br/> * Initial, experimental support for RSS feeds specifically, via Transformapi (very broken)
+		</p>`, time: '2024-01-23T01:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
@@ -298,27 +317,39 @@ function MakeMoreWrapperHtml (wrapType) {
 		relativeOpts[wrapType] = MbState.startingPost.date;
 	}
 	return `<div class="tgme_widget_message_centered js-messages_more_wrap">
-		<a href="${MbState.siteUrl && MakeSiteRestUrl(MakeApiEndpoint('posts', { count: 1, offset: offset, orderBy: "date", ...(MbState.startingPost && relativeOpts) }))}" data-${wrapType}="" class="tme_messages_more js-messages_more"></a>
+		<a href="${MbState.siteUrl && !["atom", "rss"].includes(MbState.platform) && MakeSiteRestUrl(MakeApiEndpoint('posts', { count: 1, offset: offset, orderBy: "date", ...(MbState.startingPost && relativeOpts) }))}" data-${wrapType}="" class="tme_messages_more js-messages_more"></a>
 	</div>`;
 }
 
 async function MakeMbHtml (postData, makeMoreWrap) {
 	postData = (typeof(postData) === 'string' ? JSON.parse(postData) : postData);
+	if (["atom", "rss"].includes(MbState.platform)) {
+		postData = Array.from(postData.querySelectorAll(':scope > channel > item')).reverse();
+	}
 	let html = '';
 	const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteLink);
 	const siteHref = (siteLink ? `href="${siteLink}"` : '');
 	for (postData of (postData.posts ? postData.posts : SureArray(postData))) {
-		const postLink = (postData.link || postData.URL);
-		const authorId = (postData.author?.ID || postData.author || postData._links?.author[0]?.href?.split('/')?.slice(-1)[0]);
+		if (MbState.platform) {
+			postData = MbApiTransformer('message', MbState.platform, postData);
+		}
+		const authorId = (postData.author?.id || postData._links?.author[0]?.href?.split('/')?.slice(-1)[0]);
 		if (authorId && !MbState.authors[authorId]) {
-			MbState.authors[authorId] = (typeof(postData.author) === 'object'
+			MbState.authors[authorId] = (typeof(postData.author) === 'object' && Object.keys(postData.author).join(' ') !== 'id'
 				? postData.author
 				: await (await fetch(MakeSiteRestUrl(MakeApiEndpoint('users', { id: authorId })))).json());
 		}
 		const authorData = MbState.authors[authorId];
 		const authorLink = (authorData?.link || (siteLink && `${siteLink}/author/${authorData?.name}`));
 		const authorHref = (authorLink ? `href="${authorLink}"` : '');
-		const iconUrl = (Object.values(authorData?.avatar_urls || {}).slice(-1)[0] || authorData?.avatar_URL || MbState.siteData.iconUrl);
+		const iconUrl = (Object.values(authorData?.avatar_urls || {}).slice(-1)[0] || authorData?.icon?.url || MbState.siteData.iconUrl);
+		//let attachmentsHtml = '';
+		// TODO change this after fixing Trasformapi
+		//for (const attachment of postData.attachments?.url) {
+		//for (const attachment of postData.attachments) {
+			// TODO more media types
+		//	attachmentsHtml += `<img src="${attachment.url}"/>`;
+		//}
 		html += `
 			<div class="tgme_widget_message_wrap js-widget_message_wrap date_visible">
 				<div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="${postData.id || postData.ID}">
@@ -352,14 +383,15 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 						</div>
 						<div class="tgme_widget_message_text js-message_text before_footer" dir="auto">
 							<div class="MbPost">
+								<!--${/*attachmentsHtml*/JSON.stringify(postData.attachments)}-->
 								${ReformatPostHtml(postData.content?.rendered || postData.content)}
 							</div>
 						</div>
 						<div class="tgme_widget_message_footer compact js-message_footer">
 							<div class="tgme_widget_message_info short js-message_info">
 								<span class="tgme_widget_message_meta">
-									<a class="tgme_widget_message_date" ${postLink ? `href="${postLink}"` : ''}>
-										<time datetime="${postData.date}" class="time"></time>
+									<a class="tgme_widget_message_date" ${postData.url ? `href="${postData.url}"` : ''}>
+										<time datetime="${postData.time}" class="time"></time>
 										<!-- TODO: show edited status -->
 									</a>
 								</span>
@@ -393,22 +425,24 @@ function ReformatPostHtml (html) {
 		videoElem.preload = 'none';
 		const frameElem = document.createElement('iframe');
 		frameElem.style = 'border: none; width: 100%;';
-		frameElem.allow = 'fullscreen';
+		frameElem.allowFullscreen = true;
 		frameElem.src = `data:text/html;utf8,<!DOCTYPE html><body>
 			<style>
 				html, body { margin: 0; overflow: hidden; }
 				video { max-width: 100%; }
 			</style>
 			${encodeURIComponent(videoElem.outerHTML)}
+			<button style="position: absolute; top: 0; right: 0; z-index: 1;">
+				Reload Media
+			</button>
 			<script>
 				var videoElem = document.querySelector('video');
+				var buttonElem = document.querySelector('button');
+				buttonElem.onclick = function(){
+					videoElem.load();
+				};
 				videoElem.onloadedmetadata = function(){
 					top.postMessage((videoElem.src + ' ' + getComputedStyle(videoElem).height), '*');
-					var buttonElem = document.createElement('button');
-					buttonElem.style = 'position: absolute; top: 0; right: 0; z-index: 1;';
-					buttonElem.innerHTML = 'Fullscreen';
-					buttonElem.onclick = function(){ videoElem.requestFullscreen(); };
-					document.body.appendChild(buttonElem);
 				};
 				videoElem.load();
 			</script>
@@ -438,7 +472,7 @@ function ResizeLayouts () {
 }
 
 $('a[name="goBack"]')[0].onclick = function(){
-	ArgsRewrite({ siteurl: null, postid: null, /*postslug: null*/ });
+	ArgsRewrite({ siteurl: null, postid: null, platform: null, /*postslug: null*/ });
 };
 
 window.onmessage = function(event){
