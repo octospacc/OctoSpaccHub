@@ -309,6 +309,7 @@ async function MbViewerInit () {
 				(XPath support for both XML sources, and JSON sources via defiant.js)
 			<br/> * Only slightly better RSS support
 			<br/> * Initial, experimental support for Mastodon profiles (broken)
+			<br/> * Hotfixed a defiant parsing bug on Firefox
 		</p>`, time: '2024-01-24T01:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.

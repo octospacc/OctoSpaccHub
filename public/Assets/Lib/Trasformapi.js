@@ -31,15 +31,19 @@ Exp.Trasformapi = (transformerXml, initOptions={}) => {
 
 function _TransformForInput (transformerTree, initOptions, entityName, upstreamName, dataIn, transformOptions={}) {
 	const globalSets = { ...initOptions.sets, ...transformOptions.sets };
-	// due to a bug in defiant, we need to prefix something to any key starting with '@'...
+	// due to 2 bugs in defiant, we need to rename json keys
 	// <https://stackoverflow.com/questions/68903102/renaming-object-keys-which-are-nested/68903897#68903897>
 	function JsonObjectKeysFix (obj) {
 		// TODO avoid collisions? (even if they're unlikely with what we're doing)
 		return (obj !== undefined && obj !== null ? Object.fromEntries(Object.entries(obj).map( ([key,value]) => {
-			const newKey = (key.startsWith('@') ? `_${key}` : key);
+			key = key.replaceAll(':', '_'); // avoid "XML Parsing Error: prefix not bound to a namespace" on Firefox
+			if (key.startsWith('@')) {
+				// prefix any key starting with '@' with a character
+				key = `_${key}`
+			};
 			return typeof value == "object"
-				? [newKey, JsonObjectKeysFix(value)]
-				: [newKey, value]
+				? [key, JsonObjectKeysFix(value)]
+				: [key, value]
 		})) : obj);
 	}
 	function MakeApiEntityObject (entityName, upstreamName, dataIn) {
