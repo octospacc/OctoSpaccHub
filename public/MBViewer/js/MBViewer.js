@@ -77,12 +77,15 @@ function MakeSiteRestUrl (path='') {
 			return `https://${proxies[~~(Math.random() * proxies.length)]}/?${siteUrl}/${MbState.platform === 'wordpress.org' ? `wp-json/${path}` : ''}`;
 		} else if (MbState.platform === 'wordpress.com') {
 			return `https://public-api.wordpress.com/rest/v1.1/sites/${GetDomainFromUrl(siteUrl)}/${path}`;
+		} else if (MbState.platform === 'mastodon') {
+			return `${MbState.siteUrl.split('/').slice(0, 3).join('/')}/api/${path || 'v2/instance'}`;
 		}
 	}
 }
 
 function MakeApiEndpoint (type, options={}) {
 	const translations = {
+		"mastodon": {},
 		"wordpress.org": {
 			count: "per_page",
 			orderBy: "orderby",
@@ -100,6 +103,13 @@ function MakeApiEndpoint (type, options={}) {
 	}
 	query = `${options.id || ''}?${query.slice(1)}`;
 	switch (MbState.platform) {
+		case 'mastodon':
+			switch (type) {
+				case 'acct' : query = `v1/accounts/lookup?acct=${options.username}`; break;
+				case 'default':
+				case 'posts': query = `v1/accounts/${MbState.userId}/statuses?exclude_replies=true`; break;
+			}
+		break;
 		case 'wordpress.org': query = `wp/v2/${type}/${query}`; break;
 		case 'wordpress.com': query = `${type}/${query}`;       break;
 	}
@@ -201,7 +211,18 @@ async function MbViewerInit () {
 			MbState.siteData = (["atom", "rss"].includes(MbState.platform)
 				? new DOMParser().parseFromString(await siteRequest.text(), 'text/xml')
 				: await siteRequest.json());
+			if (MbState.platform === 'mastodon') {
+				MbState.siteData = MbApiTransformer('profile', MbState.platform, MbState.siteData);
+				let username = MbState.siteUrl;
+				if (username.endsWith('/')) username = username.slice(0, -1);
+				username = username.split('/').slice(-1)[0];
+				if (username.startsWith('@')) username = username.slice(1);
+				const userRequest = await fetch(MakeSiteRestUrl(MakeApiEndpoint('acct', { username })));
+				const userData = await userRequest.json();
+				MbState.authors[MbState.userId = userData.id] = MbApiTransformer('profile', MbState.platform, userData);
+			}
 		} catch(err) {
+			console.log(err);
 			setTimeout(MbViewerInit, 1000);
 			return;
 		}
@@ -216,6 +237,7 @@ async function MbViewerInit () {
 				TWeb.loadMore($('.js-messages_more_wrap > a[data-after]'), MbState.startingPost);
 				$('section.tgme_channel_history.js-message_history').prepend(MakeMoreWrapperHtml('before'));
 			} catch(err) {
+				console.log(err);
 				setTimeout(MbViewerInit, 1000);
 				return;
 			}
@@ -228,15 +250,16 @@ async function MbViewerInit () {
 		$('.tgme_channel_info_header_username').html(`<a href="${siteLink}">${GetDomainFromUrl(siteLink).toLowerCase()}</a>`);
 		$('a[name="goBack"]')[0].hidden = false;
 	}
-	MbState.siteData.iconUrl = (MbState.siteData.site_icon_url || MbState.siteData.icon?.img || MbState.siteData.icon?.ico);
+	if (["atom", "rss"].includes(MbState.platform)) {
+		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
+		TWeb.loadMore($('.js-messages_more_wrap > a'), MbState.siteData);
+		MbState.siteData = MbApiTransformer('profile', MbState.platform, MbState.siteData.querySelector(':scope > channel'));
+	}
+	MbState.siteData.iconUrl = (MbState.siteData.icon?.url || MbState.siteData.site_icon_url || MbState.siteData.icon?.img || MbState.siteData.icon?.ico);
 	MbState.siteData.acroName ||= (!MbState.siteData.iconUrl ? MbState.siteData.name && MakeAcroName(MbState.siteData.name) : '');
 	MbState.siteData.bgColor = ~~(Math.random() * 7);
 	if (MbState.siteData.iconUrl && !["http", "https"].includes(MbState.siteData.iconUrl.split('://')[0])) {
 		MbState.siteData.iconUrl = `${MbState.siteUrl}${MbState.siteData.iconUrl}`;
-	}
-	if (["atom", "rss"].includes(MbState.platform)) {
-		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
-		TWeb.loadMore($('.js-messages_more_wrap > a'), MbState.siteData);
 	}
 	if (!MbState.siteUrl) {
 		$('a[name="goBack"]')[0].hidden = true;
@@ -281,6 +304,12 @@ async function MbViewerInit () {
 			<br/> * Initial support for handling data via Trasformapi lib
 			<br/> * Initial, experimental support for RSS feeds specifically, via Transformapi (very broken)
 		</p>`, time: '2024-01-23T01:00' }, { content: `<p>
+			New changes:
+			<br/> * Updated Trasformapi.js with misc fixes, query constants, and streamlined/powerful data querying
+				(XPath support for both XML sources, and JSON sources via defiant.js)
+			<br/> * Only slightly better RSS support
+			<br/> * Initial, experimental support for Mastodon profiles (broken)
+		</p>`, time: '2024-01-24T01:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
@@ -288,6 +317,7 @@ async function MbViewerInit () {
 			all rights upon the original materials (which are: everything not strictly related to the "MBViewer" mod) belong to the original owners.
 		</p>` }]);
 	}
+	document.title = `${MbState.siteData.name} — 👁️‍🗨️️ MBViewer`;
 	$('.tgme_page_photo_image').attr('data-content', MbState.siteData.acroName);
 	$('.tgme_header_title, .tgme_channel_info_header_title').html(MbState.siteData.name);
 	$('.tgme_channel_info_description').html(MbState.siteData.description);
@@ -324,7 +354,10 @@ function MakeMoreWrapperHtml (wrapType) {
 async function MakeMbHtml (postData, makeMoreWrap) {
 	postData = (typeof(postData) === 'string' ? JSON.parse(postData) : postData);
 	if (["atom", "rss"].includes(MbState.platform)) {
-		postData = Array.from(postData.querySelectorAll(':scope > channel > item')).reverse();
+		postData = Array.from(postData.querySelectorAll(':scope > channel > item'));
+	}
+	if (["atom", "rss", "mastodon"].includes(MbState.platform)) {
+		postData.reverse();
 	}
 	let html = '';
 	const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteLink);
@@ -343,13 +376,15 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 		const authorLink = (authorData?.link || (siteLink && `${siteLink}/author/${authorData?.name}`));
 		const authorHref = (authorLink ? `href="${authorLink}"` : '');
 		const iconUrl = (Object.values(authorData?.avatar_urls || {}).slice(-1)[0] || authorData?.icon?.url || MbState.siteData.iconUrl);
-		//let attachmentsHtml = '';
-		// TODO change this after fixing Trasformapi
-		//for (const attachment of postData.attachments?.url) {
-		//for (const attachment of postData.attachments) {
-			// TODO more media types
-		//	attachmentsHtml += `<img src="${attachment.url}"/>`;
-		//}
+		let attachmentsHtml = '';
+		for (const attachment of (postData.attachments || postData.quoting?.attachments || [])) {
+			if (attachment) {
+				const mediaKind = attachment.type?.split('/')[0];
+				const elemTag = (mediaKind === 'image' ? 'img' : mediaKind);
+				const elemClosing = (mediaKind === 'image' ? '/>' : `></${elemTag}>`);
+				attachmentsHtml += `<${elemTag} controls="true" src="${attachment.url}" alt="${attachment.description?.replaceAll('&', '&amp;')?.replaceAll('"', '&quot;') || ''}"/>`;
+			}
+		}
 		html += `
 			<div class="tgme_widget_message_wrap js-widget_message_wrap date_visible">
 				<div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="${postData.id || postData.ID}">
@@ -383,8 +418,9 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 						</div>
 						<div class="tgme_widget_message_text js-message_text before_footer" dir="auto">
 							<div class="MbPost">
-								<!--${/*attachmentsHtml*/JSON.stringify(postData.attachments)}-->
-								${ReformatPostHtml(postData.content?.rendered || postData.content)}
+								${attachmentsHtml}
+								${ReformatPostHtml(postData.content)}
+								${postData.quoting ? `[♻️ Reblog]: ${ReformatPostHtml(postData.quoting.content)}` : ''}
 							</div>
 						</div>
 						<div class="tgme_widget_message_footer compact js-message_footer">

@@ -1,5 +1,7 @@
 (function(){
 
+// NOTE: using defiant.js gives us '[undefined]' arrays instead of '[]' ones sometimes, should be fixed
+
 const Exp = {};
 let MakeTreeFromXml;
 
@@ -8,6 +10,7 @@ const platformIsBrowser = (typeof window !== 'undefined' && typeof window.docume
 
 if (platformIsNode && !platformIsBrowser) {
 	MakeTreeFromXml = (xml) => new require('jsdom').JSDOM(xml);
+	// TODO load all other dependencies
 }
 
 if (platformIsBrowser) {
@@ -16,6 +19,10 @@ if (platformIsBrowser) {
 
 Exp.Trasformapi = (transformerXml, initOptions={}) => {
 	var transformerTree = MakeTreeFromXml(transformerXml);
+	initOptions.sets ||= {};
+	for (const attr of transformerTree.querySelector(':scope > set')?.attributes) {
+		initOptions.sets[attr.name] = attr.value;
+	}
 	return {
 		TransformForInput: (entityName, upstreamName, dataIn, transformOptions) => _TransformForInput(transformerTree, initOptions, entityName, upstreamName, dataIn, transformOptions),
 		TransformForOutput: (entityName, upstreamName, dataIn, transformOptions) => _TransformForOutput(transformerTree, initOptions, entityName, upstreamName, dataIn, transformOptions),
@@ -23,51 +30,23 @@ Exp.Trasformapi = (transformerXml, initOptions={}) => {
 }
 
 function _TransformForInput (transformerTree, initOptions, entityName, upstreamName, dataIn, transformOptions={}) {
-	// TODO: restructure prototype
-	// TODO: make the propDataType inside this function, for both main and secondary
-	function temp1 (upstreamName, propName, propType, propDataType, propContent, dataIn, dataOut, propNameSecondary, propTypeSecondary, propDataTypeSecondary) {
-		// const propDataType = 
-		// const propDataTypeSecondary = 
-		const dataKey = propContent.getAttribute('key');
-		//console.log(propName, propType, propDataType, propContent, dataIn, dataOut, propNameSecondary, propTypeSecondary, propDataTypeSecondary)
-		// TODO: inside here somehow happens the array error with prop > content > prop nestings, probably we need to handle secondary and primary types separately
-		const dataAttr = propContent.getAttribute('attr');
-		let dataInContent;
-		if (dataIn instanceof Node) {
-			// TODO: 'document' won't work on nodejs, must change it
-			//const dataNode = document.evaluate(dataKey, dataIn, ((ns) => ns), XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-			//dataInContent = (dataAttr ? dataNode?.getAttribute(dataAttr) : dataNode?.textContent);
-			// TODO: finish this to actually handle arrays properly (even below)
-			const dataNodes = getElementsByXPath(dataKey, dataIn);
-			if (!Array.isArray(propDataTypeSecondary || propDataType) && dataNodes.length > 0) {
-				dataInContent = (dataAttr ? dataNodes[0].getAttribute(dataAttr) : dataNodes[0].textContent);
-			} else {
-				dataInContent = [];
-				for (const dataNode of dataNodes) {
-					// ... TODO push every item //dataInContent = (dataAttr ? dataNode?.getAttribute(dataAttr) : dataNode?.textContent);
-					dataInContent.push(dataAttr ? dataNodes[0].getAttribute(dataAttr) : dataNodes[0].textContent);
-				}
-			}
-		} else {
-			dataInContent = (dataKey ? _.get(dataIn, dataKey) : dataIn);
-		}
-		//const dataInContent = (dataIn instanceof Node
-		//	? (document.evaluate(dataKey, dataIn, (ns) => ns, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue || {}
-		//		)['getAttribute' || 'textContent'](dataAttr)
-		//	: (dataKey ? _.get(dataIn, dataKey) : dataIn));
-		// TODO: make this readable lmao
-		// TODO: make no type mean any/object type and remove the distinction maybe
-		// TODO: readd type casting
-		const result = (["any", "object", "string", "number", "int", "float"].includes(propTypeSecondary || propType)
-			? SetOrPush(dataInContent, (propDataTypeSecondary || propDataType))
-		//	? SetOrPush((["any", "object"].includes(propType)
-		//		? dataInContent
-		//		: { int: parseInt, float: parseFloat, string: String, number: Number }[propType](dataInContent)
-		//	), propDataType)
-			: SetOrPush(MakeApiEntityObject((propTypeSecondary || propType), upstreamName, dataInContent), (propDataTypeSecondary || propDataType)));
-		!propNameSecondary ? (dataOut[propName] = result) : (dataOut[propName][propNameSecondary] = result);
+	const globalSets = { ...initOptions.sets, ...transformOptions.sets };
+	// due to a bug in defiant, we need to prefix something to any key starting with '@'...
+	// <https://stackoverflow.com/questions/68903102/renaming-object-keys-which-are-nested/68903897#68903897>
+	function JsonObjectKeysFix (obj) {
+		// TODO avoid collisions? (even if they're unlikely with what we're doing)
+		return (obj !== undefined && obj !== null ? Object.fromEntries(Object.entries(obj).map( ([key,value]) => {
+			const newKey = (key.startsWith('@') ? `_${key}` : key);
+			return typeof value == "object"
+				? [newKey, JsonObjectKeysFix(value)]
+				: [newKey, value]
+		})) : obj);
 	}
 	function MakeApiEntityObject (entityName, upstreamName, dataIn) {
+		if (!dataIn) {
+			// nothing to do
+			return;
+		};
 		let dataOut = {};
 		const entitySchema = transformerTree.querySelector(`:scope > entity[name="${entityName}"]`);
 		for (const propSchema of entitySchema.querySelectorAll(':scope > prop')) {
@@ -79,41 +58,74 @@ function _TransformForInput (transformerTree, initOptions, entityName, upstreamN
 				// property is not implemented for the current upstream, skip it
 				continue;
 			}
-			const propContentChildren = propContent.querySelectorAll(`:scope > prop`); // TODO
+			const propContentChildren = propContent.querySelectorAll(`:scope > prop`);
 			if (propContentChildren.length === 0) {
-				//const dataKey = propContent.getAttribute('key');
-				//const dataAttr = propContent.getAttribute('attr');
-				//const dataInContent = (dataIn instanceof Node
-				//	// TODO: 'document' won't work on nodejs, must change it
-				//	? (document.evaluate(dataKey, dataIn, (ns) => ns, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue || {}
-				//	)[dataAttr || 'textContent']
-				//	: (dataKey ? _.get(dataIn, dataKey) : dataIn));
-				//dataOut[propName] = (["string", "number", "int", "float"].includes(propType)
-				//	? SetOrPush(dataInContent, propDataType)
-				//	: SetOrPush(MakeApiEntityObject(propType, upstreamName, dataInContent), propDataType));
-				temp1(upstreamName, propName, propType, propDataType, propContent, dataIn, dataOut);
+				const dataKey = SubstituteStringSets(propContent.getAttribute('query'), globalSets);
+				const dataInContent = (dataIn instanceof Node
+					? GetElementsByXPath(dataKey, dataIn)[0]?.textContent
+					: (dataKey ? /*_.get*/defiant.search(dataIn, dataKey)[0] : dataIn)
+				);
+				// I don't know if this is fully correct
+				if (Array.isArray(propDataType) && Array.isArray(dataInContent)) {
+					for (const itemContent of dataInContent) {
+						dataOut[propName] = (["string", "number", "int", "float"].includes(propType)
+							? SetOrPush(itemContent, propDataType)
+							: SetOrPush(MakeApiEntityObject(propType, upstreamName, itemContent), propDataType)
+						);
+					}
+				} else {
+					dataOut[propName] = (["string", "number", "int", "float"].includes(propType)
+						? SetOrPush(dataInContent, propDataType)
+						: SetOrPush(MakeApiEntityObject(propType, upstreamName, dataInContent), propDataType)
+					);
+				}
 			} else {
-				dataOut[propName] = {}; // should this be an array in some cases or not?
-				// TODO: wrap this and the above in a function, to allow for code reuse, right now the else condition does less things than what it should because of the duplication
+				dataOut[propName] = {}; // NOTE: in some cases, this should be an array, I guess, or maybe not?
 				for (const propChildSchema of propContentChildren) {
 					const entityChildSchema = transformerTree.querySelector(`:scope > entity[name="${propType}"]`);
 					const propChildName = propChildSchema.getAttribute('name');
 					const propChildProp = entityChildSchema.querySelector(`:scope > prop[name="${propChildName}"]`);
 					const propChildType = propChildProp.getAttribute('type').split('[]')[0];
 					const propChildDataType = (propChildProp.getAttribute('type').endsWith('[]') ? [] : {}); 
-					//const childDataKey = propChildSchema.getAttribute('key');
-					//const childDataInContent = childDataKey ? _.get(dataIn, childDataKey) : dataIn;
-					//dataOut[propName][propChildName] = (["string", "number", "int", "float"].includes(propChildType)
-					//	? SetOrPush(childDataInContent, propDataType)
-					//	: null); // TODO other recursions? //SetOrPush(MakeApiEntityObject(propType, upstreamName, childDataInContent), childDataInContent));
-					temp1(upstreamName, propName, propType, propDataType, propChildSchema, dataIn, dataOut, propChildName, propChildType, propChildDataType);
+					const childDataKey = SubstituteStringSets(propChildSchema.getAttribute('query'), globalSets);
+					let childDataInContent = [];
+					if (dataIn instanceof Node) {
+						const nodes = GetElementsByXPath(childDataKey, dataIn);
+						if (nodes.length === 1) {
+							childDataInContent = nodes[0]?.textContent
+						} else {
+							for (const node of nodes) {
+								childDataInContent.push(node?.textContent);
+							}
+						}
+					} else {
+						childDataInContent = (childDataKey ? /*_.get*/defiant.search(dataIn, childDataKey)[0] : dataIn);
+					}
+					const childResult = (["string", "number", "int", "float"].includes(propChildType)
+						? childDataInContent
+						: MakeApiEntityObject(propChildType, upstreamName, childDataInContent)
+					);
+					if (Array.isArray(propDataType)) {
+						if (!Array.isArray(dataOut[propName])) {
+							dataOut[propName] = [];
+						}
+						const childItems = SureArray(childResult);
+						for (const childItemIndex in childItems) {
+							const childItem = childItems[childItemIndex];
+							if (!dataOut[propName][childItemIndex]) {
+								dataOut[propName][childItemIndex] = {};
+							}
+							dataOut[propName][childItemIndex][propChildName] = childItem;
+						}
+					} else {
+						dataOut[propName][propChildName] = childResult;
+					}
 				}
 			}
 		}
-		//console.log(dataOut);
 		return dataOut;
 	}
-	return MakeApiEntityObject (entityName, upstreamName, dataIn);
+	return MakeApiEntityObject (entityName, upstreamName, (dataIn instanceof Node ? dataIn : JsonObjectKeysFix(dataIn)));
 }
 
 function _TransformForOutput (transformerTree, initOptions, entityName, upstreamName, dataIn, transformOptions={}) {
@@ -122,7 +134,7 @@ function _TransformForOutput (transformerTree, initOptions, entityName, upstream
 
 // <https://stackoverflow.com/questions/36303869/how-to-use-document-evaluate-and-xpath-to-get-a-list-of-elements/42600459#42600459>
 // TODO: 'document' won't work on nodejs, must change it
-function getElementsByXPath (xpath, parent) {
+function GetElementsByXPath (xpath, parent) {
 	let results = [];
 	let query = document.evaluate(xpath, parent || document, ((ns) => ns), XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
 	for (let i=0, length=query.snapshotLength; i<length; ++i) {
@@ -131,7 +143,16 @@ function getElementsByXPath (xpath, parent) {
 	return results;
 }
 
-const SetOrPush = (item, dest) => Array.isArray(dest) ? [...dest, item] : item;
+const SetOrPush = (item, dest) => (Array.isArray(dest) ? [...dest, item] : item);
+
+const SureArray = (item) => (Array.isArray(item) ? item : [item]);
+
+const SubstituteStringSets = (string, sets) => {
+	for (const set in sets) {
+		string = string?.replaceAll(`{${set}}`, sets[set]);
+	}
+	return string;
+}
 
 if (platformIsNode) module.exports = Exp;
 if (platformIsBrowser) window.Trasformapi = Exp.Trasformapi;
