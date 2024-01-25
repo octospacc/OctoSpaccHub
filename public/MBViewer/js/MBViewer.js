@@ -17,11 +17,13 @@
 // * fix imported SVG buttons not fitting with dark theme
 // * I think we might need to handle acronicized names for users when needed?
 // * show, and/or sort by, posts tags/categories
+// * scroll to post id when loading from dataInject or RSS
+// * fix XML feeds parsing on Firefox
 
 let MbState = {};
 let MbApiTransformer;
 
-function ArgsRewrite (props={}) {
+function ArgsRewrite (props={}, navigate=true) {
 	for (const key in props) {
 		const value = props[key];
 		value ? (MbState.args[key] = value) : (delete MbState.args[key]);
@@ -30,7 +32,10 @@ function ArgsRewrite (props={}) {
 	for (const arg in MbState.args) {
 		hash += `${arg}=${MbState.args[arg]}|`;
 	}
-	location.hash = hash;
+	if (navigate) {
+		location.hash = hash;
+	}
+	return hash
 }
 
 const SureArray = (obj) => (Array.isArray(obj) ? obj : [obj]);
@@ -198,7 +203,72 @@ async function MbViewerInit () {
 	MbState.platform = /*SureArray(*/MbState.args.platform/*)*/;
 	MbState.postId = MbState.args.postid;
 	//MbState.postSlug = MbState.args.postslug;
-	if (MbState.siteUrl) {
+	if (MbState.args.dataurl) {
+		// TODO initially remove built-in site data?
+		MbState.dataInject = {};
+		try {
+			const fileUrlPrefix = (MbState.args.dataurl.split('/').slice(0, -1).join('/') || '.');
+			const dataRequest = await fetch(MbState.args.dataurl);
+			MbState.dataInject = await dataRequest.json();
+			let messagesNew = [];
+			if (MbState.platform === 'telegram.export') {//(["telegram.export", "telegram.json"].includes(MbState.platform)) {
+				MbState.siteData = {
+					name: MbState.dataInject.name,
+					description: `${MbState.dataInject.type} ${MbState.dataInject.id}`,
+					acroName: (!MbState.siteData.iconUrl ? MbState.dataInject.name && MakeAcroName(MbState.dataInject.name) : ''),
+					bgColor: ~~(Math.random() * 7),
+				};
+				const textEncoder = document.createElement('textarea');
+				for (const message of MbState.dataInject.messages) {
+					if (message.type !== 'message') {
+						continue;
+					}
+					messagesNew.push({
+						content: '',
+						quoting: (message.forwarded_from && {
+							author: {
+								name: `Forwarded from ${message.forwarded_from}`,
+							},
+						}),
+						time: message.date,
+						url: `#${ArgsRewrite({ postid: null }, false)}PostId=${message.id}`,
+					});
+					//for (const piece of (Array.isArray(message.text) ? message.text : [message.text])) {
+					//	messagesNew[messagesNew.length - 1].content += (piece.text || piece);
+					//}
+					//const encoder = document.createElement('textarea');
+					//encoder.innerHTML = messagesNew[messagesNew.length - 1].content;
+					//messagesNew[messagesNew.length - 1].content = encoder.innerHTML.replaceAll('\n', '<br/>');
+					for (const entity of message.text_entities) {
+						const entityTag = { bold: "b", italic: "i", link: "a", text_link: "a", pre: "pre", blockquote: "blockquote" }[entity.type];
+						const entityHref = (entityTag === 'a' && (entity.href || entity.text));
+						textEncoder.innerHTML = entity.text;
+						entity.text = textEncoder.innerHTML.replaceAll('\n', '<br/>');
+						messagesNew[messagesNew.length - 1].content += (entityTag
+							? `<${entityTag} ${entityHref ? `href="${entityHref}"` : ''}>${entity.text}</${entityTag}>`
+							: entity.text);
+					}
+					if (messagesNew[messagesNew.length - 1].content) {
+						messagesNew[messagesNew.length - 1].content = `<p>${messagesNew[messagesNew.length - 1].content}</p>`;
+					}
+					if (message.photo) {
+						messagesNew[messagesNew.length - 1].content = `<img src="${fileUrlPrefix}/${message.photo}"/>${messagesNew[messagesNew.length - 1].content}`;
+					} else if (message.file && message.mime_type?.split('/')[0] === 'video') {
+						messagesNew[messagesNew.length - 1].content = `<video controls="true" src="${fileUrlPrefix}/${message.file}"></video>${messagesNew[messagesNew.length - 1].content}`;
+					}
+				}
+			} else {
+				messagesNew = MbApiTransformer('message[]', MbState.platform, MbState.dataInject);
+			}
+			$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
+			TWeb.loadMore($('.js-messages_more_wrap > a'), messagesNew);
+		} catch(err) {
+			console.log(err);
+			setTimeout(MbViewerInit, 1000);
+			return;
+		}
+	}
+	else if (MbState.siteUrl) {
 		if (!MbState.platform) {
 			if (GetDomainFromUrl(MbState.siteUrl).toLowerCase().endsWith('wordpress.com')) {
 				MbState.platform = 'wordpress.com';
@@ -248,6 +318,8 @@ async function MbViewerInit () {
 		$('form.tgme_header_search_form')[0].action = `${siteLink}/?s`;
 		$('form.tgme_header_search_form')[0].onsubmit = null;
 		$('.tgme_channel_info_header_username').html(`<a href="${siteLink}">${GetDomainFromUrl(siteLink).toLowerCase()}</a>`);
+	}
+	if (MbState.siteUrl || MbState.dataInject) {
 		$('a[name="goBack"]')[0].hidden = false;
 	}
 	if (["atom", "rss"].includes(MbState.platform)) {
@@ -261,7 +333,7 @@ async function MbViewerInit () {
 	if (MbState.siteData.iconUrl && !["http", "https"].includes(MbState.siteData.iconUrl.split('://')[0])) {
 		MbState.siteData.iconUrl = `${MbState.siteUrl}${MbState.siteData.iconUrl}`;
 	}
-	if (!MbState.siteUrl) {
+	if (!MbState.siteUrl && !MbState.dataInject) {
 		$('a[name="goBack"]')[0].hidden = true;
 		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
 		TWeb.loadMore($('.js-messages_more_wrap > a'), [{ content: `<p>
@@ -311,6 +383,12 @@ async function MbViewerInit () {
 			<br/> * Initial, experimental support for Mastodon profiles (broken)
 			<br/> * Hotfixed a defiant parsing bug on Firefox
 		</p>`, time: '2024-01-24T01:00' }, { content: `<p>
+			New changes:
+			<br/> * Read Telegram's JSON chat exports (experimental, very slow and resource-heavy)
+			<br/>
+			Regarding Trasformapi, I transformed some of my development tears into words, read here if you're curious:
+			<a href="https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/">https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/</a>.
+		</p>`, time: '2024-01-25T01:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
@@ -364,7 +442,7 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 	const siteLink = (MbState.siteData.url || MbState.siteData.URL || MbState.siteLink);
 	const siteHref = (siteLink ? `href="${siteLink}"` : '');
 	for (postData of (postData.posts ? postData.posts : SureArray(postData))) {
-		if (MbState.platform) {
+		if (MbState.platform && MbState.platform !== 'telegram.export') {
 			postData = MbApiTransformer('message', MbState.platform, postData);
 		}
 		const authorId = (postData.author?.id || postData._links?.author[0]?.href?.split('/')?.slice(-1)[0]);
@@ -373,7 +451,7 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 				? postData.author
 				: await (await fetch(MakeSiteRestUrl(MakeApiEndpoint('users', { id: authorId })))).json());
 		}
-		const authorData = MbState.authors[authorId];
+		const authorData = (MbState.authors[authorId] || postData.author || (postData.quoting?.author && !postData.quoting?.content));
 		const authorLink = (authorData?.link || (siteLink && `${siteLink}/author/${authorData?.name}`));
 		const authorHref = (authorLink ? `href="${authorLink}"` : '');
 		const iconUrl = (Object.values(authorData?.avatar_urls || {}).slice(-1)[0] || authorData?.icon?.url || MbState.siteData.iconUrl);
@@ -410,8 +488,8 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 						<div class="tgme_widget_message_author accent_color">
 							<a class="tgme_widget_message_owner_name" ${authorHref || siteHref}>
 								<span dir="auto">
-									${MbState.authors[authorId]?.name
-										? `${MbState.authors[authorId]?.name} [${MbState.siteData.name}]`
+									${authorData?.name
+										? `${authorData.name} [${MbState.siteData.name}]`
 										: MbState.siteData.name
 									}
 								</span>
@@ -421,7 +499,7 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 							<div class="MbPost">
 								${attachmentsHtml}
 								${ReformatPostHtml(postData.content)}
-								${postData.quoting ? `[♻️ Reblog]: ${ReformatPostHtml(postData.quoting.content)}` : ''}
+								${postData.quoting?.content ? `[♻️ Reblog]: ${ReformatPostHtml(postData.quoting.content)}` : ''}
 							</div>
 						</div>
 						<div class="tgme_widget_message_footer compact js-message_footer">
@@ -458,33 +536,35 @@ function ReformatPostHtml (html) {
 	const content = $(`<div>${html}</div>`);
 	// bypass Altervista's anti-hotlinking protection by hiding our HTTP Referer header
 	// TODO: only do this for altervista sites maybe
-	for (const videoElem of content.find('video').toArray()) {
-		videoElem.preload = 'none';
-		const frameElem = document.createElement('iframe');
-		frameElem.style = 'border: none; width: 100%;';
-		frameElem.allowFullscreen = true;
-		frameElem.src = `data:text/html;utf8,<!DOCTYPE html><body>
-			<style>
-				html, body { margin: 0; overflow: hidden; }
-				video { max-width: 100%; }
-			</style>
-			${encodeURIComponent(videoElem.outerHTML)}
-			<button style="position: absolute; top: 0; right: 0; z-index: 1;">
-				Reload Media
-			</button>
-			<script>
-				var videoElem = document.querySelector('video');
-				var buttonElem = document.querySelector('button');
-				buttonElem.onclick = function(){
+	if (MbState.platform === 'wordpress.org') {
+		for (const videoElem of content.find('video').toArray()) {
+			videoElem.preload = 'none';
+			const frameElem = document.createElement('iframe');
+			frameElem.style = 'border: none; width: 100%;';
+			frameElem.allowFullscreen = true;
+			frameElem.src = `data:text/html;utf8,<!DOCTYPE html><body>
+				<style>
+					html, body { margin: 0; overflow: hidden; }
+					video { max-width: 100%; }
+				</style>
+				${encodeURIComponent(videoElem.outerHTML)}
+				<button style="position: absolute; top: 0; right: 0; z-index: 1;">
+					Reload Media
+				</button>
+				<script>
+					var videoElem = document.querySelector('video');
+					var buttonElem = document.querySelector('button');
+					buttonElem.onclick = function(){
+						videoElem.load();
+					};
+					videoElem.onloadedmetadata = function(){
+						top.postMessage((videoElem.src + ' ' + getComputedStyle(videoElem).height), '*');
+					};
 					videoElem.load();
-				};
-				videoElem.onloadedmetadata = function(){
-					top.postMessage((videoElem.src + ' ' + getComputedStyle(videoElem).height), '*');
-				};
-				videoElem.load();
-			</script>
-		</body>`;
-		videoElem.replaceWith(frameElem);
+				</script>
+			</body>`;
+			videoElem.replaceWith(frameElem);
+		}
 	}
 	return content.html();
 }
@@ -509,7 +589,7 @@ function ResizeLayouts () {
 }
 
 $('a[name="goBack"]')[0].onclick = function(){
-	ArgsRewrite({ siteurl: null, postid: null, platform: null, /*postslug: null*/ });
+	ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, /*postslug: null*/ });
 };
 
 window.onmessage = function(event){
