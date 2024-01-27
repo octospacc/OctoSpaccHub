@@ -7,18 +7,16 @@
 // * in-app search of site content
 // * homepage with history and sponsored sources
 // * don't show redundant day markers
-// * other supported sources
-// ** Markdown WordPress export pages from Git?
-// ** Atom/RSS feeds
-// * app info in page without JS?
-// * fix some messages being skipped when connection errors happen
+// * fetch and compile to show Markdown WordPress export pages from Git?
+// * app info in main page without JS?
+// * fix some messages being skipped when connection errors happen (already done?)
 // * optionally show post titles?
-// * fix unfinished tasks still executing when clicking back
-// * fix imported SVG buttons not fitting with dark theme
+// * fix some unfinished tasks still executing when clicking back
 // * I think we might need to handle acronicized names for users when needed?
 // * show, and/or sort by, posts tags/categories
 // * scroll to post id when loading from dataInject or RSS
 // * fix XML feeds parsing on Firefox
+// * allow for an HTML transformation script to be loaded (JS is unsafe) (how?)
 
 let MbState = {};
 let MbApiTransformer;
@@ -374,7 +372,7 @@ async function MbViewerInit () {
 			So, here are some new changes:
 			<br/> * Fixed video embed fullscreen, and added a reload button in case load fails
 			<br/> * Initial support for handling data via Trasformapi lib
-			<br/> * Initial, experimental support for RSS feeds specifically, via Transformapi (very broken)
+			<br/> * Initial, experimental support for RSS feeds specifically, via Trasformapi (very broken)
 		</p>`, time: '2024-01-23T01:00' }, { content: `<p>
 			New changes:
 			<br/> * Updated Trasformapi.js with misc fixes, query constants, and streamlined/powerful data querying
@@ -389,6 +387,11 @@ async function MbViewerInit () {
 			Regarding Trasformapi, I transformed some of my development tears into words, read here if you're curious:
 			<a href="https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/">https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/</a>.
 		</p>`, time: '2024-01-25T01:00' }, { content: `<p>
+			Some small things:
+			<br/> * Fixed RSS feeds parsing on Firefox (mentioned in the post linked above), by fixing a bug in Trasformapi
+			<br/> * HTML is now sanitized for removal of dangerous tags and attributes before displaying
+			<br/> * Support including user-defined CSS rules from URL (<code>data:</code> supported) via the "<code>includeStyle</code>" argument
+		</p>`, time: '2024-01-27T20:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
@@ -404,6 +407,18 @@ async function MbViewerInit () {
 		$('.tgme_page_photo_image').html(`<img src="${MbState.siteData.iconUrl}"/>`);
 	} else {
 		$('.tgme_page_photo_image').addClass(`bgcolor${MbState.siteData.bgColor}`);
+	}
+	RefreshIncludeStyle();
+}
+
+function RefreshIncludeStyle () {
+	document.querySelector('link[href][rel="stylesheet"]#MbViewerIncludeStyle')?.remove();
+	if (MbState.args.includestyle) {
+		const linkElem = document.createElement('link');
+		linkElem.id = 'MbViewerIncludeStyle';
+		linkElem.rel = 'stylesheet';
+		linkElem.href = MbState.args.includestyle;
+		document.body.appendChild(linkElem);
 	}
 }
 
@@ -533,7 +548,7 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 }
 
 function ReformatPostHtml (html) {
-	const content = $(`<div>${html}</div>`);
+	const content = $(`<div>${cleanHTML(html, false)}</div>`);
 	// bypass Altervista's anti-hotlinking protection by hiding our HTTP Referer header
 	// TODO: only do this for altervista sites maybe
 	if (MbState.platform === 'wordpress.org') {
@@ -589,7 +604,7 @@ function ResizeLayouts () {
 }
 
 $('a[name="goBack"]')[0].onclick = function(){
-	ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, /*postslug: null*/ });
+	ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, includestyle: null /*postslug: null*/ });
 };
 
 window.onmessage = function(event){

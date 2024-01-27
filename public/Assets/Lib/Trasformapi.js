@@ -140,7 +140,7 @@ function _TransformForOutput (transformerTree, initOptions, entityName, upstream
 // TODO: 'document' won't work on nodejs, must change it
 function GetElementsByXPath (xpath, parent) {
 	let results = [];
-	let query = document.evaluate(xpath, parent || document, ((ns) => ns), XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+	let query = (parent?.getRootNode() || document).evaluate(xpath, (parent || document), ((ns) => ns), XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
 	for (let i=0, length=query.snapshotLength; i<length; ++i) {
 		results.push(query.snapshotItem(i));
 	}

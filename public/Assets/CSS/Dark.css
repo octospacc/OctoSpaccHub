@@ -104,6 +104,7 @@ Body {
 	background-attachment: local, local, scroll, scroll;
 	*/
 	Background-Color: RGBA(36, 36, 36, 0.85);
+	Font-Size: Larger;
 }
 .Footer > .FooterRight { Margin-Right: 12px; }
 
