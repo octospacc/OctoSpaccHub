@@ -438,7 +438,7 @@ function RefreshIncludeScript () {
 		frameElement.src = `data:text/html;utf8,
 			<script>
 				function MbViewerReturn (data) {
-					//data.type = 'IncludeScriptResult';
+					/* data.type = 'IncludeScriptResult'; */
 					window.top.postMessage({ MbViewer: data }, '*');
 				}
 			</script>
