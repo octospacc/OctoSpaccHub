@@ -152,6 +152,7 @@ async function MbViewerInit () {
 		lastPostOffsetAfter: 0,
 		lastPostOffsetBefore: 0,
 		lastMustScroll: true,
+		internalIdCount: 0,
 	};
 	$('form.tgme_header_search_form')[0].action = '';
 	$('form.tgme_header_search_form')[0].onsubmit = function(event){
@@ -201,6 +202,8 @@ async function MbViewerInit () {
 	MbState.platform = /*SureArray(*/MbState.args.platform/*)*/;
 	MbState.postId = MbState.args.postid;
 	//MbState.postSlug = MbState.args.postslug;
+	RefreshIncludeStyle();
+	RefreshIncludeScript();
 	if (MbState.args.dataurl) {
 		// TODO initially remove built-in site data?
 		MbState.dataInject = {};
@@ -390,7 +393,12 @@ async function MbViewerInit () {
 			Some small things:
 			<br/> * Fixed RSS feeds parsing on Firefox (mentioned in the post linked above), by fixing a bug in Trasformapi
 			<br/> * HTML is now sanitized for removal of dangerous tags and attributes before displaying
-			<br/> * Support including user-defined CSS rules from URL (<code>data:</code> supported) via the "<code>includeStyle</code>" argument
+			<br/> * Support including user-defined CSS rules from URL (<code>data:</code> supported) via the <code>includeStyle</code> argument
+		</p>`, time: '2024-01-27T20:00' }, { content: `<p>
+			New changes:
+			<br/> * Support including user-defined JS scripts from URL (<code>data:</code> supported) via the <code>includeScript</code> argument. A script must expose a <code>MbViewerFunction(data)</code> function to be invoked by the main application to do useful operations, and then return data by calling the <code>MbViewerReturn(data)</code> API function.
+			<br/>
+			...I will probably need to write actual documentation about this, but for sure I will post about this on <a href="https://octospacc.altervista.org/?p=1416">https://octospacc.altervista.org/?p=1416</a>.
 		</p>`, time: '2024-01-27T20:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
@@ -408,7 +416,6 @@ async function MbViewerInit () {
 	} else {
 		$('.tgme_page_photo_image').addClass(`bgcolor${MbState.siteData.bgColor}`);
 	}
-	RefreshIncludeStyle();
 }
 
 function RefreshIncludeStyle () {
@@ -419,6 +426,31 @@ function RefreshIncludeStyle () {
 		linkElem.rel = 'stylesheet';
 		linkElem.href = MbState.args.includestyle;
 		document.body.appendChild(linkElem);
+	}
+}
+
+function RefreshIncludeScript () {
+	document.querySelector('iframe#MbViewerIncludeScript')?.remove();
+	if (MbState.args.includescript) {
+		const frameElement = document.createElement('iframe');
+		frameElement.id = 'MbViewerIncludeScript';
+		frameElement.sandbox = 'allow-scripts';
+		frameElement.src = `data:text/html;utf8,
+			<script>
+				function MbViewerReturn (data) {
+					//data.type = 'IncludeScriptResult';
+					window.top.postMessage({ MbViewer: data }, '*');
+				}
+			</script>
+			<script src="${MbState.args.includescript}"></script>
+			<script>
+				window.addEventListener('message', function(event){
+					MbViewerFunction(event.data.MbViewer);
+				});
+			</script>
+		`;
+		frameElement.hidden = true;
+		document.body.appendChild(frameElement);
 	}
 }
 
@@ -479,6 +511,12 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 				attachmentsHtml += `<${elemTag} controls="true" src="${attachment.url}" alt="${attachment.description?.replaceAll('&', '&amp;')?.replaceAll('"', '&quot;') || ''}"/>`;
 			}
 		}
+		const postInternalId = MbState.internalIdCount++;
+		const postInnerHtml = `
+			${attachmentsHtml}
+			${ReformatPostHtml(postData.content)}
+			${postData.quoting?.content ? `[♻️ Reblog]: ${ReformatPostHtml(postData.quoting.content)}` : ''}
+		`;
 		html += `
 			<div class="tgme_widget_message_wrap js-widget_message_wrap date_visible">
 				<div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="${postData.id || postData.ID}">
@@ -511,10 +549,8 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 							</a>
 						</div>
 						<div class="tgme_widget_message_text js-message_text before_footer" dir="auto">
-							<div class="MbPost">
-								${attachmentsHtml}
-								${ReformatPostHtml(postData.content)}
-								${postData.quoting?.content ? `[♻️ Reblog]: ${ReformatPostHtml(postData.quoting.content)}` : ''}
+							<div class="MbPost" data-internal-id="${postInternalId}">
+								${postInnerHtml}
 							</div>
 						</div>
 						<div class="tgme_widget_message_footer compact js-message_footer">
@@ -531,6 +567,17 @@ async function MakeMbHtml (postData, makeMoreWrap) {
 				</div>
 			</div>
 		`;
+		if (document.querySelector('iframe#MbViewerIncludeScript')) {
+			function pollPostElement () {
+				const postElement = document.querySelector(`div.tgme_widget_message_text > div.MbPost[data-internal-id="${postInternalId}"]`);
+				if (postElement) {
+					document.querySelector('iframe#MbViewerIncludeScript').contentWindow.postMessage({ MbViewer: { id: postInternalId, html: postInnerHtml } }, '*');
+				} else {
+					setTimeout(pollPostElement, 75);
+				}
+			}
+			pollPostElement();
+		}
 	}
 	if (!html) {
 		// no more messages?
@@ -573,7 +620,7 @@ function ReformatPostHtml (html) {
 						videoElem.load();
 					};
 					videoElem.onloadedmetadata = function(){
-						top.postMessage((videoElem.src + ' ' + getComputedStyle(videoElem).height), '*');
+						window.top.postMessage((videoElem.src + ' ' + getComputedStyle(videoElem).height), '*');
 					};
 					videoElem.load();
 				</script>
@@ -604,13 +651,25 @@ function ResizeLayouts () {
 }
 
 $('a[name="goBack"]')[0].onclick = function(){
-	ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, includestyle: null /*postslug: null*/ });
+	ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, includestyle: null, includescript: null /*postslug: null*/ });
 };
 
-window.onmessage = function(event){
-	const tokens = event.data.split(' ');
-	$(`iframe[src*="${encodeURIComponent(tokens[0])}"]`).height(tokens[1]);
-};
+// TODO: we should check origin
+window.addEventListener('message', function(event){
+	// TODO edit the video embed function to send objects for consistency
+	if (typeof(event.data) === 'string') {
+		const tokens = event.data.split(' ');
+		$(`iframe[src*="${encodeURIComponent(tokens[0])}"]`).height(tokens[1]);
+	}
+	else if (event.data.MbViewer) {
+		const data = event.data.MbViewer;
+		//switch (data.type) {
+		//	case 'IncludeScriptResult':
+		document.querySelector(`div.tgme_widget_message_text > div.MbPost[data-internal-id="${parseInt(data.id)}"]`).innerHTML = cleanHTML(data.html);
+		//	break;
+		//}
+	}
+});
 
 window.addEventListener('resize', ResizeLayouts);
 window.addEventListener('hashchange', MbViewerInit);

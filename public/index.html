@@ -48,7 +48,7 @@
 			<h4><a href="./Ecoji">🦜 Ecoji v1</a> <small>(webapp fork)</small></h4>
 			<h4><a href="./FramesBrowser">🪟️ Frames Browser</a></h4>
 			<h4><a href="./MatrixStickerHelper">🃏️ [Matrix] Sticker Helper</a></h4>
-			<h4><a href="./MBViewer">👁️‍🗨️️ MBViewer</a> <small>(chat-like UI for WordPress & co.)</small></h4>
+			<h4><a href="./MBViewer">👁️‍🗨️️ MBViewer</a> <small>(WordPress/RSS/... chat-like UI)</small></h4>
 			<br/>
 			<h4><a href="https://octospacc.gitlab.io/FumoPrisms">🔺️ Fumo Prisms (!)</a></h4>
 		</div></div>
@@ -80,5 +80,33 @@
 			<a href="https://spacc-inc.github.io">-&gt; Spacc ⛏️</a>
 		</span>
 	</div>
+	<script>(function(){
+		var footerElem = document.querySelector('div.Footer');
+		var footerScrollLast;
+		var footerScrollDir = 1;
+		var footerShouldScroll = true;
+		footerElem.onclick = footerElem.ontouch = footerElem.ontouchstart = footerElem.onmouseover = footerElem.onmouseenter = stopFooterScroll;
+		footerElem.onmouseleave = footerElem.ontouchend = restartFooterScroll;
+		var footerScrollIndex;
+		function serviceFooterScroll() {
+			footerScrollIndex = setInterval(function(){
+				if (footerElem.scrollLeft === footerScrollLast) {
+					footerScrollDir *= -1;
+				}
+				footerScrollLast = footerElem.scrollLeft;
+				footerElem.scrollLeft += footerScrollDir;
+			}, 25);
+		}
+		function restartFooterScroll() {
+			if (!footerScrollIndex) {
+				footerScrollIndex = setTimeout(serviceFooterScroll, 2000);
+			}
+		}
+		function stopFooterScroll() {
+			clearInterval(footerScrollIndex);
+			footerScrollIndex = null;
+		}
+		serviceFooterScroll();
+	})();</script>
 </body>
 </html>

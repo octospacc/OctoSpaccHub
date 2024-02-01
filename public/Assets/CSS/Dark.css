@@ -87,7 +87,7 @@ Body {
 	Padding-Left: 6px;
 	Padding-Right: 6px;
 	Text-Align: Center;
-	Overflow-X: Scroll;
+	Overflow-X: Auto;
 	Overflow-Y: Hidden;
 	White-Space: NoWrap;
 	Z-Index: 1;

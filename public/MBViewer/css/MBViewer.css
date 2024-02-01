@@ -6,11 +6,11 @@ body {
 	overflow-x: hidden;
 }
 
-.MbPost * {
+div.tgme_widget_message_text > div.MbPost * {
 	max-width: 100%;
 	height: auto;
 }
 
-.MbPost figure {
+div.tgme_widget_message_text > div.MbPost figure {
 	margin: 1em;
 }
