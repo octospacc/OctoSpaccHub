@@ -1,0 +1,26 @@
+body {
+	background-color: white;
+	color: black;
+}
+
+div.tgme_background_wrap,
+div.tgme_header_right_column,
+div.tgme_header_search,
+div.tgme_header_info > a[name="goBack"],
+.tgme_widget_message_user_photo
+/*header.tgme_header*/ {
+	display: none;
+}
+
+section.tgme_channel_history.js-message_history {
+	margin: 0;
+}
+
+div.tgme_widget_message_author,
+div.tgme_widget_message_footer,
+div.tgme_widget_message_service_date_wrap,
+div.tgme_widget_message_author a,
+div.tgme_widget_message_footer a {
+	background-color: lightgray;
+	color: black;
+}

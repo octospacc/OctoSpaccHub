@@ -15,8 +15,6 @@
 // * I think we might need to handle acronicized names for users when needed?
 // * show, and/or sort by, posts tags/categories
 // * scroll to post id when loading from dataInject or RSS
-// * fix XML feeds parsing on Firefox
-// * allow for an HTML transformation script to be loaded (JS is unsafe) (how?)
 
 let MbState = {};
 let MbApiTransformer;
@@ -399,7 +397,10 @@ async function MbViewerInit () {
 			<br/> * Support including user-defined JS scripts from URL (<code>data:</code> supported) via the <code>includeScript</code> argument. A script must expose a <code>MbViewerFunction(data)</code> function to be invoked by the main application to do useful operations, and then return data by calling the <code>MbViewerReturn(data)</code> API function.
 			<br/>
 			...I will probably need to write actual documentation about this, but for sure I will post about this on <a href="https://octospacc.altervista.org/?p=1416">https://octospacc.altervista.org/?p=1416</a>.
-		</p>`, time: '2024-01-27T20:00' }, { content: `<p>
+		</p>`, time: '2024-02-01T00:00' }, { content: `<p>
+			Updates:
+			<br/> * Include special CSS for optimized PDF/paper printing
+		</p>`, time: '2024-02-05T11:00' }, { content: `<p>
 			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
