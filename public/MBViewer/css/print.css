@@ -3,6 +3,11 @@ body {
 	color: black;
 }
 
+img {
+	max-width: 100%;
+	height: auto;
+}
+
 div.tgme_background_wrap,
 div.tgme_header_right_column,
 div.tgme_header_search,
@@ -23,4 +28,10 @@ div.tgme_widget_message_author a,
 div.tgme_widget_message_footer a {
 	background-color: lightgray;
 	color: black;
+}
+
+.tgme_page_photo_image,
+.tgme_page_photo_image img {
+	width: 36px;
+	height: 36px;
 }
