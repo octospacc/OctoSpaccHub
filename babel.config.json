@@ -1,0 +1,24 @@
+{
+	"presets": [
+		[
+			"@babel/preset-env",
+			{
+				"targets": {
+					"chrome": "4",
+					"edge": "12",
+					"firefox": "2",
+					"ie": "6",
+					"safari": "3.1"
+				}
+			}
+		]
+	],
+	"ignore": [
+		"./js/jquery.min.js",
+		"./js/jquery-ui.min.js",
+		"./js/tgsticker.js",
+		"./js/tgwallpaper.min.js",
+		"./js/widget-frame.js"
+	]
+
+}

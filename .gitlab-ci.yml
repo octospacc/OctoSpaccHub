@@ -1,9 +1,17 @@
 image: alpine:latest
 
+before_script: |
+  apk update
+  apk add nodejs npm
+
 pages:
   stage: deploy
-  script:
-  - echo 'Nothing to do...'
+  script: |
+    mkdir ./public/WuppiMini
+    cd ./src/WuppiMini
+    npm install
+    node ./index.js html
+    cp ./index.js ./index.html ../../public/WuppiMini/
   artifacts:
     paths:
     - public
