@@ -209,7 +209,7 @@ const genCsrfToken = (accountString, time) => (isEnvServer && time && crypto.scr
 const matchCsrfToken = (bodyParams, accountString) => (isEnvServer ? bodyParams.formToken === genCsrfToken(accountString, bodyParams.formTime) : true);
 
 // try to use the built-in cookie API, fallback to a Storage-based wrapper in case it fails (for example on file:///)
-const clientCookieApi = (isEnvBrowser && (document.cookie || (!document.cookie && (document.cookie = '_=_') && document.cookie) ? document.cookie : (set) => {
+const clientCookieApi = (isEnvBrowser && (document.cookie || (!document.cookie && (document.cookie = '_=_') && document.cookie) ? (set) => (set ? (document.cookie = set) : document.cookie) : (set) => {
 	if (set) {
 		let api = sessionStorage;
 		const tokens = set.split(';');
