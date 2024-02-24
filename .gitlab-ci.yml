@@ -2,7 +2,7 @@ image: alpine:latest
 
 before_script: |
   apk update
-  apk add nodejs npm
+  apk add git nodejs npm
 
 pages:
   stage: deploy
