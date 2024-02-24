@@ -11,7 +11,7 @@ pages:
     cd ./src/WuppiMini
     npm install
     node ./index.js html
-    cp ./index.js ./index.html ../../public/WuppiMini/
+    cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/WuppiMini/
   artifacts:
     paths:
     - public

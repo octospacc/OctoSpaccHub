@@ -1,5 +1,4 @@
-// NodeJS requirements, for server deployment:
-// `npm install mime-types parse-multipart-data`
+// search "Copyright" in this file for licensing info
 
 // configuration
 const appName = 'WuppìMini';
@@ -7,7 +6,7 @@ const serverPort = 8135;
 const detailedLogging = true;
 const serverLanUpstreams = false;
 const serverPlaintextUpstreams = false;
-let resFiles = ['package.json', 'package-lock.json'];
+let resFiles = [ 'package.json', 'package-lock.json' ];
 const appTerms = `
 <p  >(These terms apply to the server-hosted version of the app only.)
 <br/>This service is offered for free, in the hope that it can be useful, but without any warranty.
@@ -18,17 +17,20 @@ const appTerms = `
 <br/>By continuing with the usage of this site, you declare to understand and agree to these terms.
 <br/>If you don't agree with these terms, discontinue usage of this site immediately, and instead <a href="/info#h-floss">get the source code</a> to host it yourself, find another instance, or use the <a href="/info#h-versions">local, client-side version</a>.
 </p>`;
-const suggestedTags = ['fromWuppiMini'];
-const corsProxies = ['corsproxy.io', 'corsproxy.org'];
+const suggestedTags = [ 'fromWuppiMini' ];
+const corsProxies = [ 'corsproxy.io', 'corsproxy.org' ];
 
-let fs, path, mime, multipart, crypto;
-let isEnvServer = (typeof(window) === 'undefined');
-let isEnvBrowser = !isEnvServer;
+const SpaccDotWebServer = require('SpaccDotWeb/SpaccDotWeb.Server.js');
+let crypto;
+let isEnvServer = SpaccDotWebServer.envIsNode;
+let isEnvBrowser = SpaccDotWebServer.envIsBrowser;
 const httpCodes = { success: [200,201] };
 const strings = {
 	csrfErrorHtml: `<p class="notice error">Authorization token mismatch. Please try resubmitting.</p>`,
 	upstreamDisallowedHtml: `<p class="notice error">Upstream destination is not allowed from backend.</p>`,
 };
+
+const appPager = (content, title) => `${title ? `<h2>${title}</h2>` : ''}${content}`;
 
 const newHtmlPage = (content, title) => `<!DOCTYPE html><html><head>
 	<meta charset="utf-8"/>
@@ -85,7 +87,7 @@ div#app {
 	margin-right: auto;
 	padding: 0px 8px;
 }
-div#transitioner {
+div#transition {
 	width: 100vw;
 	height: 100vh;
 	position: absolute;
@@ -108,15 +110,15 @@ p.notice.error {
 	border-color: #de0000;
 }
 	</style>
-</head><body>
-	${isEnvBrowser ? `<div id="transitioner"></div>` : ''}
-	<div id="header">
-		<h1><a href="/">${appName}</a></h1><!--
+</head><body><!--
+	-->${isEnvBrowser ? `<div id="transition"></div>` : ''}<!--
+	--><div id="header"><!--
+		--><h1><a href="/">${appName}</a></h1><!--
 		--><a href="/info">Info</a><!--
-		--><a href="/settings">Settings</a>
-	</div>
-	<div id="app">${content}</div>
-</body></html>`;
+		--><a href="/settings">Settings</a><!--
+	--></div><!--
+	--><div id="app">${appPager(content, title)}</div><!--
+--></body></html>`;
 
 const A = (href) => `<a href="${href}">${href}</a>`
 
@@ -135,62 +137,6 @@ const checkUpstreamAllowed = (url) => {
 	return true;
 }
 
-const redirectTo = (url, res) => {
-	if (isEnvServer) {
-		res.statusCode = 302;
-		res.setHeader('Location', url);
-		res.end();
-	} else if (isEnvBrowser) {
-		location.hash = url;
-	}
-};
-
-const setPageContent = (res, content, title) => {
-	const titleHtml = (title ? `<h2>${title}</h2>` : '');
-	if (isEnvServer) {
-		res.setHeader('Content-Type', 'text/html; charset=utf-8');
-		res.end(newHtmlPage((titleHtml + content), title));
-	} else if (isEnvBrowser) {
-		if (title) {
-			document.title = title;
-		}
-		document.querySelector('div#app').innerHTML = (titleHtml + content);
-		//for (const srcElem of document.querySelectorAll('[src^="/res/"]')) {
-		//	srcElem.src = resFilesData[srcElem.getAttribute('src')];
-		//}
-		//for (const linkElem of document.querySelectorAll('link[rel="stylesheet"][href^="/res/"]')) {
-		//	linkElem.href = resFilesData[linkElem.getAttribute('href')];
-		//}
-		for (const aElem of document.querySelectorAll('a[href^="/"]')) {
-			aElem.href = `#${aElem.getAttribute('href')}`;
-		}
-		for (const formElem of document.querySelectorAll('form')) {
-			const submitElem = formElem.querySelector('input[type="submit"]');
-			formElem.onsubmit = (event) => {
-				event.preventDefault();
-				const formData = (new FormData(formElem));
-				formData.append(submitElem.getAttribute('name'), (submitElem.value || 'Submit'));
-				handleRequest({
-					method: (formElem.getAttribute('method') || 'GET'),
-					url: (formElem.getAttribute('action') || location.hash.slice(1)),// + '?' + (new URLSearchParams(new FormData(formElem))),
-					headers: {
-						"content-type": (formElem.getAttribute('enctype') || "application/x-www-form-urlencoded"),
-					},
-					body: formData,
-					//body: `${(new URLSearchParams(new FormData(formElem))).toString()}&${submitElem.name}=${submitElem.value || 'Submit'}`,
-				})
-			};
-			//submitElem.type = 'button';
-			//submitElem.value = (submitElem.getAttribute('value') || 'Submit');
-			//submitElem.onclick = () => handleRequest({
-			//	method: (formElem.getAttribute('method') || 'GET'),
-			//	url: (formElem.getAttribute('action') || location.hash.slice(1)) + '?' + (new URLSearchParams(new FormData(formElem))),
-			//});
-		}
-		document.querySelector('div#transitioner').style.display = 'none';
-	}
-};
-
 // the below anti-CSRF routines do useful work only on the server, that kind of attack is not possible with the client app
 
 const makeFormCsrf = (accountString) => {
@@ -208,72 +154,10 @@ const genCsrfToken = (accountString, time) => (isEnvServer && time && crypto.scr
 
 const matchCsrfToken = (bodyParams, accountString) => (isEnvServer ? bodyParams.formToken === genCsrfToken(accountString, bodyParams.formTime) : true);
 
-// try to use the built-in cookie API, fallback to a Storage-based wrapper in case it fails (for example on file:///)
-const clientCookieApi = (isEnvBrowser && (document.cookie || (!document.cookie && (document.cookie = '_=_') && document.cookie) ? (set) => (set ? (document.cookie = set) : document.cookie) : (set) => {
-	if (set) {
-		let api = sessionStorage;
-		const tokens = set.split(';');
-		const [key, ...rest] = tokens[0].split('=');
-		for (let token of tokens) {
-			token = token.trim();
-			if (['expires', 'max-age'].includes(token.split('=')[0].toLowerCase())) {
-				api = localStorage;
-				break;
-			}
-		}
-		api.setItem(`${appName}/${key}`, rest.join('='));
-	} else /*(get)*/ {
-		let items = '';
-		for (const item of Object.entries({ ...localStorage, ...sessionStorage })) {
-			items += (item.join('=') + ';').slice(appName.length + 1);
-		}
-		return items.slice(0, -1);
-	}
-}));
-
-const getCookie = (req, keyQuery) => {
-	if (isEnvServer) {
-		if (keyQuery) {
-			// get a specific cookie
-			for (const cookie of (req.headers?.cookie?.split(';') || [])) {
-				const [key, ...rest] = cookie.split('=');
-				if (key === keyQuery) {
-					return rest.join('=');
-				}
-			}
-		} else {
-			// get all cookies
-			return req.headers?.cookie?.join(';');
-		}
-	} else if (isEnvBrowser) {
-		const cookies = clientCookieApi();
-		if (keyQuery) {
-			for (const cookie of cookies.split(';')) {
-				const [key, ...rest] = cookie.split('=');
-				if (key === keyQuery) {
-					return rest.join('=');
-				}
-			}
-		} else {
-			return cookies;
-		}
-	}	
-}
-
-// TODO warn if the browser has cookies disabled when running on server side
-const setCookies = (res, list) => {
-	if (isEnvServer) {
-		res.setHeader('Set-Cookie', list);
-	} else if (isEnvBrowser) {
-		for (const cookie of list) {
-			clientCookieApi(cookie);
-		}
-	}
-}
-
 const corsProxyIfNeed = (need) => (isEnvBrowser /*&& need*/ ? `https://${corsProxies[~~(Math.random() * corsProxies.length)]}?` : '');
 
-const handleRequest = async (req, res={}) => {
+/*const handleRequest = async (req, res={}) => {
+	// TODO warn if the browser has cookies disabled when running on server side
 	// to check if we can save cookies:
 	// first check if any cookie is saved, if it is then we assume to be good
 	// if none is present, redirect to another endpoint that should set a "flag cookie" and redirect to a second one that checks if the flag is present
@@ -283,313 +167,10 @@ const handleRequest = async (req, res={}) => {
 	//if (!getCookie(req)) {
 	//	return redirectTo('/thecookieflagthingy', res);
 	//}
-	if (isEnvBrowser && document.querySelector('div#transitioner')) {
-		document.querySelector('div#transitioner').style.display = 'block';
-	}
-	const section = req.url.split('/')[1].split('?')[0].toLowerCase();
-	const urlParams = new URLSearchParams(req.url.split('?')[1]);
-	const bodyParams = {};
 	if (req.method === 'HEAD') {
 		req.method = 'GET';
-	} else if (req.method === 'POST') {
-		try {
-			if (isEnvServer) {
-				req.body = Buffer.alloc(0);
-				req.on('data', (data) => {
-					req.body = Buffer.concat([req.body, data]);
-					if (req.body.length > 4e6) { // 4 MB upload limit is (fair enough?)
-						req.connection.destroy();
-					}
-				})
-				await new Promise((resolve) => req.on('end', () => resolve()));
-			}
-			const contentMime = req.headers['content-type'].split(';')[0];
-			if (isEnvServer && contentMime === 'application/x-www-form-urlencoded') {
-				for (const [key, value] of (new URLSearchParams(req.body.toString())).entries()) {
-					bodyParams[key] = value;
-				}
-			} else if (isEnvServer && contentMime === 'multipart/form-data') {
-				for (const param of multipart.parse(req.body, req.headers['content-type'].split(';')[1].split('boundary=')[1])) {
-					bodyParams[param.name] = (param.type && param.filename !== undefined ? param : param.data.toString());
-				}
-			} else if (isEnvBrowser && ['application/x-www-form-urlencoded', 'multipart/form-data'].includes(contentMime)) {
-				for (const [key, value] of req.body) {
-					bodyParams[key] = value;
-					bodyParams[key].filename = bodyParams[key].name;
-				}
-			}
-		} catch(err) {
-			console.log(err);
-			req.connection?.destroy();
-		}
-	}
-	if (!section)
-	{
-		if (getCookie(req, 'account')) {
-			return redirectTo('/compose', res);
-		} else {
-			return redirectTo('/info', res);
-		}
-	}
-	else if (section === 'info' && req.method === 'GET')
-	{
-		res.statusCode = 200;
-		return setPageContent(res, `
-			${!getCookie(req, 'account') ? `<p>You must login first. Go to <a href="/settings">Settings</a> to continue.</p>` : ''}
-			<h3>About</h3>
-			<p>
-				${appName} (temporary name?) is a minimalist, basic HTML-based frontend, designed for quickly and efficiently publishing to social media and content management services (note that only WordPress is currently supported).
-				<br/>
-				Mainly aimed at old systems that might not support modern web-apps, the server-hosted version of this application works without any client-side scripts, and should be optionally reachable via unencrypted HTTP.
-				<br/>
-				About practical use cases, you ask? I made this to upload game posts from my 3DS, and possibly microblog with my Kindle! (See an example: <a href="https://octospacc.altervista.org/2024/02/09/test-wuppimini/">this post</a> was published from my n3DS.)
-				<br/><br/>
-				Check out all my other web endeavors at ${A('https://hub.octt.eu.org')}, or join my Matrix space to chat or if you need help: ${A('https://matrix.to/#/#Spacc:matrix.org')}.
-			</p>
-			<h3 id="h-versions">Versions</h3>
-			<p>
-				This app uses a novel approach behind the scenes to be able to run in one of either two modes, while reusing a single codebase: a classical server-side-rendered application, which works well on very limited systems but requires connection with a dedicated backend server that runs it, or a modern client-side single-page-application, relying on many modern web technologies, but working without an hosting server. Occasional bugs or update delays aside, the two essentially have feature parity and the same interface, but can be useful in different situations. Use whatever you prefer in each possible situation.
-			</p>
-			<ul>
-				<li>Server-hosted version: ${A('https://wuppimini.octt.eu.org/')}.</li>
-				<li>Client-side version: ${A('https://hub.octt.eu.org/WuppiMini/')}.</li>
-			</ul>
-			<h3 id="h-floss">Open-Source, Licensing, Disclaimers</h3>
-			<p>
-				Copyright (C) 2024 OctoSpacc
-				<br/>
-				This program is free software: you can redistribute it and/or modify
-				it under the terms of the GNU Affero General Public License as
-				published by the Free Software Foundation, either version 3 of the
-				License, or (at your option) any later version.
-				<br/>
-				This program is distributed in the hope that it will be useful,
-				but WITHOUT ANY WARRANTY; without even the implied warranty of
-				MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-				GNU Affero General Public License for more details.
-				<br/>
-				You should have received a copy of the GNU Affero General Public License
-				along with this program. If not, see ${A('https://www.gnu.org/licenses/')}.
-			</p>
-			<p>
-				${isEnvServer ? `You can obtain the full source code and assets by downloading the following files:
-				${resFiles.map((file) => ` • <a href="/res/${file}">${file}</a>`).join('')}.
-				` : 'To get the original, unminified source code, visit this same page on the server-side version (refer to the Versions section above).'}
-			</p>
-			${isEnvServer ? `<h3>Terms of Use and Privacy Policy</h3>${appTerms}` : ''}
-			<h3>Changelog</h3>
-			<h4>2024-02-12</h3>
-			<ul>
-				<li>First working client-side version of the current app, without backend server (still a bit buggy).</li>
-				<li>Fixed suggested tags handling not working and making the post error out, by instead simply writing them in the post body</li>
-			</ul>
-			<h4>2024-02-10</h4>
-			<ul>
-				<li>Add "remember me" login option.</li>
-				<!--<li>Add "suggested tags" publishing option, will automatically add this list of tags to the post: [${suggestedTags}].</li>-->
-			</ul>
-			<h4>2024-02-09</h4>
-			<ul>
-				<li>First working version, with an UI reminiscent of [that dead social network that rhymes with Meterse], and Info, Settings, and Composition pages!</li>
-				<li>Allow logging in with a WordPress.org profile, and creating new posts, including uploading images.</li>
-				<li>Add licensing and proper source code listing.</li>
-				<li>Tested on New and Old 3DS.</li>
-			</ul>
-		`);
-	}
-	else if (section === 'compose' && ['GET', 'POST'].includes(req.method))
-	{
-		let noticeHtml = '';
-		const accountString = getCookie(req, 'account');
-		if (!accountString) {
-			return redirectTo('/', res);
-		}
-		res.statusCode = 200;
-		if (req.method === 'POST' && bodyParams.publish) {
-			if (!matchCsrfToken(bodyParams, accountString)) {
-				res.statusCode = 401;
-				noticeHtml = strings.csrfErrorHtml;
-			}
-			const isThereAnyFile = ((bodyParams.file?.data?.length || bodyParams.file?.size) > 0);
-			if (!bodyParams.text?.trim() && !isThereAnyFile) {
-				res.statusCode = 500;
-				noticeHtml = `<p class="notice error">Post content is empty. Please write some text or upload a media.</p>`;
-			}
-			const account = accountDataFromString(accountString);
-			if (!checkUpstreamAllowed(account.instance)) {
-				res.statusCode = 500;
-				noticeHtml = strings.upstreamDisallowedHtml;
-			}
-			let mediaData;
-			try {
-				// there is a media to upload first
-				if (httpCodes.success.includes(res.statusCode) && isThereAnyFile) {
-					const mediaReq = await fetch(`${corsProxyIfNeed(account.cors)}${account.instance}/wp-json/wp/v2/media`, { headers: {
-						Authorization: `Basic ${btoa(account.username + ':' + account.password)}`,
-						"Content-Type": bodyParams.file.type,
-						"Content-Disposition": `attachment; filename=${bodyParams.file.filename}`,
-					}, method: "POST", body: (bodyParams.file.data || bodyParams.file) });
-					mediaData = await mediaReq.json();
-					if (!httpCodes.success.includes(mediaReq.status)) {
-						noticeHtml = `<p class="notice error">Upstream server responded with error ${res.statusCode = mediaReq.status}: ${JSON.stringify(mediaData)}</p>`;
-					}
-				}
-				// upload actual post if nothing has errored before
-				if (httpCodes.success.includes(res.statusCode)) {
-					const tagsHtml = (bodyParams.tags === 'on' ? `
-<!-- wp:paragraph -->
-<p> #${suggestedTags.join(' #')} </p>
-<!-- /wp:paragraph -->
-` : '');
-					const figureHtml = `${mediaData?.id && mediaData?.source_url ? `
-<!-- wp:image {"id":${mediaData.id},"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="${mediaData.source_url}" class="wp-image-${mediaData.id}"/></figure>
-<!-- /wp:image -->
-` : ''}`;
-					const postReq = await fetch(`${corsProxyIfNeed(account.cors)}${account.instance}/wp-json/wp/v2/posts`, { headers: {
-						Authorization: `Basic ${btoa(account.username + ':' + account.password)}`,
-						"Content-Type": "application/json",
-					}, method: "POST", body: JSON.stringify({
-						status: "publish",
-						featured_media: mediaData?.id,
-						title: bodyParams.title,
-						content: (bodyParams.html === 'on' ? `${bodyParams.text}${tagsHtml}${figureHtml}` : `
-${bodyParams.text?.trim() ? `
-<!-- wp:paragraph -->
-<p>${bodyParams.text.replaceAll('\r\n', '<br/>')}</p>
-<!-- /wp:paragraph -->
-` : ''}
-${tagsHtml}
-${bodyParams.text?.trim() && mediaData?.id && mediaData?.source_url ? `
-<!-- wp:paragraph -->
-<p></p>
-<!-- /wp:paragraph -->
-` : ''}
-${figureHtml}`.trim()),
-					}) });
-					const postData = await postReq.json();
-					if (httpCodes.success.includes(postReq.status)) {
-						noticeHtml = `<p class="notice success">Post uploaded! ${A(postData.link)}</p>`;
-					} else {
-						noticeHtml = `<p class="notice error">Upstream server responded with error ${res.statusCode = postReq.status}: ${JSON.stringify(postData)}</p>`;
-					}
-				}
-			} catch (err) {
-				console.log(err);
-				res.statusCode = 500;
-				// display only generic error from server-side, for security
-				noticeHtml = `<p class="notice error">${isEnvServer ? 'Some unknown error just happened. Please check that your data is correct, and try again.' : err}</p>`;
-			}
-			// TODO handle media upload success but post fail, either delete the remote media or find a way to reuse it when the user probably retries posting
-		}
-		return setPageContent(res, `${noticeHtml}
-			${makeFragmentLoggedIn(accountString)}
-			<form method="POST" enctype="multipart/form-data">${makeFormCsrf(accountString)}
-				<input type="text" name="title" placeholder="Post Title" value="${bodyParams.title && res.statusCode !== 200 ? bodyParams.title : ''}"/>
-				<input type="file" accept="image/jpeg,image/gif,image/png,image/webp,image/bmp" name="file"/>
-				<textarea name="text" rows="10" placeholder="What's on your mind?">${bodyParams.text && res.statusCode !== 200 ? bodyParams.text : ''}</textarea>
-				<label><input type="checkbox" name="html" ${bodyParams.html === 'on' && res.statusCode !== 200 ? 'checked="true"' : ''}/> Raw HTML mode</label>
-				<label><input type="checkbox" name="tags" ${req.method === 'GET' || (bodyParams.tags === 'on' && res.statusCode !== 200) ? 'checked="true"' : ''}/> Include suggested tags</label>
-				<!--<input type="submit" name="draft" value="Save Draft"/>-->
-				<input type="submit" name="publish" value="Publish!"/>
-			</form>
-		`, 'Compose Post');
-	}
-	else if (section === 'settings' && ['GET', 'POST'].includes(req.method))
-	{
-		let noticeHtml = '';
-		const accountString = getCookie(req, 'account');
-		res.statusCode = 200;
-		if (req.method === 'POST') {
-			if (accountString && !matchCsrfToken(bodyParams, accountString)) {
-				res.statusCode = 401;
-				noticeHtml = strings.csrfErrorHtml;
-			}
-			if (res.statusCode === 200 && bodyParams.login) {
-				bodyParams.instance = bodyParams.instance.trim();
-				if (!checkUpstreamAllowed(bodyParams.instance)) {
-					res.statusCode = 500;
-					noticeHtml = strings.upstreamDisallowedHtml;
-				}
-				try {
-					const upstreamReq = await fetch(`${corsProxyIfNeed(bodyParams.cors === 'on')}${bodyParams.instance}/wp-json/wp/v2/users?context=edit`, { headers: {
-						Authorization: `Basic ${btoa(bodyParams.username + ':' + bodyParams.password)}`,
-					} });
-					const upstreamData = await upstreamReq.json();
-					if (upstreamReq.status === 200) {
-						let cookieFlags = (bodyParams.remember === 'on' ? `; max-age=${365*24*60*60}` : '');
-						setCookies(res, [
-							`account=${bodyParams.instance},${bodyParams.username},${bodyParams.password}${cookieFlags}`
-						]); // TODO: add cookie renewal procedure
-						return redirectTo('/', res);
-					} else {
-						res.statusCode = upstreamReq.status;
-						noticeHtml = `<p class="notice error">Upstream server responded with error ${upstreamReq.status}: ${JSON.stringify(upstreamData)}</p>`;
-					}
-				} catch (err) {
-					console.log(err);
-					res.statusCode = 500;
-					// display only generic error from server-side, for security
-					noticeHtml = `<p class="notice error">${isEnvServer ? 'Some unknown error just happened. Please check that your data is correct, and try again.' : err}</p>`;
-				}
-			} else if (res.statusCode === 200 && bodyParams.logout) {
-				setCookies(res, [`account=`]);
-				return redirectTo('/', res);
-			}
-		}
-		return setPageContent(res, `${noticeHtml}
-			${accountString ? `
-			<h3>Current Account</h3>
-			${makeFragmentLoggedIn(accountString)}
-			<form method="POST">${makeFormCsrf(accountString)}
-				<input type="submit" name="logout" value="Logout"/>
-			</form>
-			` : '<p>You must login first.</p>'}
-			${!accountString ? `<h3><!--Add New Account-->Login</h3>
-			<form method="POST">${makeFormCsrf(accountString)}
-				<select name="backend">
-					<option value="wp.org">
-						WordPress.org (Community/Self-hosted)
-					</option>
-				</select>
-				<label><i>Note: For WordPress.org you must use an "application password" (<code>/wp-admin/profile.php#application-passwords-section</code>)</i></label>
-				<input type="url" name="instance" placeholder="Site/Instance URL" value="${bodyParams.instance || ''}" required="true"/>
-				<input type="text" name="username" placeholder="Username" value="${bodyParams.username || ''}" required="true"/>
-				<input type="password" name="password" placeholder="Password" value="${bodyParams.password || ''}" required="true"/>
-				<!--${isEnvBrowser ? `<label><input type="checkbox" name="cors" ${bodyParams.cors === 'on' && res.statusCode !== 200 ? 'checked="true"' : ''}/> Site disallows CORS, use proxy</label>` : ''}-->
-				<label><input type="checkbox" name="remember" ${req.method === 'POST' && bodyParams.remember !== 'on' ? '' : 'checked="true"'}/> Remember me</label>
-				<input type="submit" name="login" value="Login and Save"/>
-			</form>` : ''}
-			<!--${true ? `
-			<h3>Select and Manage Accounts</h3>
-			<form method="POST">${makeFormCsrf(accountString)}
-				<ul>
-					<li>
-						<input type="submit" name="select" value="username@url"/>
-					</li>
-				</ul>
-			</form>
-			` : ''}-->
-		`, 'Settings');
-	}
-	else if (section === 'res' && req.method === 'GET' && isEnvServer)
-	{
-		// serve static files if it exists and is allowed
-		const resPath = req.url.split('/res/').slice(1).join('/res/');
-		const filePath = (__dirname + path.sep + resPath);
-		if (resFiles.includes(resPath) && fs.existsSync(filePath)) {
-			res.setHeader('Content-Type', mime.lookup(filePath));
-			return res.end(fs.readFileSync(filePath));
-		} else {
-			return setPageContent(res, '', (res.statusCode = 404));
-		}
-	}
-	else
-	{
-		return setPageContent(res, '', (res.statusCode = 404));
-	}
-	return setPageContent(res, '', (res.statusCode = 500));
-};
+	};
+};*/
 
 // todo handle optional options field(s)
 const accountDataFromString = (accountString) => {
@@ -602,31 +183,283 @@ const makeFragmentLoggedIn = (accountString) => {
 	return `<p>Logged in as <i>${accountData.username} @ ${A(accountData.instance)}</i>.</p>`;
 }
 
-if (isEnvServer) {
-	fs = require('fs');
-	path = require('path');
-	mime = require('mime-types');
-	multipart = require('parse-multipart-data');
-	crypto = require("crypto");
-	const scriptName = __filename.split(path.sep).slice(-1)[0];
-	if (process.argv[2] === 'html') {
-		// dump the base html for static usage
-		isEnvBrowser = true;
-		fs.writeFileSync(`${__dirname}${path.sep}${scriptName.split('.').slice(0, -1).join('.')}.html`, newHtmlPage(`
-			<!-- <script> window.resFilesData = { ${resFiles.map((file) => `"${file}": "${''}"`)} }; </script> -->
-			<script src="${scriptName}"></script>
-		`));
-	} else {
-		console.log('Running Server...')
-		resFiles = [scriptName, ...resFiles];
-		require('http').createServer(handleRequest).listen(serverPort, '0.0.0.0');
-	}
-} else if (isEnvBrowser) {
-	location.hash ||= '/';
-	const navigatePage = () => handleRequest({ url: location.hash.slice(1), method: "GET" });
-	window.onhashchange = () => {
-		location.hash ||= '/';
-		navigatePage();
+const main = () => {
+	if (SpaccDotWebServer.envIsNode && process.argv[2] !== 'html') {
+		resFiles = [__filename.split(require('path').sep).slice(-1)[0], ...resFiles];
 	};
-	navigatePage();
-}
+
+	const server = SpaccDotWebServer.setup({
+		appName: appName,
+		staticPrefix: '/res/',
+		staticFiles: resFiles,
+		appPager: appPager,
+		htmlPager: newHtmlPage,
+	});
+
+	if (SpaccDotWebServer.envIsNode && process.argv[2] === 'html') {
+		server.writeStaticHtml();
+	} else {
+		if (SpaccDotWebServer.envIsNode) {
+			crypto = require('crypto');
+			console.log('Running Server...');
+		};
+		server.initServer({
+			port: serverPort,
+			address: '0.0.0.0',
+			maxBodyUploadSize: 4e6, // 4 MB
+			endpoints: [ endpointRoot, endpointInfo, endpointCompose, endpointSettings, endpointCatch ],
+		});
+	};
+};
+
+const endpointRoot = [ (ctx) => (!ctx.urlSections[0]), (ctx) => ctx.redirectTo(ctx.getCookie('account') ? '/compose' : '/info') ];
+
+const endpointCatch = [ (ctx) => true, (ctx) => ctx.renderPage('', (ctx.response.statusCode = 404)) ];
+
+const endpointInfo = [ (ctx) => (ctx.urlSections[0] === 'info' && ctx.request.method === 'GET'), (ctx) => {
+	ctx.response.statusCode = 200;
+	ctx.renderPage(`
+		${!ctx.getCookie('account') ? `<p>You must login first. Go to <a href="/settings">Settings</a> to continue.</p>` : ''}
+		<h3>About</h3>
+		<p>
+			${appName} (temporary name?) is a minimalist, basic HTML-based frontend, designed for quickly and efficiently publishing to social media and content management services (note that only WordPress is currently supported).
+			<br/>
+			Mainly aimed at old systems that might not support modern web-apps, the server-hosted version of this application works without any client-side scripts, and should be optionally reachable via unencrypted HTTP.
+			<br/>
+			About practical use cases, you ask? I made this to upload game posts from my 3DS, and possibly microblog with my Kindle! (See an example: <a href="https://octospacc.altervista.org/2024/02/09/test-wuppimini/">this post</a> was published from my n3DS.)
+			<br/><br/>
+			Check out all my other web endeavors at ${A('https://hub.octt.eu.org')}, or join my Matrix space to chat or if you need help: ${A('https://matrix.to/#/#Spacc:matrix.org')}.
+		</p>
+		<h3 id="h-versions">Versions</h3>
+		<p>
+			This app uses a novel approach behind the scenes to be able to run in one of either two modes, while reusing a single codebase: a classical server-side-rendered application, which works well on very limited systems but requires connection with a dedicated backend server that runs it, or a modern client-side single-page-application, relying on many modern web technologies, but working without an hosting server. Occasional bugs or update delays aside, the two essentially have feature parity and the same interface, but can be useful in different situations. Use whatever you prefer in each possible situation.
+		</p>
+		<ul>
+			<li>Server-hosted version: ${A('https://wuppimini.octt.eu.org/')}.</li>
+			<li>Client-side version: ${A('https://hub.octt.eu.org/WuppiMini/')}.</li>
+		</ul>
+		<h3 id="h-floss">Open-Source, Licensing, Disclaimers</h3>
+		<p>
+			Copyright (C) 2024 OctoSpacc
+			<br/>
+			This program is free software: you can redistribute it and/or modify
+			it under the terms of the GNU Affero General Public License as
+			published by the Free Software Foundation, either version 3 of the
+			License, or (at your option) any later version.
+			<br/>
+			This program is distributed in the hope that it will be useful,
+			but WITHOUT ANY WARRANTY; without even the implied warranty of
+			MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+			GNU Affero General Public License for more details.
+			<br/>
+			You should have received a copy of the GNU Affero General Public License
+			along with this program. If not, see ${A('https://www.gnu.org/licenses/')}.
+		</p>
+		<p>
+			${isEnvServer ? `You can obtain the full source code and assets by downloading the following files:
+			${resFiles.map((file) => ` • <a href="/res/${file}">${file}</a>`).join('')}.
+			` : 'To get the original, unminified source code, visit this same page on the server-side version (refer to the Versions section above).'}
+		</p>
+		${isEnvServer ? `<h3>Terms of Use and Privacy Policy</h3>${appTerms}` : ''}
+		<h3>Changelog</h3>
+		<h4>2024-02-24</h3>
+		<ul>
+			<li>Allow uploading posts as published or draft, via 2 distinct buttons.</li>
+			<li>Migrated fancy portable-server-codebase to <a href="https://gitlab.com/SpaccInc/SpaccDotWeb">SpaccDotWeb</a> for code reuse and slimming down of the application core.</li>
+		</ul>
+		<h4>2024-02-12</h3>
+		<ul>
+			<li>First working client-side version of the current app, without backend server (still a bit buggy).</li>
+			<li>Fixed suggested tags handling not working and making the post error out, by instead simply writing them in the post body</li>
+		</ul>
+		<h4>2024-02-10</h4>
+		<ul>
+			<li>Add "remember me" login option.</li>
+			<li>Add "suggested tags" publishing option, will automatically add this list of tags to the post: [${suggestedTags}].</li>
+		</ul>
+		<h4>2024-02-09</h4>
+		<ul>
+			<li>First working version, with an UI reminiscent of [that dead social network that rhymes with Meterse], and Info, Settings, and Composition pages!</li>
+			<li>Allow logging in with a WordPress.org profile, and creating new posts, including uploading images.</li>
+			<li>Add licensing and proper source code listing.</li>
+			<li>Tested on New and Old 3DS.</li>
+		</ul>
+	`);
+} ];
+
+const endpointCompose = [ (ctx) => (ctx.urlSections[0] === 'compose' && ['GET', 'POST'].includes(ctx.request.method)), async (ctx) => {
+	let noticeHtml = '';
+	const accountString = ctx.getCookie('account');
+	if (!accountString) {
+		return ctx.redirectTo('/');
+	}
+	ctx.response.statusCode = 200;
+	const postUploadStatus = ((ctx.bodyParameters?.publish && 'publish') || (ctx.bodyParameters?.draft && 'draft'));
+	if (ctx.request.method === 'POST' && postUploadStatus) {
+		if (!matchCsrfToken(ctx.bodyParameters, accountString)) {
+			ctx.response.statusCode = 401;
+			noticeHtml = strings.csrfErrorHtml;
+		}
+		const isThereAnyFile = ((ctx.bodyParameters.file?.data?.length || ctx.bodyParameters.file?.size) > 0);
+		if (!ctx.bodyParameters.text?.trim() && !isThereAnyFile) {
+			ctx.response.statusCode = 500;
+			noticeHtml = `<p class="notice error">Post content is empty. Please write some text or upload a media.</p>`;
+		}
+		const account = accountDataFromString(accountString);
+		if (!checkUpstreamAllowed(account.instance)) {
+			ctx.response.statusCode = 500;
+			noticeHtml = strings.upstreamDisallowedHtml;
+		}
+		let mediaData;
+		try {
+			// there is a media to upload first
+			if (httpCodes.success.includes(ctx.response.statusCode) && isThereAnyFile) {
+				const mediaReq = await fetch(`${corsProxyIfNeed(account.cors)}${account.instance}/wp-json/wp/v2/media`, { headers: {
+					Authorization: `Basic ${btoa(account.username + ':' + account.password)}`,
+					"Content-Type": ctx.bodyParameters.file.type,
+					"Content-Disposition": `attachment; filename=${ctx.bodyParameters.file.filename}`,
+				}, method: "POST", body: (ctx.bodyParameters.file.data || ctx.bodyParameters.file) });
+				mediaData = await mediaReq.json();
+				if (!httpCodes.success.includes(mediaReq.status)) {
+					noticeHtml = `<p class="notice error">Upstream server responded with error ${ctx.response.statusCode = mediaReq.status}: ${JSON.stringify(mediaData)}</p>`;
+				}
+			}
+			// upload actual post if nothing has errored before
+			if (httpCodes.success.includes(ctx.response.statusCode)) {
+				const tagsHtml = (ctx.bodyParameters.tags === 'on' ? `
+<!-- wp:paragraph -->
+<p> #${suggestedTags.join(' #')} </p>
+<!-- /wp:paragraph -->
+` : '');
+				const figureHtml = `${mediaData?.id && mediaData?.source_url ? `
+<!-- wp:image {"id":${mediaData.id},"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="${mediaData.source_url}" class="wp-image-${mediaData.id}"/></figure>
+<!-- /wp:image -->
+` : ''}`;
+				const postReq = await fetch(`${corsProxyIfNeed(account.cors)}${account.instance}/wp-json/wp/v2/posts`, { headers: {
+					Authorization: `Basic ${btoa(account.username + ':' + account.password)}`,
+					"Content-Type": "application/json",
+				}, method: "POST", body: JSON.stringify({
+					status: postUploadStatus,
+					featured_media: mediaData?.id,
+					title: ctx.bodyParameters.title,
+					content: (ctx.bodyParameters.html === 'on' ? `${ctx.bodyParameters.text}${tagsHtml}${figureHtml}` : `
+${ctx.bodyParameters.text?.trim() ? `
+<!-- wp:paragraph -->
+<p>${ctx.bodyParameters.text.replaceAll('\r\n', '<br/>')}</p>
+<!-- /wp:paragraph -->
+` : ''}
+${tagsHtml}
+${ctx.bodyParameters.text?.trim() && mediaData?.id && mediaData?.source_url ? `
+<!-- wp:paragraph -->
+<p></p>
+<!-- /wp:paragraph -->
+` : ''}
+${figureHtml}`.trim()),
+				}) });
+				const postData = await postReq.json();
+				if (httpCodes.success.includes(postReq.status)) {
+					noticeHtml = `<p class="notice success">${postUploadStatus === 'publish' ? 'Post published' : ''}${postUploadStatus === 'draft' ? 'Draft uploaded' : ''}! ${A(postData.link)}</p>`;
+				} else {
+					noticeHtml = `<p class="notice error">Upstream server responded with error ${ctx.response.statusCode = postReq.status}: ${JSON.stringify(postData)}</p>`;
+				}
+			}
+		} catch (err) {
+			console.log(err);
+			ctx.response.statusCode = 500;
+			// display only generic error from server-side, for security
+			noticeHtml = `<p class="notice error">${isEnvServer ? 'Some unknown error just happened. Please check that your data is correct, and try again.' : err}</p>`;
+		}
+		// TODO handle media upload success but post fail, either delete the remote media or find a way to reuse it when the user probably retries posting
+	}
+	ctx.renderPage(`${noticeHtml}
+		${makeFragmentLoggedIn(accountString)}
+		<form method="POST" enctype="multipart/form-data">${makeFormCsrf(accountString)}
+			<input type="text" name="title" placeholder="Post Title" value="${ctx.bodyParameters.title && ctx.response.statusCode !== 200 ? ctx.bodyParameters.title : ''}"/>
+			<input type="file" accept="image/jpeg,image/gif,image/png,image/webp,image/bmp" name="file"/>
+			<textarea name="text" rows="10" placeholder="What's on your mind?">${ctx.bodyParameters.text && ctx.response.statusCode !== 200 ? ctx.bodyParameters.text : ''}</textarea>
+			<!-- TODO: fix the turn off-on on submit of these checkboxes... -->
+			<label><input type="checkbox" name="html" ${ctx.bodyParameters.html === 'on' && ctx.response.statusCode !== 200 ? 'checked="true"' : ''}/> Raw HTML mode</label>
+			<label><input type="checkbox" name="tags" ${ctx.request.method === 'GET' || (ctx.bodyParameters.tags === 'on' && ctx.response.statusCode !== 200) ? 'checked="true"' : ''}/> Include suggested tags</label>
+			<input type="submit" name="draft" value="Upload Draft"/>
+			<input type="submit" name="publish" value="Publish!"/>
+		</form>
+	`, 'Compose Post');
+} ];
+
+const endpointSettings = [ (ctx) => (ctx.urlSections[0] === 'settings' && ['GET', 'POST'].includes(ctx.request.method)), async (ctx) => {
+	let noticeHtml = '';
+	const accountString = ctx.getCookie('account');
+	ctx.response.statusCode = 200;
+	if (ctx.request.method === 'POST') {
+		if (accountString && !matchCsrfToken(ctx.bodyParameters, accountString)) {
+			ctx.response.statusCode = 401;
+			noticeHtml = strings.csrfErrorHtml;
+		}
+		if (ctx.response.statusCode === 200 && ctx.bodyParameters.login) {
+			ctx.bodyParameters.instance = ctx.bodyParameters.instance.trim();
+			if (!checkUpstreamAllowed(ctx.bodyParameters.instance)) {
+				ctx.response.statusCode = 500;
+				noticeHtml = strings.upstreamDisallowedHtml;
+			}
+			try {
+				const upstreamReq = await fetch(`${corsProxyIfNeed(ctx.bodyParameters.cors === 'on')}${ctx.bodyParameters.instance}/wp-json/wp/v2/users?context=edit`, { headers: {
+					Authorization: `Basic ${btoa(ctx.bodyParameters.username + ':' + ctx.bodyParameters.password)}`,
+				} });
+				const upstreamData = await upstreamReq.json();
+				if (upstreamReq.status === 200) {
+					let cookieFlags = (ctx.bodyParameters.remember === 'on' ? `; max-age=${365*24*60*60}` : '');
+					ctx.setCookie(`account=${ctx.bodyParameters.instance},${ctx.bodyParameters.username},${ctx.bodyParameters.password}${cookieFlags}`); // TODO: add cookie renewal procedure
+					return ctx.redirectTo('/');
+				} else {
+					ctx.response.statusCode = upstreamReq.status;
+					noticeHtml = `<p class="notice error">Upstream server responded with error ${upstreamReq.status}: ${JSON.stringify(upstreamData)}</p>`;
+				}
+			} catch (err) {
+				console.log(err);
+				ctx.response.statusCode = 500;
+				// display only generic error from server-side, for security
+				noticeHtml = `<p class="notice error">${isEnvServer ? 'Some unknown error just happened. Please check that your data is correct, and try again.' : err}</p>`;
+			}
+		} else if (ctx.response.statusCode === 200 && ctx.bodyParameters.logout) {
+			ctx.setCookie(`account=`);
+			return ctx.redirectTo('/');
+		}
+	}
+	ctx.renderPage(`${noticeHtml}
+		${accountString ? `
+		<h3>Current Account</h3>
+		${makeFragmentLoggedIn(accountString)}
+		<form method="POST">${makeFormCsrf(accountString)}
+			<input type="submit" name="logout" value="Logout"/>
+		</form>
+		` : '<p>You must login first.</p>'}
+		${!accountString ? `<h3><!--Add New Account-->Login</h3>
+		<form method="POST">${makeFormCsrf(accountString)}
+			<select name="backend">
+				<option value="wp.org">
+					WordPress.org (Community/Self-hosted)
+				</option>
+			</select>
+			<label><i>Note: For WordPress.org you must use an "application password" (<code>/wp-admin/profile.php#application-passwords-section</code>)</i></label>
+			<input type="url" name="instance" placeholder="Site/Instance URL" value="${ctx.bodyParameters.instance || ''}" required="true"/>
+			<input type="text" name="username" placeholder="Username" value="${ctx.bodyParameters.username || ''}" required="true"/>
+			<input type="password" name="password" placeholder="Password" value="${ctx.bodyParameters.password || ''}" required="true"/>
+			<!--${isEnvBrowser ? `<label><input type="checkbox" name="cors" ${ctx.bodyParameters.cors === 'on' && ctx.response.statusCode !== 200 ? 'checked="true"' : ''}/> Site disallows CORS, use proxy</label>` : ''}-->
+			<label><input type="checkbox" name="remember" ${ctx.request.method === 'POST' && ctx.bodyParameters.remember !== 'on' ? '' : 'checked="true"'}/> Remember me</label>
+			<input type="submit" name="login" value="Login and Save"/>
+		</form>` : ''}
+		<!--${true ? `
+		<h3>Select and Manage Accounts</h3>
+		<form method="POST">${makeFormCsrf(accountString)}
+			<ul>
+				<li>
+					<input type="submit" name="select" value="username@url"/>
+				</li>
+			</ul>
+		</form>
+		` : ''}-->
+	`, 'Settings');
+} ];
+
+main();
