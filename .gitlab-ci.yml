@@ -9,6 +9,7 @@ pages:
   script: |
     mkdir ./public/WuppiMini
     cd ./src/WuppiMini
+    npm update
     npm install
     node ./index.js html
     cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/WuppiMini/
