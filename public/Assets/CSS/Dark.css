@@ -57,11 +57,16 @@ Body {
 	padding-bottom: 5%;
 }
 
-#Links > Div {
+#Links > Div,
+.BackgroundedBox {
 	Max-Width: Fit-Content;
 	Margin: Auto;
 	Padding: 16px;
 	Background-Color: RGBA(16,16,16,0.85);
+}
+
+.BackgroundedBox > li {
+	margin-left: 8px;
 }
 
 .TopBar {

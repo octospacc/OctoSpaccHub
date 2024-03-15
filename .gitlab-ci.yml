@@ -7,12 +7,16 @@ before_script: |
 pages:
   stage: deploy
   script: |
-    mkdir ./public/WuppiMini
-    cd ./src/WuppiMini
-    npm update
-    npm install
-    node ./index.js html
-    cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/WuppiMini/
+    for App in WuppiMini
+    do
+      mkdir ./public/${App}
+      cd ./src/${App}
+      npm update
+      npm install
+      node ./index.js html
+      cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/${App}/
+      cd ../..
+    done
   artifacts:
     paths:
     - public

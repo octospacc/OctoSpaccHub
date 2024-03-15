@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<title>My Userscripts ⚙️ | OctoSpacc Place</title>
+	<meta property="og:title" content="My Userscripts | OctoSpacc Place"/>
+	<meta property="og:image" content="RichPreview/Userscripts.jpg"/>
+	<meta property="og:url" content="https://hub.octt.eu.org/Userscripts/"/>
+	<link rel="canonical" href="https://hub.octt.eu.org/Userscripts/"/>
+	<meta name="description" content="Organized collection for all my kinds of userscripts!"/>
+	<meta property="og:description" content="Organized collection for all my kinds of userscripts!"/>
+	<link rel="shortcut icon" href="../favicon.png" type="image/x-icon"/>
+	<link href="../Assets/CSS/Dark.css" rel="stylesheet"/>
+	<script src="../Assets/JS/RandomGIF.js"></script>
+</head>
+<body>
+	<div class="Content" style="text-align: center;">
+		<h2>My Userscripts ⚙️</h2><br/>
+		<p style="max-width: 80%; margin: auto;">
+			This page exists so that I can aggregate and organize (some of) my userscripts,
+			mostly made for fixing things that other developers should have fixed instead.
+		</p><p>
+			And it also makes it seem like this website has more content and that I'm girlbossing very hard to improve the web 😇.
+			<br/>
+			<small>(No ok idk why I've written this part tbh, I felt like I had to say something more but I had no proper idea lmaoo)</small>
+		</p><p>
+			Feel free to try, inspect, share, or modify all of them.
+		</p>
+		<br/>
+		<p id="LoadingInfo">Loading data, hang on...</p>
+		<noscript><p>(...if nothing happens please check that JavaScript is working on your browser for this site)</p></noscript>
+		<p>Alternatively, check out (all of) my userscripts on external sites:</p>
+		<ul class="BackgroundedBox">
+			<li><a data-userscripts="greasyfork profile"
+				href="https://greasyfork.org/en/users/1186332-octt">https://greasyfork.org/en/users/1186332-octt</a></li>
+			<li><a href="https://gitlab.com/octospacc/Snippets">https://gitlab.com/octospacc/Snippets</a> (all <code>.user.js</code> files)</li>
+		</ul>
+		<br/><hr/><br/>
+		<div id="ScriptsList">
+			<p id="ScriptsListPrepend"></p>
+			<div id="ScriptsListMain"></div>
+			<p id="ScriptsListAppend"></p>
+		</div>
+	</div>
+	<div class="Footer">
+		<span class="FlexItem FooterLeft">
+			<a href="..">↩️ Go Back Home</a>
+		</span>
+	</div>
+	<script>(async function(){
+		var domParser = new DOMParser();
+		ScriptsListAppend.textContent = '...';
+		for (var refElem of document.querySelectorAll('a[data-userscripts]')) {
+			try {
+				var req = await fetch(refElem.href);
+				var text = await req.text();
+				if (req.status !== 200) {
+					throw text;
+				}
+				var doc = domParser.parseFromString(text, 'text/html');
+				for (var itemElem of doc.querySelectorAll('section#user-script-list-section > ol#user-script-list > li[data-script-id]')) {
+					var linkElem = itemElem.querySelector('article > h2 > a.script-link');
+					var scriptHome = ('https://greasyfork.org' + linkElem.getAttribute('href'));
+					var scriptName = linkElem.textContent;
+					var scriptUpdated = itemElem.querySelector('article > div.script-meta-block > dl.inline-script-stats > dd.script-list-updated-date').textContent;
+					var scriptAbout = itemElem.querySelector('article > h2 > .description').textContent;
+					var scriptLocation = itemElem.dataset.codeUrl;
+					var scriptBox = document.createElement('div');
+					scriptBox.className = 'BackgroundedBox';
+					scriptBox.innerHTML += `
+						<h3>
+							<a href="${scriptHome}">${scriptName}</a>
+							<span><small><small>Updated ${scriptUpdated}</small></small></span>
+							<button onclick="location = '${scriptLocation}';"><big>Install</big></button>
+						</h3>
+						<p><small>${scriptAbout}</small></p>
+					`;
+					populateScriptData(scriptBox);
+					ScriptsListMain.appendChild(scriptBox);
+					ScriptsListMain.appendChild(document.createElement('br'));
+				}
+			} catch (err) {
+				displayError();
+			}
+		}
+		LoadingInfo.textContent = null;
+		ScriptsListAppend.textContent = '';
+		ScriptsListPrepend.innerHTML = '<small>It\'s dangerous to go online alone... take these!<br/>(Note that they are only my top scripts, possibly not 100% of my library!)</small><br/><br/>';
+
+		async function populateScriptData(scriptBox) {
+			var domParser = new DOMParser();
+			try {
+				var req = await fetch(scriptBox.querySelector('a').href);
+				var text = await req.text();
+				if (req.status !== 200) {
+					throw text;
+				}
+				var doc = domParser.parseFromString(text, 'text/html');
+				var scriptName = doc.querySelector('section#script-info > header > h2').textContent;
+				var scriptVersion = doc.querySelector('section#script-info > div#script-content > div.script-meta-block > dl#script-stats > dd.script-show-version').textContent;
+				var scriptUpdated = doc.querySelector('section#script-info > div#script-content > div.script-meta-block > dl#script-stats > dd.script-show-updated-date').textContent;
+				var scriptAbout = doc.querySelector('section#script-info > header > p#script-description').textContent;
+				scriptBox.querySelector('a').textContent = scriptName;
+				scriptBox.querySelector('p').innerHTML = `<small>${scriptAbout}</small>`;
+				scriptBox.querySelector('span').innerHTML = `<small><small>v${scriptVersion}, Updated ${scriptUpdated}</small></small>`;
+				var detailsElem = document.createElement('details');
+				detailsElem.style = 'text-align: initial;';
+				detailsElem.innerHTML = doc.querySelector('section#script-info > div#script-content > div#additional-info').innerHTML;
+				for (var thumbElem of detailsElem.querySelectorAll('div.user-screenshots > a')) {
+					thumbElem.href = ('https://greasyfork.org' + thumbElem.getAttribute('href'));
+				}
+				scriptBox.appendChild(detailsElem);
+			} catch (err) {
+				displayError();
+			}
+		}
+
+		function displayError() {
+			LoadingInfo.textContent = 'An error occured trying to load remote data! Please refresh the page to retry.';
+		}
+	})();</script>
+</body>
+</html>
