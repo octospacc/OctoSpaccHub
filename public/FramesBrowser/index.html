@@ -24,7 +24,6 @@
 			}
 			body {
 				margin: 0px;
-				overflow: hidden;
 				max-width: 100vw;
 				max-height: 100vh;
 			}
@@ -74,9 +73,7 @@
 		</style>
 		<script>
 			var FrameZoomLevels = [50, 200];
-			var AppInfoString = `
-Frames Browser v2023-09-23 (WIP).
-			`.trim();
+			var AppInfoString = `Frames Browser v2024-03-15.`;
 		</script>
 	</head>
 	<body>
@@ -101,11 +98,36 @@ Frames Browser v2023-09-23 (WIP).
 			The code is fully open, and you can review it with "View Page Source".
 		</p></noscript>
 		<div id="BoxHandy"></div>
-		<div><iframe></iframe></div>
+		<div id="MainAppContent">
+			<h1>Frames Browser</h1>
+			<p>Frames Browser is an iFrame-based HTML5 browser made for fun and development. Use the above menu to operate the app.</p>
+			<p>Note: the app is still in development and data handling may break between versions! Backup your data externally to avoid losing it.</p>
+			<!--<p>You can also visit, or go back to, my home page: <a href="https://hub.octt.eu.org">hub.octt.eu.org</a>!</p>-->
+			<h2>Changelog</h2>
+			<h3>2024-03-15</h3><ul>
+				<li>Improve some crusty code.</li>
+				<li>Add this default/sample HTML text into the app, visible via the otherwise useless Root Window.</li>
+				<li>Add symbol for indicating current zoom level on zoom button.</li>
+				<li>Add counter for open frames (goes up to 99 before becoming generic).</li>
+				<li>Better handling of devtools, removed floating button and always use dedicated button.</li>
+			</ul>
+			<h3>2023-09-23 and before</h3><ul>
+				<li>MVP version of the app with finished UI and basic features.</li>
+				<li>Eruda DevTools.</li>
+				<li>In-frame page zoom with 3 levels.</li>
+				<li>Creating, deleting, and switching to different frames, inputting URL.</li>
+				<li>Persistent app state saving frames and their URLs.</li>
+				<li>Excise frame content into another native browser tab (via opening the same URL)</li>
+				<li>Import file into data URI from local file.</li>
+			</ul>
+		</div>
 		<script>
 			var CurrentFrames = [];
 			var FrameIndexes = [-1];
 			var FrameZoomIndex = -1;
+			var SampleHtmlContent = MainAppContent.innerHTML;
+			MainAppContent.innerHTML = '<iframe></iframe>';
+			document.body.style.overflow = 'hidden';
 
 			function $new(tag, props){
 				var el = document.createElement(tag);
@@ -143,31 +165,16 @@ Frames Browser v2023-09-23 (WIP).
 			};
 
 			function ShowFrame(index){
+				var isFrameRoot = (index === -1);
 				ListFramesClose();
 				FrameIndexes = [index];
 				SaveCurrentFrames();
-				document.querySelector('iframe').hidden = false;
-				document.querySelector('iframe').style.display = '';
-				InputUri.disabled = false;
-				InputUri.value = CurrentFrames[index];
-				BtnFile.disabled = false;
-				BtnLoad.disabled = false;
-				BtnExcise.disabled = false;
-				document.querySelector('iframe').src = CurrentFrames[index];
-			};
-
-			function ShowRootFrame(){
-				ListFramesClose();
-				FrameIndexes = [-1];
-				SaveCurrentFrames();
-				document.querySelector('iframe').hidden = true;
-				document.querySelector('iframe').style.display = 'none';
-				InputUri.disabled = true;
-				InputUri.value = '';
-				BtnFile.disabled = true;
-				BtnLoad.disabled = true;
-				BtnExcise.disabled = true;
-				document.querySelector('iframe').src = '';
+				InputUri.disabled = isFrameRoot;
+				InputUri.value = (isFrameRoot ? '' : CurrentFrames[index]);
+				BtnFile.disabled = isFrameRoot;
+				BtnLoad.disabled = isFrameRoot;
+				BtnExcise.disabled = isFrameRoot;
+				document.querySelector('iframe').src = (isFrameRoot ? `data:text/html;utf8,${SampleHtmlContent}` : CurrentFrames[index]);
 			};
 
 			function SaveUrl(){
@@ -180,25 +187,38 @@ Frames Browser v2023-09-23 (WIP).
 
 			function AddFrame(){
 				CurrentFrames = CurrentFrames.concat(['']);
-				ListFrames(); //ListFrames();
+				ListFrames();
 				ShowFrame(CurrentFrames.length - 1);
 				SaveCurrentFrames();
+				RefreshFramesCounter();
 			};
 
 			function CloseFrame(index){
 				CurrentFrames.pop(index);
 				if (FrameIndexes[0] === index) {
-					ShowRootFrame();
+					ShowFrame(-1);//ShowRootFrame();
 				} else if (FrameIndexes[0] > index) {
 					FrameIndexes[0] --;
 				};
 				ListFrames(); ListFrames();
 				SaveCurrentFrames();
+				RefreshFramesCounter();
 			};
 
 			function SaveCurrentFrames(){
 				localStorage.setItem('FramesBrowser.CurrentFrames', JSON.stringify(CurrentFrames));
 				localStorage.setItem('FramesBrowser.FrameIndexes', JSON.stringify(FrameIndexes));
+			};
+
+			function RefreshFramesCounter(){
+				var count = CurrentFrames.length;
+				var countHtml = '';
+				if (count > 99) {
+					countHtml = '(...)';
+				} else if (count > 0) {
+					countHtml = `(${count})`;
+				};
+				document.querySelector('button[onclick="ListFrames()"]').textContent = `🪟${countHtml} Frames`;
 			};
 
 			function LoadFrame(){
@@ -239,6 +259,14 @@ Frames Browser v2023-09-23 (WIP).
 					? ''
 					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - (var(--BtnActionHeight) * ${levelopp / 100})); ${stylepos}`
 				);
+				var zoomButton = document.querySelector('button[onclick="ZoomFrame()"]');
+				if (level < 100) {
+					zoomButton.textContent = '🔍️(-) Zoom';
+				} else if (level > 100) {
+					zoomButton.textContent = '🔍️(+) Zoom';
+				} else {
+					zoomButton.textContent = '🔍️ Zoom';
+				};
 			};
 
 			function ListFrames(){
@@ -250,7 +278,7 @@ Frames Browser v2023-09-23 (WIP).
 					Box.Content.appendChild(BoxList);
 					var LiMain = $new('li');
 					BoxList.appendChild(LiMain);
-					var BtnMain = $new('button', { innerHTML: 'Root Window', onclick: ShowRootFrame, disabled: FrameIndexes[0] === -1 });
+					var BtnMain = $new('button', { innerHTML: 'Root Window', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: FrameIndexes[0] === -1 });
 					LiMain.appendChild(BtnMain);
 					for (var i=0; i<CurrentFrames.length; i++) {
 						var li = $new('li');
@@ -272,15 +300,20 @@ Frames Browser v2023-09-23 (WIP).
 				return exist;
 			};
 
+			var isDevToolsOpen = false;
 			function ToggleDevTools(){
-				//var src = 'https://cdn.jsdelivr.net/npm/eruda';
-				//document.write('<scr' + 'ipt src="' + src + '" onload="eruda.init();"></scr' + 'ipt>');
-				//document.write('<scr' + 'ipt>eruda.init()</scr' + 'ipt>');
-				$request('https://cdn.jsdelivr.net/npm/eruda', { callback: function(text){
-					eval(text);
-					eruda.init();
-				} });
-				document.querySelector('button[onclick="ToggleDevTools()"]').disabled = true;
+				if (typeof(eruda) === 'undefined') {
+					$request('https://cdn.jsdelivr.net/npm/eruda', { callback: function(text){
+						eval(text);
+						eruda.init();
+						eruda._shadowRoot.querySelector('div.eruda-entry-btn').style.display = 'none';
+						eruda.show();
+						isDevToolsOpen = true;
+					} });
+				} else {
+					eruda[isDevToolsOpen ? 'hide' : 'show']();
+					isDevToolsOpen = !isDevToolsOpen;
+				}
 			};
 
 			function NewBoxPopup(id){
@@ -309,13 +342,13 @@ Frames Browser v2023-09-23 (WIP).
 				), '_blank');
 			};
 
-			onload = function(){
+			window.onload = function(){
 				Array.from(document.querySelectorAll('noscript, .NoScript')).forEach(function(el){ el.remove() });
 				CurrentFrames = (JSON.parse(localStorage.getItem('FramesBrowser.CurrentFrames')) || []);
 				FrameIndexes = (JSON.parse(localStorage.getItem('FramesBrowser.FrameIndexes')) || [-1]);
 				document.querySelector('input[type="text"]').value = localStorage.getItem('FramesBrowser.url');
-				var frame0 = FrameIndexes[0];
-				frame0 === -1 ? ShowRootFrame() : ShowFrame(frame0);
+				ShowFrame(FrameIndexes[0]);
+				RefreshFramesCounter();
 			};
 		</script>
 	</body>

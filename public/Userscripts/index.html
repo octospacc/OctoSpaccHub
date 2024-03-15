@@ -17,16 +17,20 @@
 <body>
 	<div class="Content" style="text-align: center;">
 		<h2>My Userscripts ⚙️</h2><br/>
-		<p style="max-width: 80%; margin: auto;">
-			This page exists so that I can aggregate and organize (some of) my userscripts,
-			mostly made for fixing things that other developers should have fixed instead.
-		</p><p>
-			And it also makes it seem like this website has more content and that I'm girlbossing very hard to improve the web 😇.
-			<br/>
-			<small>(No ok idk why I've written this part tbh, I felt like I had to say something more but I had no proper idea lmaoo)</small>
-		</p><p>
-			Feel free to try, inspect, share, or modify all of them.
-		</p>
+		<div style="max-width: 80%; margin: auto;">
+			<p>
+				This page exists so that I can aggregate and organize (some of) my userscripts,
+				mostly made for fixing things that other developers should have fixed instead.
+			</p>
+			<p>
+				And it also makes it seem like this website has more content and that I'm girlbossing very hard to improve the web 😇.
+				<br/>
+				<small>(No ok idk why I've written this part tbh, I felt like I had to say something more but I had no proper idea lmaoo)</small>
+			</p>
+			<p>
+				Feel free to try, inspect, share, or modify all of them.
+			</p>
+		</div>
 		<br/>
 		<p id="LoadingInfo">Loading data, hang on...</p>
 		<noscript><p>(...if nothing happens please check that JavaScript is working on your browser for this site)</p></noscript>
@@ -71,7 +75,7 @@
 					scriptBox.innerHTML += `
 						<h3>
 							<a href="${scriptHome}">${scriptName}</a>
-							<span><small><small>Updated ${scriptUpdated}</small></small></span>
+							<span><small><small><i>Updated ${scriptUpdated}</i></small></small></span>
 							<button onclick="location = '${scriptLocation}';"><big>Install</big></button>
 						</h3>
 						<p><small>${scriptAbout}</small></p>
@@ -103,7 +107,7 @@
 				var scriptAbout = doc.querySelector('section#script-info > header > p#script-description').textContent;
 				scriptBox.querySelector('a').textContent = scriptName;
 				scriptBox.querySelector('p').innerHTML = `<small>${scriptAbout}</small>`;
-				scriptBox.querySelector('span').innerHTML = `<small><small>v${scriptVersion}, Updated ${scriptUpdated}</small></small>`;
+				scriptBox.querySelector('span').innerHTML = `<small><small><i>v${scriptVersion}, Updated ${scriptUpdated}</i></small></small>`;
 				var detailsElem = document.createElement('details');
 				detailsElem.style = 'text-align: initial;';
 				detailsElem.innerHTML = doc.querySelector('section#script-info > div#script-content > div#additional-info').innerHTML;
