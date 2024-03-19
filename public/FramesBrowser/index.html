@@ -1,20 +1,23 @@
 <!DOCTYPE html>
 <!-- TODO:
-* open URL via url hash
-* open app in restricted mode via hash
 * options menu/zone?
+* js/css injection?
+* windowing system
+* reordering tabs
+* automatically add useful meta tags to injected HTML data URIs?
+* investigate bug on Firefox Android with bottom navbar covering part of frame?
 -->
 <html lang="en">
 	<head>
 		<meta charset="utf-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-		<meta property="og:url" content="https://hub.octt.eu.org/FramesBrowser"/>
-		<link rel="canonical" href="https://hub.octt.eu.org/FramesBrowser"/>
+		<meta property="og:url" content="https://hub.octt.eu.org/FramesBrowser/"/>
+		<link rel="canonical" href="https://hub.octt.eu.org/FramesBrowser/"/>
 		<link rel="shortcut icon" type="image/x-icon" href="../favicon.png"/>
 		<link rel="manifest" href="./manifest.json"/>
-		<title>🪟️ Frames Browser (WIP)</title>
+		<title>🪟️ Frames Browser</title>
 		<meta name="description" content="iFrame-based HTML5 Browser for fun and development"/>
-		<meta property="og:title" content="🪟️ Frames Browser (WIP)"/>
+		<meta property="og:title" content="🪟️ Frames Browser"/>
 		<meta property="og:description" content="iFrame-based HTML5 Browser for fun and development"/>
 		<style>
 			:root {
@@ -38,7 +41,6 @@
 			iframe {
 				border: none;
 				width: 100vw;
-				height: calc(100vh - var(--BtnActionHeight));
 				position: relative;
 			}
 			#BoxControls {
@@ -82,6 +84,9 @@
 			.BtnAction {
 				height: var(--BtnActionHeight);
 			}
+			div.padded {
+				padding: 8px;
+			}
 		</style>
 	</head>
 	<body>
@@ -93,29 +98,49 @@
 				<button id="BtnFile" onclick="this.nextElementSibling.click()">📄 File</button>
 				<input type="file" hidden="hidden" style="display: none;" onchange="LoadFile(this.files[0])"/>
 			</td>
-			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
+			<td><button style="min-width: calc(4em + 4px);" onclick="ZoomFrame()">🔍️ Zoom</button></td>
 			<td><button onclick="ToggleFullscreen()">🎞️ Hide</button></td>
-			<td><button onclick="ListFrames()">🪟 Frames</button></td>
+			<td><button style="min-width: calc(4em + 4px);" onclick="ListFrames()">🪟 Tabs</button></td>
 			<td style="width: 100%;"><input id="InputUri" type="text" style="min-width: 100%;" placeholder="🔗️ Enter URI..." onkeydown="InputHandleKey(event)"/></td>
 			<td><button id="BtnLoad" onclick="LoadFrame()">↩️ Load</button></td>
 			<td><button id="BtnExcise" onclick="ExciseFrame()">↗️ Excise</button></td>
 		<tr></table></div>
-		<noscript><p class="NoScript">
+		<div id="BoxHandy"></div>
+		<noscript><div class="NoScript padded"><p>
 			This is an actual app, not a badly-made website.
 			<br>
 			It needs JavaScript to work, so you need to enable it.
 			<br>
 			The code is fully open, and you can review it with "View Page Source".
-		</p></noscript>
-		<div id="BoxHandy"></div>
-		<div id="MainAppContent">
-			<h1>Frames Browser</h1>
+		</p><hr/></div></noscript>
+		<div id="MainAppContent"><div class="padded">
+			<h1>🪟️ Frames Browser</h1>
 			<p>Frames Browser is an iFrame-based HTML5 browser made for fun and development. Use the above menu to operate the app.</p>
-			<p>Note: the app is still in development and data handling may break between versions! Backup your data externally to avoid losing it.</p>
+			<!--<p>Note: the app is still in development and data handling may break between versions! Backup your data externally to avoid losing it.</p>-->
 			<p>You can also visit, or go back to, my home page (OctoSpacc Hub): <a href="https://hub.octt.eu.org">hub.octt.eu.org</a>!</p>
+			<!-- TODO <h2>Open-Source, Licensing, Disclaimers</h2> -->
+			<h2>Usage and Help</h2>
+			<p>
+				This app exists because I needed an efficient interface for visualizing specific websites, HTML data in general,
+				and allow for even novice users to handle data shared this way.
+				<br/>
+				Being itself a webapp, unfortunately it isn't a replacement for any web browser, but that isn't its goal.
+				This is instead made to be as cross-platform, lightweight, flexible and immediate to use as possible.
+				A webpage working with iFrames, that can even function offline, has revealed itself to be the best possible option.
+				<br/>
+				In the past I planned to introduce some fancy features like split tabs, but for now I don't yet know... stay tuned!!
+			</p>
+			<p>Some tips:</p><ul>
+				<li>The above menu bar takes minimal vertical space and as much horizontal space as possible. On smaller displays, items get moved outside the screen and can be reached simply via scrolling.</li>
+				<li>You can open as many new tabs as you want, pointing to whatever URL or uploaded file content, but <a href="https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria#web_storage">keep in mind that your browser may limit the amount of storable data</a>.</li>
+				<li>You can go back to this info page at any moment by clicking "Root Window" in the Tabs menu.</li>
+			</ul>
 			<h2>Changelog</h2>
 			<h3>2024-03-19</h3><ul>
 				<li>Remove info button from toolbar for now.</li>
+				<li>Update info page also adding Usage and Help section with tips.</li>
+				<li>Fixed interference between frame zoom and menu hiding features.</li>
+				<li>Slight improvements to the UI (buttons and margins).</li>
 				<!--<li>Make current tab not persist after reload if changed when opened from hash flags.</li>-->
 			</ul>
 			<h3>2024-03-18</h3><ul>
@@ -151,7 +176,7 @@
 					el.onclick = function(){ top.location = this.href }
 				})
 			</script>
-		</div>
+		</div></div>
 		<script>
 			var AppData, SesAppData, SesAppDataBak;
 			function SaveAppData(){
@@ -159,8 +184,8 @@
 			};
 
 			var FrameZoomLevels = [50, 200];
-			var SampleHtmlContent = MainAppContent.innerHTML;
-			MainAppContent.innerHTML = '<iframe></iframe>';
+			var SampleHtmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body>${MainAppContent.innerHTML}</body></html>`;
+			MainAppContent.innerHTML = '<iframe id="IframeMain"></iframe>';
 			document.body.style.overflow = 'hidden';
 
 			function $new(tag, props){
@@ -226,8 +251,11 @@
 				return url;
 			};
 
-			function PruneUnusedUrls(){
+			function PruneUnusedUrls () {
 				// TODO
+				for (var urlIndex in AppData.urls) {
+					console.log(AppData.tabs.filter(function(item){ return (item.urlIndex === urlIndex) }));
+				}
 			};
 
 			function AddFrame(){
@@ -259,8 +287,12 @@
 				} else if (count > 0) {
 					countHtml = `(${count})`;
 				};
-				document.querySelector('button[onclick="ListFrames()"]').textContent = `🪟${countHtml} Frames`;
+				document.querySelector('button[onclick="ListFrames()"]').textContent = `🪟${countHtml} Tabs`;
 			};
+
+			function GetNeededIframeHeight (hScale=100) {
+				return (SesAppData.fullscreen ? `${hScale}vh` : `calc(${hScale}vh - (var(--BtnActionHeight) * ${hScale / 100}))`);
+			}
 
 			function ApplyFullscreen () {
 				if (SesAppData.fullscreen) {
@@ -270,6 +302,7 @@
 					BoxControls.style.display = '';
 					BtnFullscreen.style.display = 'none';
 				}
+				ApplyFrameZoom();//IframeMain.style.height = GetNeededIframeHeight();
 			}
 
 			function ToggleFullscreen () {
@@ -279,7 +312,10 @@
 			}
 
 			function LoadFrame(){
-				document.querySelector('iframe').src = SaveUrl();
+				var url = document.querySelector('input[type="text"]').value;
+				if (!url.toLowerCase().startsWith('javascript:')) {
+					document.querySelector('iframe').src = SaveUrl();
+				}
 			};
 
 			function ExciseFrame(){
@@ -303,14 +339,32 @@
 			function ApplyFrameZoom () {
 				var level = FrameZoomLevels[SesAppData.frameZoomIndex];
 				var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - SesAppData.frameZoomIndex];
-				var stylepos = (level < 100
-					? `right: ${level}vw; bottom: calc(${level}vh - 16px);`
-					: `left: ${levelopp/2}vw; top: calc(${levelopp/2}vh - 8px);`
-				);
-				document.querySelector('iframe').style = (SesAppData.frameZoomIndex === -1
-					? ''
-					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - (var(--BtnActionHeight) * ${levelopp / 100})); ${stylepos}`
-				);
+				//var stylepos = (level < 100
+				//	? `right: ${level}vw; bottom: calc(${level}vh - 16px);`
+				//	: `left: ${levelopp/2}vw; top: calc(${levelopp/2}vh - 8px);`
+				//);
+				//document.querySelector('iframe').style = (SesAppData.frameZoomIndex === -1
+				//	? ''
+				//	: `${stylepos}
+				//		scale: ${level/100};
+				//		width: ${levelopp}vw;
+				//		height: ${GetNeededIframeHeight(levelopp)};
+				//`);
+				['bottom', 'top', 'left', 'right', 'scale', 'width'].forEach(function(prop){
+					IframeMain.style[prop] = '';
+				});
+				if (level < 100) {
+					IframeMain.style.bottom = `calc(${level}vh - 16px)`;
+					IframeMain.style.right = `${level}vw`;
+				} else {
+					IframeMain.style.top = `calc(${levelopp/2}vh - 8px)`;
+					IframeMain.style.left = `${levelopp/2}vw`;
+				}
+				if (SesAppData.frameZoomIndex !== -1) {
+					IframeMain.style.scale = (level / 100);
+					IframeMain.style.width = `${levelopp}vw`;
+				}
+				IframeMain.style.height = GetNeededIframeHeight(levelopp);
 				var zoomButton = document.querySelector('button[onclick="ZoomFrame()"]');
 				if (level < 100) {
 					zoomButton.textContent = '🔍️(-) Zoom';
@@ -471,7 +525,8 @@
 										var flagStr = hex2bin(opt.slice(2));
 										var flags = {
 											//disallowPrefsOverride: flagStr[0],
-											fullscreen: flagStr[3],
+											//fullscreen: flagStr[3],
+											immersiveView: flagStr[3],
 										};
 										for (var flag in flags) {
 											flags[flag] = !!Number(flags[flag]);
@@ -481,14 +536,13 @@
 										tokens[0] = tokens[0].slice(2);
 										var fieldData = tokens.join('|');
 										var url = ((optLow.startsWith('h=') ? 'data:text/html;utf8,' : '') + fieldData);
-										console.log(url, GetTabUrlFromTabIndex(AppData.currentTabIndex), AppData.currentTabIndex, GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url);
 										if (GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url) {
 											AddFrame();
 											document.querySelector('input[type="text"]').value = url;
 											LoadFrame();
 										}
-										flags.fullscreen && !SesAppData.fullscreen && ToggleFullscreen();
-										!flags.fullscreen && SesAppData.fullscreen && ToggleFullscreen();
+										flags.immersiveView && !SesAppData.fullscreen && ToggleFullscreen();
+										!flags.immersiveView && SesAppData.fullscreen && ToggleFullscreen();
 										break;
 									}
 									tokens = tokens.slice(1);

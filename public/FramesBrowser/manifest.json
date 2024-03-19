@@ -1,9 +1,9 @@
 {
 	"short_name": "Frames Browser",
-	"name": "🪟️ Frames Browser (WIP)",
+	"name": "🪟️ Frames Browser",
 	"description": "iFrame-based HTML5 Browser for fun and development",
-	"start_url": "https://hub.octt.eu.org/FramesBrowser",
-	"scope": "https://hub.octt.eu.org/FramesBrowser",
+	"start_url": "https://hub.octt.eu.org/FramesBrowser/",
+	"scope": "https://hub.octt.eu.org/FramesBrowser/",
 	"display": "standalone",
 	"background_color": "#f0f0f0"
 }
