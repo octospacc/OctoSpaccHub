@@ -17,6 +17,8 @@ pages:
       cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/${App}/
       cd ../..
     done
+    cd ./public
+    node ../WriteRedirectPages.js
   artifacts:
     paths:
     - public

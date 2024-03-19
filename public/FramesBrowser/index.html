@@ -2,10 +2,13 @@
 <!-- TODO:
 * options menu/zone?
 * js/css injection?
+* open file via drag&drop
 * windowing system
 * reordering tabs
 * automatically add useful meta tags to injected HTML data URIs?
+* URL hash parameters documentation and more features, also implement extended syntax mode
 * investigate bug on Firefox Android with bottom navbar covering part of frame?
+* full-screen edit of HTML data URIs? (probably better to not include this and make a dedicated app)
 -->
 <html lang="en">
 	<head>
@@ -74,6 +77,7 @@
 				position: relative;
 				margin-left: auto;
 				margin-right: auto;
+				padding: 8px;
 				width: fit-content;
 				max-height: 80vh;
 				overflow: auto;
@@ -122,18 +126,23 @@
 			<h2>Usage and Help</h2>
 			<p>
 				This app exists because I needed an efficient interface for visualizing specific websites, HTML data in general,
-				and allow for even novice users to handle data shared this way.
+				especially via copypaste of data URIs, and allow for even novice users to handle data shared this way.
 				<br/>
 				Being itself a webapp, unfortunately it isn't a replacement for any web browser, but that isn't its goal.
-				This is instead made to be as cross-platform, lightweight, flexible and immediate to use as possible.
+				This is instead made to be a tool as cross-platform, lightweight, flexible and immediate to use as possible for my scope.
 				A webpage working with iFrames, that can even function offline, has revealed itself to be the best possible option.
 				<br/>
-				In the past I planned to introduce some fancy features like split tabs, but for now I don't yet know... stay tuned!!
+				In the past I planned to introduce some fancy features like split tabs,
+				but for now I don't really know yet... stay tuned!!
+				<br/>
+				You can read the changelog below, or
+				<a href="https://octospacc.altervista.org/?s=%23FramesBrowser">follow occasional project updates and stories on my development blog</a>.
 			</p>
 			<p>Some tips:</p><ul>
 				<li>The above menu bar takes minimal vertical space and as much horizontal space as possible. On smaller displays, items get moved outside the screen and can be reached simply via scrolling.</li>
 				<li>You can open as many new tabs as you want, pointing to whatever URL or uploaded file content, but <a href="https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria#web_storage">keep in mind that your browser may limit the amount of storable data</a>.</li>
-				<li>You can go back to this info page at any moment by clicking "Root Window" in the Tabs menu.</li>
+				<li>You can go back to this info page at any moment by clicking "<code>[ Root Window ]</code>" in the "<code>🪟 Tabs</code>" menu.</li>
+				<li>Clicking "<code>📐️ Tools</code>" will open or close <a href="https://eruda.liriliri.io">the Eruda console</a> as desired. (Note that Eruda is currently only injected in the root window and not inside any iFrame.)</li>
 			</ul>
 			<h2>Changelog</h2>
 			<h3>2024-03-19</h3><ul>
@@ -141,6 +150,7 @@
 				<li>Update info page also adding Usage and Help section with tips.</li>
 				<li>Fixed interference between frame zoom and menu hiding features.</li>
 				<li>Slight improvements to the UI (buttons and margins).</li>
+				<li>Optimize storage by automatically removing a saved URL once no open tab points to it.</li>
 				<!--<li>Make current tab not persist after reload if changed when opened from hash flags.</li>-->
 			</ul>
 			<h3>2024-03-18</h3><ul>
@@ -252,10 +262,20 @@
 			};
 
 			function PruneUnusedUrls () {
-				// TODO
+				var urlsNew = [];
 				for (var urlIndex in AppData.urls) {
-					console.log(AppData.tabs.filter(function(item){ return (item.urlIndex === urlIndex) }));
+					if (AppData.tabs.filter(function(tab){
+						var usesUrl = (tab.urlIndex === Number(urlIndex));
+						if (usesUrl) {
+							tab.urlIndex = urlsNew.length;
+						}
+						return usesUrl;
+					}).length > 0) {
+						urlsNew.push(AppData.urls[urlIndex]);
+					}
 				}
+				AppData.urls = urlsNew;
+				SaveAppData();
 			};
 
 			function AddFrame(){
@@ -302,7 +322,7 @@
 					BoxControls.style.display = '';
 					BtnFullscreen.style.display = 'none';
 				}
-				ApplyFrameZoom();//IframeMain.style.height = GetNeededIframeHeight();
+				ApplyFrameZoom();
 			}
 
 			function ToggleFullscreen () {
@@ -339,17 +359,6 @@
 			function ApplyFrameZoom () {
 				var level = FrameZoomLevels[SesAppData.frameZoomIndex];
 				var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - SesAppData.frameZoomIndex];
-				//var stylepos = (level < 100
-				//	? `right: ${level}vw; bottom: calc(${level}vh - 16px);`
-				//	: `left: ${levelopp/2}vw; top: calc(${levelopp/2}vh - 8px);`
-				//);
-				//document.querySelector('iframe').style = (SesAppData.frameZoomIndex === -1
-				//	? ''
-				//	: `${stylepos}
-				//		scale: ${level/100};
-				//		width: ${levelopp}vw;
-				//		height: ${GetNeededIframeHeight(levelopp)};
-				//`);
 				['bottom', 'top', 'left', 'right', 'scale', 'width'].forEach(function(prop){
 					IframeMain.style[prop] = '';
 				});
@@ -390,11 +399,11 @@
 					var Box = NewBoxPopup('BoxFramesList');
 					var BtnAdd = $new('button', { className: 'BtnAction', innerHTML: '➕ Add', onclick: AddFrame });
 					Box.Content.appendChild(BtnAdd);
-					var BoxList = $new('ul');
+					var BoxList = $new('ul', { style: 'text-align: initial;' });
 					Box.Content.appendChild(BoxList);
 					var LiMain = $new('li');
 					BoxList.appendChild(LiMain);
-					var BtnMain = $new('button', { innerHTML: 'Root Window', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: AppData.currentTabIndex === -1 });
+					var BtnMain = $new('button', { innerHTML: '[ Root Window ]', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: AppData.currentTabIndex === -1 });
 					LiMain.appendChild(BtnMain);
 					for (var i=0; i<AppData.tabs.length; i++) {
 						var li = $new('li');
@@ -402,7 +411,7 @@
 						BoxList.appendChild(li);
 						var open = $new('button', { innerHTML: `&nbsp;${(GetTabUrlFromTabIndex(i) || '').slice(0, 16)}&nbsp;`, onclick: function(){ShowFrame(this.parentElement.ItemIndex)}, disabled: AppData.currentTabIndex === i });
 						li.append(open);
-						var close = $new('button', { innerHTML: '✖️', onclick: function(){CloseFrame(this.parentElement.ItemIndex)} });
+						var close = $new('button', { innerHTML: '✖️', style: 'float: right;', onclick: function(){CloseFrame(this.parentElement.ItemIndex)} });
 						li.append(close);
 					};
 				};
