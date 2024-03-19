@@ -83,15 +83,11 @@
 				height: var(--BtnActionHeight);
 			}
 		</style>
-		<script>
-			var FrameZoomLevels = [50, 200];
-			var AppInfoString = `Frames Browser v2024-03-15.`;
-		</script>
 	</head>
 	<body>
 		<button id="BtnFullscreen" onclick="ToggleFullscreen()">🎞️ Menu</button>
 		<div id="BoxControls"><table><tr>
-			<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>
+			<!--<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>-->
 			<td><button onclick="ToggleDevTools()">📐️ Tools</button></td>
 			<td>
 				<button id="BtnFile" onclick="this.nextElementSibling.click()">📄 File</button>
@@ -118,9 +114,13 @@
 			<p>Note: the app is still in development and data handling may break between versions! Backup your data externally to avoid losing it.</p>
 			<p>You can also visit, or go back to, my home page (OctoSpacc Hub): <a href="https://hub.octt.eu.org">hub.octt.eu.org</a>!</p>
 			<h2>Changelog</h2>
+			<h3>2024-03-19</h3><ul>
+				<li>Remove info button from toolbar for now.</li>
+				<!--<li>Make current tab not persist after reload if changed when opened from hash flags.</li>-->
+			</ul>
 			<h3>2024-03-18</h3><ul>
 				<li>First implementation of handling of URL hash parameters (reduced or "quick" format).</li>
-				<li>Open a <a href="https://hub.octt.eu.org/FramesBrowser/#_0|u=https://example.com">specific URI</a> or <a href="https://hub.octt.eu.org/FramesBrowser/#_0|h=<h2>Hello World!</h2>">raw HTML data</a> via URL hash (click the links to try!).</li>
+				<li>Open a <a href="https://hub.octt.eu.org/FramesBrowser/#_1|u=https://example.com">specific URI</a> or <a href="https://hub.octt.eu.org/FramesBrowser/#_1|h=<h2>Hello World!</h2>">raw HTML data</a> via URL hash (click the links to try!).</li>
 				<li>Add "fullscreen" (hide the main app bar) option to GUI (persistent) and quick URL hash flags.</li>
 				<li>Fixed some issues with handling UTF8 data URIs.</li>
 				<li>Make frame zoom option persistent.</li>
@@ -158,6 +158,7 @@
 				localStorage.setItem('org.eu.octt.FramesBrowser.v1', JSON.stringify({ ...AppData, ...(SesAppData.optionsFromUrl ? SesAppDataBak : SesAppData) }));
 			};
 
+			var FrameZoomLevels = [50, 200];
 			var SampleHtmlContent = MainAppContent.innerHTML;
 			MainAppContent.innerHTML = '<iframe></iframe>';
 			document.body.style.overflow = 'hidden';
@@ -184,10 +185,6 @@
 				};
 				req.open(opts.method, url, true);
 				req.send();
-			};
-
-			function ShowAppInfo(){
-				alert(AppInfoString);
 			};
 
 			function InputHandleKey(ev){
@@ -440,9 +437,9 @@
 				Array.from(document.querySelectorAll('noscript, .NoScript')).forEach(function(el){ el.remove() });
 				AppData = (JSON.parse(localStorage.getItem('org.eu.octt.FramesBrowser.v1')) || {});
 				SesAppData = {
+					optionsFromUrl: (AppData.optionsFromUrl || false),
 					fullscreen: (AppData.fullscreen || false),
 					frameZoomIndex: (isNaN(parseInt(AppData.frameZoomIndex)) ? -1 : AppData.frameZoomIndex),
-					optionsFromUrl: (AppData.optionsFromUrl || false),
 				};
 				SesAppDataBak = structuredClone(SesAppData);
 				AppData = {
@@ -484,6 +481,7 @@
 										tokens[0] = tokens[0].slice(2);
 										var fieldData = tokens.join('|');
 										var url = ((optLow.startsWith('h=') ? 'data:text/html;utf8,' : '') + fieldData);
+										console.log(url, GetTabUrlFromTabIndex(AppData.currentTabIndex), AppData.currentTabIndex, GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url);
 										if (GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url) {
 											AddFrame();
 											document.querySelector('input[type="text"]').value = url;
