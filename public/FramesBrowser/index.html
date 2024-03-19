@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!-- TODO:
+* open URL via url hash
+* open app in restricted mode via hash
+* options menu/zone?
+-->
 <html lang="en">
 	<head>
 		<meta charset="utf-8"/>
@@ -46,6 +51,13 @@
 				padding-bottom: 0;
 				border-spacing: 0;
 			}
+			#BtnFullscreen {
+				position: absolute;
+				top: 0;
+				right: 0;
+				z-index: 1;
+				margin: 8px;
+			}
 			.BoxPopup {
 				left: 0;
 				right: 0;
@@ -77,6 +89,7 @@
 		</script>
 	</head>
 	<body>
+		<button id="BtnFullscreen" onclick="ToggleFullscreen()">🎞️ Menu</button>
 		<div id="BoxControls"><table><tr>
 			<td><button onclick="ShowAppInfo()">ℹ️ Info</button></td>
 			<td><button onclick="ToggleDevTools()">📐️ Tools</button></td>
@@ -85,6 +98,7 @@
 				<input type="file" hidden="hidden" style="display: none;" onchange="LoadFile(this.files[0])"/>
 			</td>
 			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
+			<td><button onclick="ToggleFullscreen()">🎞️ Hide</button></td>
 			<td><button onclick="ListFrames()">🪟 Frames</button></td>
 			<td style="width: 100%;"><input id="InputUri" type="text" style="min-width: 100%;" placeholder="🔗️ Enter URI..." onkeydown="InputHandleKey(event)"/></td>
 			<td><button id="BtnLoad" onclick="LoadFrame()">↩️ Load</button></td>
@@ -102,8 +116,20 @@
 			<h1>Frames Browser</h1>
 			<p>Frames Browser is an iFrame-based HTML5 browser made for fun and development. Use the above menu to operate the app.</p>
 			<p>Note: the app is still in development and data handling may break between versions! Backup your data externally to avoid losing it.</p>
-			<!--<p>You can also visit, or go back to, my home page: <a href="https://hub.octt.eu.org">hub.octt.eu.org</a>!</p>-->
+			<p>You can also visit, or go back to, my home page (OctoSpacc Hub): <a href="https://hub.octt.eu.org">hub.octt.eu.org</a>!</p>
 			<h2>Changelog</h2>
+			<h3>2024-03-18</h3><ul>
+				<li>First implementation of handling of URL hash parameters (reduced or "quick" format).</li>
+				<li>Open a <a href="https://hub.octt.eu.org/FramesBrowser/#_0|u=https://example.com">specific URI</a> or <a href="https://hub.octt.eu.org/FramesBrowser/#_0|h=<h2>Hello World!</h2>">raw HTML data</a> via URL hash (click the links to try!).</li>
+				<li>Add "fullscreen" (hide the main app bar) option to GUI (persistent) and quick URL hash flags.</li>
+				<li>Fixed some issues with handling UTF8 data URIs.</li>
+				<li>Make frame zoom option persistent.</li>
+			</ul>
+			<h3>2024-03-17</h3><ul>
+				<li>Improve internal app state data handling (breaking previous version).</li>
+				<li>Add data dump and reset options appearing on boot to users with pre-update database.</li>
+				<li>Add link back to my hub in this README.</li>
+			</ul>
 			<h3>2024-03-15</h3><ul>
 				<li>Improve some crusty code.</li>
 				<li>Add this default/sample HTML text into the app, visible via the otherwise useless Root Window.</li>
@@ -120,11 +146,18 @@
 				<li>Excise frame content into another native browser tab (via opening the same URL)</li>
 				<li>Import file into data URI from local file.</li>
 			</ul>
+			<script>
+				Array.from(document.querySelectorAll('a[href]')).forEach(function(el){
+					el.onclick = function(){ top.location = this.href }
+				})
+			</script>
 		</div>
 		<script>
-			var CurrentFrames = [];
-			var FrameIndexes = [-1];
-			var FrameZoomIndex = -1;
+			var AppData, SesAppData, SesAppDataBak;
+			function SaveAppData(){
+				localStorage.setItem('org.eu.octt.FramesBrowser.v1', JSON.stringify({ ...AppData, ...(SesAppData.optionsFromUrl ? SesAppDataBak : SesAppData) }));
+			};
+
 			var SampleHtmlContent = MainAppContent.innerHTML;
 			MainAppContent.innerHTML = '<iframe></iframe>';
 			document.body.style.overflow = 'hidden';
@@ -164,54 +197,65 @@
 				};
 			};
 
+			function GetTabUrlFromTabIndex (index) {
+				return (index === -1 ? null : AppData.urls[AppData.tabs[index].urlIndex]);
+			};
+
 			function ShowFrame(index){
 				var isFrameRoot = (index === -1);
+				var url = (GetTabUrlFromTabIndex(index) || '');
 				ListFramesClose();
-				FrameIndexes = [index];
-				SaveCurrentFrames();
+				AppData.currentTabIndex = index;
+				SaveAppData();
 				InputUri.disabled = isFrameRoot;
-				InputUri.value = (isFrameRoot ? '' : CurrentFrames[index]);
+				InputUri.value = url;
 				BtnFile.disabled = isFrameRoot;
 				BtnLoad.disabled = isFrameRoot;
 				BtnExcise.disabled = isFrameRoot;
-				document.querySelector('iframe').src = (isFrameRoot ? `data:text/html;utf8,${SampleHtmlContent}` : CurrentFrames[index]);
+				document.querySelector('iframe').src = (isFrameRoot ? `data:text/html;utf8,${encodeURIComponent(SampleHtmlContent)}` : url);
 			};
 
 			function SaveUrl(){
 				var url = document.querySelector('input[type="text"]').value;
-				localStorage.setItem('FramesBrowser.url', url);
-				CurrentFrames[FrameIndexes[0]] = url;
-				SaveCurrentFrames();
+				var urlIndex = AppData.urls.indexOf(url);
+				if (urlIndex === -1) {
+					// it's a new url, store it
+					AppData.urls.push(url);
+					urlIndex = (AppData.urls.length - 1);
+				}
+				AppData.tabs[AppData.currentTabIndex].urlIndex = urlIndex;
+				PruneUnusedUrls();
+				SaveAppData();
 				return url;
 			};
 
+			function PruneUnusedUrls(){
+				// TODO
+			};
+
 			function AddFrame(){
-				CurrentFrames = CurrentFrames.concat(['']);
+				AppData.tabs = AppData.tabs.concat([{}]);
 				ListFrames();
-				ShowFrame(CurrentFrames.length - 1);
-				SaveCurrentFrames();
+				ShowFrame(AppData.tabs.length - 1);
+				SaveAppData();
 				RefreshFramesCounter();
 			};
 
 			function CloseFrame(index){
-				CurrentFrames.pop(index);
-				if (FrameIndexes[0] === index) {
-					ShowFrame(-1);//ShowRootFrame();
-				} else if (FrameIndexes[0] > index) {
-					FrameIndexes[0] --;
+				AppData.tabs.splice(index, 1);
+				PruneUnusedUrls();
+				if (AppData.currentTabIndex === index) {
+					ShowFrame(-1);
+				} else if (AppData.currentTabIndex > index) {
+					AppData.currentTabIndex--;
 				};
 				ListFrames(); ListFrames();
-				SaveCurrentFrames();
+				SaveAppData();
 				RefreshFramesCounter();
 			};
 
-			function SaveCurrentFrames(){
-				localStorage.setItem('FramesBrowser.CurrentFrames', JSON.stringify(CurrentFrames));
-				localStorage.setItem('FramesBrowser.FrameIndexes', JSON.stringify(FrameIndexes));
-			};
-
 			function RefreshFramesCounter(){
-				var count = CurrentFrames.length;
+				var count = AppData.tabs.length;
 				var countHtml = '';
 				if (count > 99) {
 					countHtml = '(...)';
@@ -220,6 +264,22 @@
 				};
 				document.querySelector('button[onclick="ListFrames()"]').textContent = `🪟${countHtml} Frames`;
 			};
+
+			function ApplyFullscreen () {
+				if (SesAppData.fullscreen) {
+					BoxControls.style.display = 'none';
+					BtnFullscreen.style.display = '';
+				} else {
+					BoxControls.style.display = '';
+					BtnFullscreen.style.display = 'none';
+				}
+			}
+
+			function ToggleFullscreen () {
+				SesAppData.fullscreen = !SesAppData.fullscreen;
+				ApplyFullscreen();
+				SaveAppData();
+			}
 
 			function LoadFrame(){
 				document.querySelector('iframe').src = SaveUrl();
@@ -243,19 +303,14 @@
 				reader.readAsDataURL(file);
 			};
 
-			function ZoomFrame(){
-				if (FrameZoomIndex === FrameZoomLevels.length - 1) {
-					FrameZoomIndex = -1;
-				} else {
-					FrameZoomIndex ++;
-				};
-				var level = FrameZoomLevels[FrameZoomIndex];
-				var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - FrameZoomIndex];
+			function ApplyFrameZoom () {
+				var level = FrameZoomLevels[SesAppData.frameZoomIndex];
+				var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - SesAppData.frameZoomIndex];
 				var stylepos = (level < 100
 					? `right: ${level}vw; bottom: calc(${level}vh - 16px);`
 					: `left: ${levelopp/2}vw; top: calc(${levelopp/2}vh - 8px);`
 				);
-				document.querySelector('iframe').style = (FrameZoomIndex === -1
+				document.querySelector('iframe').style = (SesAppData.frameZoomIndex === -1
 					? ''
 					: `scale: ${level/100}; width: ${levelopp}vw; height: calc(${levelopp}vh - (var(--BtnActionHeight) * ${levelopp / 100})); ${stylepos}`
 				);
@@ -267,6 +322,16 @@
 				} else {
 					zoomButton.textContent = '🔍️ Zoom';
 				};
+			}
+
+			function ZoomFrame(){
+				if (SesAppData.frameZoomIndex === FrameZoomLevels.length - 1) {
+					SesAppData.frameZoomIndex = -1;
+				} else {
+					SesAppData.frameZoomIndex ++;
+				};
+				ApplyFrameZoom();
+				SaveAppData();
 			};
 
 			function ListFrames(){
@@ -278,13 +343,13 @@
 					Box.Content.appendChild(BoxList);
 					var LiMain = $new('li');
 					BoxList.appendChild(LiMain);
-					var BtnMain = $new('button', { innerHTML: 'Root Window', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: FrameIndexes[0] === -1 });
+					var BtnMain = $new('button', { innerHTML: 'Root Window', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: AppData.currentTabIndex === -1 });
 					LiMain.appendChild(BtnMain);
-					for (var i=0; i<CurrentFrames.length; i++) {
+					for (var i=0; i<AppData.tabs.length; i++) {
 						var li = $new('li');
 						li.ItemIndex = i;
 						BoxList.appendChild(li);
-						var open = $new('button', { innerHTML: `&nbsp;${CurrentFrames[i].slice(0, 16)}&nbsp;`, onclick: function(){ShowFrame(this.parentElement.ItemIndex)}, disabled: FrameIndexes[0] === i });
+						var open = $new('button', { innerHTML: `&nbsp;${(GetTabUrlFromTabIndex(i) || '').slice(0, 16)}&nbsp;`, onclick: function(){ShowFrame(this.parentElement.ItemIndex)}, disabled: AppData.currentTabIndex === i });
 						li.append(open);
 						var close = $new('button', { innerHTML: '✖️', onclick: function(){CloseFrame(this.parentElement.ItemIndex)} });
 						li.append(close);
@@ -326,12 +391,14 @@
 				return { Container: Container, Content: Content };
 			};
 
-			window.opendatauri = function opendatauri(data){
+			function opendatauri (data) {
 				var head = data.split(',')[0].split('data:')[1];
 				var [mime, encoding] = head.split(';');
 				data = data.split(',').slice(1).join(',');
 				if (encoding.toLowerCase() === 'base64') {
 					data = atob(data);
+				} else if (encoding.toLowerCase() === 'utf8') {
+					data = decodeURIComponent(data);
 				};
 				var bytes = new Array(data.length);
 				for (var i = 0; i < data.length; i++) {
@@ -342,13 +409,96 @@
 				), '_blank');
 			};
 
+			// https://stackoverflow.com/questions/45053624/convert-hex-to-binary-in-javascript/45054052#45054052
+			function hex2bin (hex) {
+				return (parseInt(hex, 16).toString(2)).padStart((hex.length * 4), '0');
+			}
+
+			function AlertMigrateAppData(){
+				var stored = Object.keys(localStorage);
+				if (stored.includes('FramesBrowser.CurrentFrames') || stored.includes('FramesBrowser.FrameIndexes') || stored.includes('FramesBrowser.url')) {
+					var overlay = document.createElement('div');
+					overlay.style = 'position: absolute; width: 100vw; height: 100vh; top: 0; background: white; color: black;';
+					overlay.innerHTML = `<p>The app handling of data has changed in the last update. Please copy and backup externally all the data you need and reset the app to continue using it.</p>
+					<button>Reset</button>
+					<p>Your open URLs:</p><ul>${JSON.parse(localStorage.getItem('FramesBrowser.CurrentFrames'))?.map(function(item){
+						return `<li>${item.replaceAll('<','&lt;').replaceAll('>','&gt;')}</li>`;
+					}).join('') || '<p>[nothing previously saved]</p>'}</ul>`;
+					overlay.querySelector('button').onclick = function(){
+						['CurrentFrames','FrameIndexes','url'].forEach(function(key){
+							localStorage.removeItem(`FramesBrowser.${key}`);
+						});
+						location.reload();
+					};
+					document.body.appendChild(overlay);
+				}
+			};
+
+			window.onhashchange = function(){ location.reload() };
+
 			window.onload = function(){
 				Array.from(document.querySelectorAll('noscript, .NoScript')).forEach(function(el){ el.remove() });
-				CurrentFrames = (JSON.parse(localStorage.getItem('FramesBrowser.CurrentFrames')) || []);
-				FrameIndexes = (JSON.parse(localStorage.getItem('FramesBrowser.FrameIndexes')) || [-1]);
-				document.querySelector('input[type="text"]').value = localStorage.getItem('FramesBrowser.url');
-				ShowFrame(FrameIndexes[0]);
+				AppData = (JSON.parse(localStorage.getItem('org.eu.octt.FramesBrowser.v1')) || {});
+				SesAppData = {
+					fullscreen: (AppData.fullscreen || false),
+					frameZoomIndex: (isNaN(parseInt(AppData.frameZoomIndex)) ? -1 : AppData.frameZoomIndex),
+					optionsFromUrl: (AppData.optionsFromUrl || false),
+				};
+				SesAppDataBak = structuredClone(SesAppData);
+				AppData = {
+					tabs: (AppData.tabs || []),
+					urls: (AppData.urls || []),
+					currentTabIndex: (isNaN(parseInt(AppData.currentTabIndex)) ? -1 : AppData.currentTabIndex),
+				};
+				AlertMigrateAppData();
+				SaveAppData();
+				document.querySelector('input[type="text"]').value = GetTabUrlFromTabIndex(AppData.currentTabIndex);
+				ApplyFullscreen();
+				ApplyFrameZoom();
+				ShowFrame(AppData.currentTabIndex);
 				RefreshFramesCounter();
+				if (location.hash) {
+					var tokens = location.hash.slice(1).split('|');
+					if (tokens[0].startsWith('_')) {
+						// leading underscore indicates a restricted quick query, succeding charaters are identifiers for versioning
+						var paramsVersion = tokens[0].slice(1);
+						var flags = {};
+						SesAppData.optionsFromUrl = true;
+						tokens = tokens.slice(1);
+						switch (paramsVersion) {
+							case '1':
+								while (tokens.length > 0) {
+									var opt = tokens[0];
+									var optLow = opt.toLowerCase();
+									if (optLow.startsWith('f=')) {
+										var flagStr = hex2bin(opt.slice(2));
+										var flags = {
+											//disallowPrefsOverride: flagStr[0],
+											fullscreen: flagStr[3],
+										};
+										for (var flag in flags) {
+											flags[flag] = !!Number(flags[flag]);
+										}
+									} else if (optLow.startsWith('u=') || optLow.startsWith('h=')) {
+										// load data URI, or HTML content
+										tokens[0] = tokens[0].slice(2);
+										var fieldData = tokens.join('|');
+										var url = ((optLow.startsWith('h=') ? 'data:text/html;utf8,' : '') + fieldData);
+										if (GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url) {
+											AddFrame();
+											document.querySelector('input[type="text"]').value = url;
+											LoadFrame();
+										}
+										flags.fullscreen && !SesAppData.fullscreen && ToggleFullscreen();
+										!flags.fullscreen && SesAppData.fullscreen && ToggleFullscreen();
+										break;
+									}
+									tokens = tokens.slice(1);
+								}
+							break;
+						}
+					}
+				}
 			};
 		</script>
 	</body>
