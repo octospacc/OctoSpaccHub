@@ -1,7 +1,7 @@
 const fs = require('fs');
 for (const page of [
-	{ path: "a/fb", target: "'../../FramesBrowser/'+location.hash"           }, // Apps/FramesBrowser
-	{ path: "s/dh", target: "'../../FramesBrowser/#_1|f=1|h='+location.hash" }, // Services/DataHTML
+	{ path: "a/fb", target: "'../../FramesBrowser/'+location.hash"                    }, // Apps/FramesBrowser
+	{ path: "s/dh", target: "'../../FramesBrowser/#_1|f=1|h='+location.hash.slice(1)" }, // Services/DataHTML
 ]) {
 	const dirPath = `./${page.path}`;
 	if (!fs.existsSync(dirPath)){
