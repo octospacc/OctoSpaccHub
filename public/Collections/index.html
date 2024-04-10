@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<title>My Collections | OctoSpacc Place</title>
+	<meta property="og:title" content="My Collections | OctoSpacc Place"/>
+	<meta property="og:image" content="RichPreview/Collections.jpg"/>
+	<meta property="og:url" content="https://hub.octt.eu.org/Collections/"/>
+	<link rel="canonical" href="https://hub.octt.eu.org/Collections/"/>
+	<!--<meta name="description" content=""/>
+	<meta property="og:description" content=""/>-->
+	<link rel="shortcut icon" href="../favicon.png" type="image/x-icon"/>
+	<link href="../Assets/CSS/Dark.css" rel="stylesheet"/>
+	<script src="../Assets/JS/RandomGIF.js"></script>
+	<style>
+		.form > * { margin: 4px; }
+		#PostsListMain { text-align: left; }
+		#PostsListMain div { display: inline; }
+		#PostsListMain h4 { display: inline-block; margin: 4px; }
+	</style>
+</head>
+<body>
+	<div class="Content" style="text-align: center;">
+		<h2>My Collections</h2><br/>
+		<div style="max-width: 80%; margin: auto;">
+			<p>
+				🇬🇧 This page is an attempt to centralize my personal collections of thematic pages and posts,
+				which are otherwise contained on totally isolated sites and hard to search by topic.
+				<br/>
+				This doesn't contain everything, however, but only my top picks (no particular criteria).
+			</p><p>
+				🇮🇹 Questa pagina è un tentativo di centralizzare le mie collezioni personali di pagine tematiche e post,
+				che sono altrimenti contenuti su siti completamente isolati e difficili da ricercare per argomento.
+				<br/>
+				Non contiene proprio tutto, tuttavia, solo le mie scelte principali (senza particolare criterio).
+			</p>
+		</div>
+		<br/>
+		<p id="LoadingInfo">Loading data, hang on...</p>
+		<noscript><p>(...if nothing happens please check that JavaScript is working on your browser for this site)</p></noscript>
+		<p>Alternatively, check out my collections directly on my external sites:</p>
+		<ul id="SitesList" class="BackgroundedBox">
+			<li><a href="https://sitoctt.octt.eu.org/Categories/"
+				data-platform="staticoso"
+				data-categories-blacklist="Blog MicroBlog Note"
+			>https://sitoctt.octt.eu.org/Categories/</a></li>
+			<li><a href="https://octospacc.altervista.org/libreria-post/"
+				data-platform="wordpress"
+				data-categories-blacklist="Senza-categoria"
+				data-dump="https://octospacc.github.io/microblog-mirror/search.json"
+			>https://octospacc.altervista.org/libreria-post/</a></li>
+		</ul>
+		<br/><hr/><br/>
+		<div id="CategoriesList" class="form"></div>
+		<div id="PostsList">
+			<ul id="PostsListMain"></ul>
+			<p id="PostsListAppend"></p>
+		</div>
+	</div>
+	<div class="Footer">
+		<span class="FlexItem FooterLeft">
+			<a href="..">↩️ Go Back Home</a>
+		</span>
+	</div>
+	<script>(async function(){
+		var [globalPosts, globalCategories] = [{}, {}];
+		var domParser = new DOMParser();
+		PostsListAppend.textContent = '...';
+
+		for (var refElem of document.querySelectorAll('ul#SitesList > li > a')) {
+			refElem.dataset.categoriesBlacklist = refElem.dataset.categoriesBlacklist.toLowerCase();
+			var fetchUrl, fetchParser;
+			if (refElem.dataset.platform === 'staticoso') {
+				fetchUrl = `${refElem.href.split('/').slice(0, 3).join('/')}/Search.html`;
+				fetchParser = staticosoFetchParser;
+			} else {
+				fetchUrl = refElem.dataset.dump;
+				fetchParser = (function(req){ return req.json() });
+			}
+			try {
+				var postsReq = await fetch(fetchUrl);
+				var postsData = await fetchParser(postsReq, { href: refElem.href, categoriesBlacklist: refElem.dataset.categoriesBlacklist.split(' ') });
+				if (postsReq.status !== 200) {
+					throw '';
+				}
+				globalPosts[refElem.href] = postsData;
+			} catch (err) {
+				displayError();
+				console.error(err);
+			}
+		}
+
+		// TODO handle blacklist
+		for (var post of Object.values(globalPosts).flat()) {
+			for (var categoryIndex in post.categories) {
+				var category = normalizeCategory(post.categories[categoryIndex]);
+				post.categories[categoryIndex] = category;
+				if (!globalCategories[category]) {
+					globalCategories[category] = [];
+					var categoryElem = document.createElement('button')//('li');
+					//categoryElem.innerHTML = `<label><input type="radio" name="CategoryList"> ${humanizeCategory(category)}</label>`;
+					categoryElem.textContent = humanizeCategory(category);
+					categoryElem.onclick = (function(){
+						var category = normalizeCategory(this.textContent);
+						Array.from(CategoriesList.children).forEach(function(categoryElem){ categoryElem.disabled = false });
+						this.disabled = true;
+						PostsListMain.innerHTML = null;
+						for (var post of Object.values(globalPosts).flat()) {
+							if (post.categories.includes(category)) {
+								var postElem = document.createElement('li');//('div');
+								// TODO cover images
+								postElem.innerHTML = `<a href="${post.url}"><h4>${post.title}</h4></a>`;
+								PostsListMain.appendChild(postElem);
+							}
+						}
+					});
+					CategoriesList.appendChild(categoryElem);
+				}
+				globalCategories[category].push(post);
+			}
+		}
+		globalCategories = Object.keys(globalCategories);
+
+		LoadingInfo.textContent = null;
+		PostsListAppend.textContent = null;
+
+		async function staticosoFetchParser (req, extra) {
+			var postsData = {};
+			var html = await req.text();
+			var doc = domParser.parseFromString(html, 'text/html');
+			extra.categoriesBlacklist.push('index');
+			for (var categoryElem of doc.querySelectorAll('div.staticoso-HtmlSearch-Pages > div.staticoso-HtmlSearch-Page[data-staticoso-htmlsearch-href^="Categories/"]')) {
+				var categoryName = normalizeCategory(categoryElem.dataset.staticosoHtmlsearchHref.split('/').slice(1).join('/').split('.').slice(0, -1).join('.'));
+				if (extra.categoriesBlacklist.includes(categoryName)) {
+					continue;
+				}
+				for (postElem of categoryElem.querySelectorAll('div ul.staticoso-PagesList > li')) {
+					var postLinkElem = postElem.querySelector('a');
+					var postUrl = (postLinkElem || postElem).getAttribute('href');
+					if (!postUrl || !postUrl.startsWith('../Posts/')) {
+						continue;
+					}
+					if (!postsData[postUrl]) {
+						postsData[postUrl] = { url: (extra.href + postUrl), title: postLinkElem.textContent, date: (postElem.querySelector('time') || {}).textContent, categories: [] };
+					}
+					postsData[postUrl].categories.push(categoryName);
+				}
+			}
+			return Object.values(postsData);
+		}
+
+		function normalizeCategory (category) { return category.toLowerCase().replaceAll(' ', '-') }
+
+		function humanizeCategory (category) { return category.split('-').map(function(word){
+			return (word[0].toUpperCase() + word.slice(1));
+		}).join(' ') }
+
+		function displayError() {
+			LoadingInfo.textContent = 'An error occured trying to load remote data! Please refresh the page to retry.';
+		}
+	})();</script>
+</body>
+</html>
