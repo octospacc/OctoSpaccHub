@@ -184,7 +184,6 @@
 					if (!postUrl || !postUrl.startsWith('../Posts/') || postUrl === '../Posts/index.html') {
 						continue;
 					}
-					postUrl = postUrl.split('/').slice(1).join('/');
 					if (!postsData[postUrl]) {
 						postsData[postUrl] = {
 							url: (extra.href + postUrl),
@@ -192,7 +191,7 @@
 							date: isoToUnixWithZone((postElem.querySelector('time') || {}).textContent || ''),
 							image: (postElem.dataset.image
 								? postElem.dataset.image.replace('[staticoso:CustomPath:Assets]', extra.staticosoAssetsRoot).replace('[staticoso:Folder:Assets:AbsoluteRoot]', extra.staticosoAssetsRoot)
-								: (doc.querySelector(`div.staticoso-HtmlSearch-Pages > div.staticoso-HtmlSearch-Page[data-staticoso-htmlsearch-href="${postUrl}"] img[src]`) || {}).src
+								: (doc.querySelector(`div.staticoso-HtmlSearch-Pages > div.staticoso-HtmlSearch-Page[data-staticoso-htmlsearch-href="${postUrl.slice(3)}"] img[src]`) || {}).src
 							),
 						categories: [] };
 					}
