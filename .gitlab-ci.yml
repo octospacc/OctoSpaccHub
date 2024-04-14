@@ -6,19 +6,7 @@ before_script: |
 
 pages:
   stage: deploy
-  script: |
-    for App in WuppiMini
-    do
-      mkdir ./public/${App}
-      cd ./src/${App}
-      npm update
-      npm install
-      node ./index.js html
-      cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/${App}/
-      cd ../..
-    done
-    cd ./public
-    node ../WriteRedirectPages.js
+  script: sh ./Build.sh
   artifacts:
     paths:
     - public

@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@yume-chan/adb": "^0.0.23",
+    "@yume-chan/adb-credential-web": "^0.0.23",
+    "@yume-chan/adb-daemon-webusb": "^0.0.23"
+  }
+}

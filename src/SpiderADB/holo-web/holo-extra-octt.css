@@ -1,0 +1,81 @@
+body {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+a[data-action-section] {
+	cursor: pointer;
+}
+
+.holo-body {
+	padding-left: 16px;
+	padding-right: 16px;
+}
+
+.holo-section {
+	display: none;
+}
+
+.holo-section[data-open="open"] {
+	display: revert;
+}
+
+.holo-sidebar, .holo-sideBar {
+	display: none;
+	position: fixed;
+	width: 100%;
+	/* width: 60%; */
+	height: 100vh;
+	z-index: 1;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.holo-sidebar[data-open="open"], .holo-sideBar[data-open="open"] {
+	display: revert;
+}
+
+.holo-sidebar .holo-list, .holo-sideBar .holo-list {
+	width: 60%;
+	height: 100vh;
+	background: black;
+}
+
+.actionBar .holo-title.holo-menu, .holo-actionBar .holo-title.holo-menu {
+	background-position: 0 16px;
+	background-repeat: no-repeat;
+	background-image: url(./holo-menu.png);
+	image-rendering: pixelated;
+}
+
+.holo-list li button, .holo-list li [role="button"] {
+	width: 100%;
+	box-sizing: content-box;
+}
+
+/* https://github.com/ZMYaro/holo-web/issues/1#issuecomment-12778881 */
+input[type="text"] {
+    background: transparent;
+    border-width: 0 0 1px;
+    border-color: #7F7F7F;
+    border-style: solid;
+    line-height: 36px;
+    padding: 0px 4px;
+    box-sizing: border-box; -moz-box-sizing: border-box; -webkit-box-sizing: border-box;
+    width: 200px;
+    position: relative;
+    display: block;
+    height: 32px;
+    margin: 6px;
+}
+textarea {
+    background: transparent;
+    border-width: 0 0 1px;
+    border-color: #7F7F7F;
+    border-style: solid;
+    padding: 4px 4px;
+    box-sizing: border-box; -moz-box-sizing: border-box; -webkit-box-sizing: border-box;
+    width: 250px;
+    height: 100px;
+    position: relative;
+    margin: 6px;
+}
