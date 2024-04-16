@@ -1,21 +1,12 @@
 #!/bin/sh
-for App in WuppiMini
+for App in SpiderADB WuppiMini
 do
 	mkdir -p ./public/${App}
 	cd ./src/${App}
-	npm update
-	npm install
-	node ./index.js html
-	cp ./index.js ./index.html ./node_modules/SpaccDotWeb/SpaccDotWeb.Server.js ../../public/${App}/
-	cd ../..
-done
-for App in SpiderADB
-do
-	mkdir -p ./public/${App}
-	cd ./src/${App}
-	sh ./Prepare.sh
+	sh ./Requirements.sh
 	cp -r $(sh ./Build.sh) ../../public/${App}/
 	cd ../..
 done
+cp -r ./shared ./public/shared
 cd ./public
 node ../WriteRedirectPages.js

@@ -24,6 +24,7 @@ $('::[data-action-section]').forEach(function(actionSectionElem){
 			sectionElem.dataset.open = false;
 		});
 		sectionTargetElem.dataset.open = 'open';
+		location.hash = `/${sectionTargetName}`;
 		refreshDisplaySections(sectionTargetName);
 	}));
 });
@@ -38,5 +39,10 @@ function refreshDisplaySections (sectionTargetName) {
 	});
 }
 refreshDisplaySections();
+
+var sectionHash = location.hash.slice(2).split('/')[0];
+if (sectionHash) {
+	$(`[data-action-section="${sectionHash}"]`).click();
+}
 
 }));
