@@ -1,12 +1,24 @@
 #!/bin/sh
-for App in SpiderADB WuppiMini
+SourceApps="SpiderADB WuppiMini"
+HubSdkApps="$(SourceApps) Ecoji MatrixStickerHelper"
+
+rm -vrf ./public || true
+cp -vr ./static ./public
+cp -vr ./shared ./public/shared
+
+for App in $(SourceApps)
 do
 	mkdir -p ./public/${App}
-	cd ./src/${App}
+	cd ./source/${App}
 	sh ./Requirements.sh
 	cp -r $(sh ./Build.sh) ../../public/${App}/
 	cd ../..
 done
-cp -r ./shared ./public/shared
+
 cd ./public
 node ../WriteRedirectPages.js
+
+for App in $(HubSdkApps)
+do
+	echo # TODO write manifest.json files
+done

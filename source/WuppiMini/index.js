@@ -260,6 +260,7 @@ const endpointInfo = [ (ctx) => (ctx.urlSections[0] === 'info' && ctx.request.me
 			${isEnvServer ? `You can obtain the full source code and assets by downloading the following files:
 			${resFiles.map((file) => ` • <a href="/res/${file}">${file}</a>`).join('')}.
 			` : 'To get the original, unminified source code, visit this same page on the server-side version (refer to the Versions section above).'}
+			Alternatively, you can also find the source code on my shared Git repo: ${A('https://gitlab.com/octospacc/octospacc.gitlab.io/-/tree/master/source/WuppiMini/')}.
 		</p>
 		${isEnvServer ? `<h3>Terms of Use and Privacy Policy</h3>${appTerms}` : ''}
 		<h3>Changelog</h3>

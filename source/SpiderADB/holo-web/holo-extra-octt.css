@@ -27,7 +27,7 @@ a[data-action-section] {
 	/* width: 60%; */
 	height: 100vh;
 	z-index: 1;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.6);
 }
 
 .holo-sidebar[data-open="open"], .holo-sideBar[data-open="open"] {
@@ -37,7 +37,7 @@ a[data-action-section] {
 .holo-sidebar .holo-list, .holo-sideBar .holo-list {
 	width: 60%;
 	height: 100vh;
-	background: black;
+	background: rgba(0, 0, 0, 0.9);
 }
 
 .actionBar .holo-title.holo-menu, .holo-actionBar .holo-title.holo-menu {

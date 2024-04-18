@@ -1,6 +1,3 @@
 *.bak
 node_modules/
-/public/a/
-/public/s/
-/public/SpiderADB/
-/public/WuppiMini/
+/public/

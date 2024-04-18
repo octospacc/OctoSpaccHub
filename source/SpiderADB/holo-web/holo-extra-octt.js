@@ -1,13 +1,17 @@
 window.addEventListener('load', (function() {
 
+var initialSectionName = $('[data-section][data-open]').dataset.section;
+
 $('::[data-action-sidebar]').forEach(function(actionSidebarElem){
 	var sidebarElem = $('[data-sidebar="' + actionSidebarElem.dataset.actionSidebar + '"]');
-	actionSidebarElem.onclick = sidebarElem.onclick = (function(){
+	function toggleSidebar () {
 		sidebarElem.dataset.open = (sidebarElem.dataset.open !== 'open' ? 'open' : false);
-	});
-	sidebarElem.querySelector('.holo-list').onclick = (function(event){
+	}
+	actionSidebarElem.addEventListener('click', toggleSidebar);
+	sidebarElem.addEventListener('click', toggleSidebar);
+	sidebarElem.querySelector('.holo-list').addEventListener('click', (function(event){
 		event.stopPropagation();
-	});
+	}));
 	arrayFrom(sidebarElem.querySelectorAll('.holo-list li button, .holo-list li [role="button"]')).forEach(function(buttonElem){
 		buttonElem.addEventListener('click', (function(){
 			sidebarElem.dataset.open = false;
@@ -40,9 +44,11 @@ function refreshDisplaySections (sectionTargetName) {
 }
 refreshDisplaySections();
 
-var sectionHash = location.hash.slice(2).split('/')[0];
-if (sectionHash) {
-	$(`[data-action-section="${sectionHash}"]`).click();
+function hashChange () {
+	var sectionHash = location.hash.slice(2).split('/')[0];
+	$(`[data-action-section="${sectionHash || initialSectionName}"]`).click();
 }
+window.addEventListener('hashchange', hashChange);
+hashChange();
 
 }));
