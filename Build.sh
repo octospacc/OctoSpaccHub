@@ -1,12 +1,12 @@
 #!/bin/sh
 SourceApps="SpiderADB WuppiMini"
-HubSdkApps="$(SourceApps) Ecoji MatrixStickerHelper"
+HubSdkApps="${SourceApps} Ecoji MatrixStickerHelper"
 
 rm -vrf ./public || true
 cp -vr ./static ./public
 cp -vr ./shared ./public/shared
 
-for App in $(SourceApps)
+for App in ${SourceApps}
 do
 	mkdir -p ./public/${App}
 	cd ./source/${App}
@@ -18,7 +18,7 @@ done
 cd ./public
 node ../WriteRedirectPages.js
 
-for App in $(HubSdkApps)
+for App in ${HubSdkApps}
 do
 	echo # TODO write manifest.json files
 done
