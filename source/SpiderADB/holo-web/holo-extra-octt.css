@@ -27,7 +27,7 @@ a[data-action-section] {
 	/* width: 60%; */
 	height: 100vh;
 	z-index: 1;
-	background: rgba(0, 0, 0, 0.6);
+	background: rgba(0, 0, 0, 0.65);
 }
 
 .holo-sidebar[data-open="open"], .holo-sideBar[data-open="open"] {
@@ -37,10 +37,10 @@ a[data-action-section] {
 .holo-sidebar .holo-list, .holo-sideBar .holo-list {
 	width: 60%;
 	height: 100vh;
-	background: rgba(0, 0, 0, 0.9);
+	background: rgba(0, 0, 0, 0.80);
 }
 
-.actionBar .holo-title.holo-menu, .holo-actionBar .holo-title.holo-menu {
+.actionbar .holo-title.holo-menu, .holo-actionbar .holo-title.holo-menu, .actionBar .holo-title.holo-menu, .holo-actionBar .holo-title.holo-menu {
 	background-position: 0 16px;
 	background-repeat: no-repeat;
 	background-image: url(./holo-menu.png);
@@ -52,12 +52,42 @@ a[data-action-section] {
 	box-sizing: content-box;
 }
 
+.holo-sidebar > .holo-list, .holo-sideBar > .holo-list {
+	overflow-y: auto;
+}
+
+.holo-actionbar .holo-list, .holo-actionBar .holo-list {
+	position: absolute;
+	top: -2px;
+	right: 0;
+}
+
+.holo-actionbar .holo-list.collapsible, .holo-actionBar .holo-list.collapsible {
+	top: 47px;
+	background: rgba(16, 16, 16, 0.95);
+	display: none;
+}
+
+.holo-actionbar .holo-list > div, .holo-actionBar .holo-list > div,
+.holo-actionbar .holo-list:not(.collapsible) li, .holo-actionBar .holo-list:not(.collapsible) li {
+	display: inline-block;
+}
+
+.holo-actionbar .holo-list li > button, .holo-actionBar ul.holo-list li > button {
+	font-size: revert;
+}
+
+.holo-actionbar .holo-list:not(.collapsible) *[data-collapsed="true"], .holo-actionBar .holo-list:not(.collapsible) *[data-collapsed="true"],
+.holo-actionbar .holo-list.collapsible *[data-collapsed="false"], .holo-actionBar .holo-list.collapsible *[data-collapsed="false"] {
+	display: none !important;
+}
+
 /* https://github.com/ZMYaro/holo-web/issues/1#issuecomment-12778881 */
 input[type="text"] {
 	background: transparent;
 	color: white;
 	border-width: 0 0 1px;
-	border-color: #7F7F7F;
+	border-color: /* #4AB3E4; */ #7F7F7F;
 	border-style: solid;
 	line-height: 36px;
 	padding: 0px 4px;
@@ -72,7 +102,7 @@ textarea {
 	background: transparent;
 	color: white;
 	border-width: 0 0 1px;
-	border-color: #7F7F7F;
+	border-color: /* #4AB3E4; */ #7F7F7F;
 	border-style: solid;
 	padding: 4px 4px;
 	box-sizing: border-box; -moz-box-sizing: border-box; -webkit-box-sizing: border-box;

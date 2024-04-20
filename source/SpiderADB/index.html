@@ -3,7 +3,9 @@
 <head>
 	<meta charset="UTF-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-	<title>🕷️ SpiderADB</title>
+	<meta property="og:title" content="🕷️ SpiderADB"/>
+	<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/SpiderADB/"/>
+	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone',"/>
 	<link rel="stylesheet" href="./holo-web/holo-base-elements.css"/>
 	<link rel="stylesheet" href="./holo-web/holo-base-widgets.css"/>
 	<link rel="stylesheet" href="./holo-web/holo-ics-dark-elements.css"/>
@@ -15,10 +17,11 @@
 	<script src="../../shared/OctoHub-Global.js"></script>
 	<style>
 		.floatRight { float: right; }
-		body { overflow-x: hidden; padding-bottom: 0; }
+		body { overflow-x: hidden; padding-bottom: 0; overflow-wrap: break-word; }
 		ul.holo-list li input[type="checkbox"].floatRight { margin-top: 0; }
-		section.holo-sideBar > ul.holo-list { overflow-y: auto; }
-		[name="terminalInput"], [name="terminalOutput"] {
+		p[name="popupBox"] { box-sizing: border-box; position: fixed; top: 25%; left: 0; width: 100%; min-height: 20%; padding: 1em; background: rgba(0, 0, 0, 0.95); }
+		p[name="popupBox"] > button { float: right; }
+		input[name="terminalInput"], textarea[name="terminalOutput"] {
 			width: 100% !important;
 			margin-left: 0 !important;
 			margin-right: 0 !important;
@@ -31,19 +34,44 @@
 		<button class="holo-title holo-menu" data-action-sidebar="sidebar">
 			🕷️ SpiderADB <small>(WIP)</small>
 		</button>
-		<!-- <button class="floatRight" data-display-sections="terminal">
-			Tabs
-		</button> -->
-		<button class="floatRight" data-display-sections="terminal" name="clearTerminal" disabled="true">
-			Clear
-		</button>
-		<button class="floatRight" data-display-sections="terminal" name="wrapTerminal">
-			Wrap
-		</button>
-		<button class="floatRight" data-display-sections="packages" name="apkInstall">
-			<input type="file" hidden="true" multiple="true" accept=".apk, application/vnd.android.package-archive"/>
-			Install APK(s)
-		</button>
+		<ul class="holo-list">
+			<!-- <div data-display-sections="terminal">
+				<li><button name="clearTerminal" disabled="true">
+					Clear
+				</button></li>
+				<li><button name="wrapTerminal">
+					Wrap
+				</button></li>
+			</div>
+				<div data-display-sections="packages">
+				<li><button name="packagesInvertSelect" disabled="true">
+					Invert selection
+				</button></li>
+				<li><button name="apkInstall" disabled="true">
+					<input type="file" hidden="true" multiple="true" accept=".apk, application/vnd.android.package-archive"/>
+					Install APK(s)
+				</button></li>
+			</div> -->
+			<li data-display-sections="terminal"><button name="wrapTerminal">
+				Wrap
+			</button></li>
+			<li data-display-sections="terminal"><button name="clearTerminal" disabled="true">
+				Clear
+			</button></li>
+			<li data-display-sections="packages"><button name="packagesInvertSelect" disabled="true">
+				Invert selection
+			</button></li>
+			<li data-display-sections="packages"><button name="packagesUninstall" disabled="true">
+				Uninstall selected
+			</button></li>
+			<li data-display-sections="packages"><button name="apkInstall" disabled="true">
+				<input type="file" hidden="true" multiple="true" accept=".apk, application/vnd.android.package-archive"/>
+				Install APK(s)
+			</button></li>
+			<li data-collapser><button>
+				<b>···</b>
+			</button></li>
+		</ul>
 	</header>
 	<section class="holo-sideBar" data-sidebar="sidebar">
 		<ul class="holo-list">
@@ -68,24 +96,47 @@
 		</ul>
 	</section>
 	<section class="holo-body">
-		<p name="connectReminder" data-display-sections="terminal packages">
+		<p name="javascriptWarning" style="font-size: xx-large; font-weight: bold;">You need to enable JavaScript to run this app!</p>
+		<p name="connectReminder" data-display-sections="terminal packages" hidden="true">
 			You must <a data-action-section="devices">connect and authorize a device</a> first.
 		</p>
-		<section class="holo-section" data-section="about">
-			<p>SpiderADB is an user-friendly webapp for connecting to devices via the Android Debug Bridge, straight from a browser.</p>
-			<!-- TODO features -->
+		<p name="popupBox" hidden="true"></p>
+		<section class="holo-section" data-section="about" style="display: block !important;">
+			<p>
+				<b>SpiderADB</b> is an user-friendly webapp for connecting to devices via the Android Debug Bridge, straight from a browser.
+				The aim of this is to be kind of a swiss army knife that can be used from any platform, with minimal hassle,
+				to do a number of advanced administration and debugging task on Android devices. These are the current features:
+			</p><ul>
+				<li><b>Devices</b>: Allows connecting new devices, shows a list of the paired ones, and lists basic useful information about various parts of the system.</li>
+				<li><b>Terminal</b>: Provides a basic terminal shell for inputting commands and reading their output. (Currently doesn't support any teletype features, so only basic commands can be run properly.)</li>
+				<li><b>Packages</b>: Displays a list of the currently installed packages, allowing for multiple to be uninstalled, and also allows uploading APK files for installation.</li>
+			</ul>
 			<p>Here are some additional tips and tricks you might find useful to make the most out of this app:</p><ul>
 				<li><a target="_blank" href="https://dev.to/larsonzhong/most-complete-adb-commands-4pcg">Most complete ADB command manual</a></li>
 			</ul>
-			<h3>Open Source and Credits</h3>
-			<p>
-				This app is open-source and made with mostly-vanilla web technologies. You can find the full source code on my Git repo: <a href="https://gitlab.com/octospacc/octospacc.gitlab.io/-/tree/master/source/SpiderADB/">https://gitlab.com/octospacc/octospacc.gitlab.io/-/tree/master/source/SpiderADB/</a>.
-			<p>Also, this app wouldn't have been possible without these third-party components, of which the license is specified in brackets:</p><ul>
+			<h3>Open-Source and Licensing</h3><p>
+				This app is open-source and made with mostly-vanilla web technologies.
+				You can find the full source code on my Git repo:
+				<a href="https://gitlab.com/octospacc/octospacc.gitlab.io/-/tree/master/source/SpiderADB/">https://gitlab.com/octospacc/octospacc.gitlab.io/-/tree/master/source/SpiderADB/</a>.
+			</p><p>Copyright (C) 2024, OctoSpacc
+				<br/>This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+				<br/>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+				<br/>You should have received a copy of the GNU Affero General Public License along with this program. If not, see <a target="_blank" href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.
+			</p>
+			<h3>Third-Parties and Credits</h3><p>
+				This app wouldn't have been possible without these third-party components, of which the license is specified in brackets:
+			</p><ul>
 				<li><a target="_blank" href="https://github.com/yume-chan/ya-webadb">Tango</a> [MIT]: ADB port for the web</li>
 				<li><a target="_blank" href="https://github.com/tango-adb/old-demo">Tango Demo (Old)</a> [MIT]: the previous official Tango demo webapp, helpful for writing my app since the Tango documentation is pretty lacking</li>
 				<li><a target="_blank" href="https://github.com/zmyaro/holo-web">Holo Web</a> [MIT]: stylesheets for recreating the Android Holo theme on the web</li>
 			</ul>
 			<h3>Changelog</h3>
+			<h4>2024-04-20</h4><ul>
+				<li>Add feature descriptions to About section, and licensing info.</li>
+				<li>Update UI engine, adding auto-collapsible option menu.</li>
+				<li>Add selection boxes in Packages menu, and allow uninstalling (user) packages.</li>
+				<li>Fix design for no-JS user agents: add warning and make the About page the visible content.</li>
+			</ul>
 			<h4>2024-04-18</h4><ul>
 				<li>Improve Terminal logic, which now also shows stdout, scaling, and add a Clear feature.</li>
 				<li>Introduce Packages menu, listing all installed packages' names, and allow installing (multiple) APKs files.</li>
@@ -121,10 +172,6 @@
 						<li name="deviceCpuAbis"></li>
 					</div>
 				</ul>
-				<!-- <details>
-					<summary><code>getprop</code> Info dump</summary>
-					<ul name="devicePropDump"></ul>
-				</details> -->
 			</section>
 		</section>
 		<section class="holo-section" data-section="terminal">
@@ -132,11 +179,8 @@
 			<input name="terminalInput" type="text" disabled="true" placeholder="&gt; Input any command..."/>
 		</section>
 		<section class="holo-section" data-section="packages">
-			<!-- TODO buttons -->
-			<ul class="holo-list" name="packageList"></ul><!--<li>Test <input type="checkbox" class="floatRight"/></li><!--<label><li>Test <input type="checkbox"/></li></label>-->
-			<section class="holo-subsection" name="packageInfo">
-				
-			</section>
+			<ul class="holo-list" name="packageList"></ul>
+			<!-- <section class="holo-subsection" name="packageInfo"></section> -->
 		</section>
 	</section>
 	<script src="./bundle.js"></script>

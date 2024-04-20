@@ -35,7 +35,9 @@ const appPager = (content, title) => `${title ? `<h2>${title}</h2>` : ''}${conte
 const newHtmlPage = (content, title) => `<!DOCTYPE html><html><head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-	<title>${title ? `${title} — ` : ''}${appName}</title>
+	<meta property="og:title" content="${title ? `${title} — ` : ''}${appName}"/>
+	<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/WuppiMini/"/>
+	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone',"/>
 	<script src="../../shared/OctoHub-Global.js"></script>
 	<style>
 * {

@@ -1,46 +1,34 @@
-import * as Adb from '@yume-chan/adb';
-import * as AdbDaemonWebUsb from '@yume-chan/adb-daemon-webusb';
+import { Adb, AdbDaemonTransport } from '@yume-chan/adb';
+import { AdbDaemonWebUsbDeviceManager, AdbDaemonWebUsbDeviceWatcher } from '@yume-chan/adb-daemon-webusb';
 import AdbWebCredentialStore from '@yume-chan/adb-credential-web';
 import { DecodeUtf8Stream, WrapReadableStream, WrapConsumableStream } from '@yume-chan/stream-extra';
 import { PackageManager } from '@yume-chan/android-bin';
 
 // TODO:
-// * warning on fail to claim USB interface (it may be because of other tabs, or a local adb server)
-// * warn or gracefully handle debug permission not granted
 // * package manager with install/uninstall/dump, debloat tool with default list and import/export
 // * fastboot shell and tools? possible?
 // * logs for Packages section?
 
 (async function(){
 
+$('p$javascriptWarning$').remove();
+$('.holo-section[data-section="about"]').style = null;
+$('p$connectReminder$').hidden = false;
+
 const deviceSelect = $('select$deviceSelect$');
 const terminalOutput = $('textarea$terminalOutput$');
 
-$('button$apkInstall$').onclick = (async function(){
-	// TODO show info popup before actually installing, also allow installing via drag&drop on packages section
-	const fileInput = $('button$apkInstall$').querySelector('input');
-	fileInput.onchange = (function(event){
-		const count = event.target.files.length;
-		if (!count > 0) {
-			return;
-		}
-		alert(`Installing ${count} package(s)...`);
-		const pm = new PackageManager(Device.adb);
-		Array.from(event.target.files).forEach(async function(file, index){
-			try {
-				await pm.installStream(file.size, (new WrapReadableStream(file.stream())).pipeThrough(new WrapConsumableStream()));
-				alert(`Successfully installed package ${index + 1} of ${count}.`);
-				refreshPackagesList();
-			} catch (err) {
-				alert(err);
-			}
-		});
-	});
-	fileInput.click();
-});
-
 let Device = {};
 const CredentialStore = new AdbWebCredentialStore();
+
+function popupBox (text) {
+	$('p$popupBox$').hidden = null;
+	$('p$popupBox$').innerHTML = `${text} <button>X</button>`;
+	$('p$popupBox$').querySelector('button').onclick = (function(){
+		$('p$popupBox$').hidden = true;
+		$('p$popupBox$').innerHTML = null;
+	});
+}
 
 function resizeTerminal () {
 	const divider = (Device.adb ? 2 : 3);
@@ -49,7 +37,7 @@ function resizeTerminal () {
 window.addEventListener('resize', resizeTerminal);
 resizeTerminal();
 
-const UsbManager = AdbDaemonWebUsb.AdbDaemonWebUsbDeviceManager.BROWSER;
+const UsbManager = AdbDaemonWebUsbDeviceManager.BROWSER;
 if (!UsbManager) {
 	$('div$browserWarning$').innerHTML = `<p>
 		<a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/USB#browser_compatibility">WebUSB is not supported</a> in this browser, so the app cannot work.
@@ -70,7 +58,7 @@ if (!UsbManager) {
 	return; // kill the app
 }
 
-new AdbDaemonWebUsb.AdbDaemonWebUsbDeviceWatcher((async function(connectedDevice){
+new AdbDaemonWebUsbDeviceWatcher((async function(connectedDevice){
 	if (!connectedDevice) {
 		await disconnectDevice();
 	}
@@ -82,8 +70,8 @@ async function connectAuthorizeDevice () {
 		Device.device = await getDevice();
 		try {
 			Device.connection = await Device.device.connect();
-			Device.transport = await Adb.AdbDaemonTransport.authenticate({ connection: Device.connection, credentialStore: CredentialStore });
-			Device.adb = new Adb.Adb(Device.transport);
+			Device.transport = await AdbDaemonTransport.authenticate({ connection: Device.connection, credentialStore: CredentialStore });
+			Device.adb = new Adb(Device.transport);
 		} catch (err) {
 			$('p$deviceStatus$').textContent = 'An error occurred while trying to establish a device connection. Please ensure that no other processes or browser tabs on this system are currently using the device, then retry.';
 		}
@@ -144,7 +132,6 @@ async function refreshDeviceInfo () {
 		//$('$deviceInfo$').hidden = false;
 		if (Device.adb) {
 			$('$deviceStatus$').innerHTML = null;
-			// $('$devicePropDump$').innerHTML = null;
 			$('$deviceCpuAbis$').innerHTML = `<b>CPU ABIs</b>: ${await Device.adb.getProp('ro.system.product.cpu.abilist')}`;
 			$('$androidVersion$').innerHTML = `<b>Android version</b>: ${await Device.adb.getProp('ro.build.version.release')}`;
 			$('$androidApi$').innerHTML = `<b>SDK API version</b>: ${await Device.adb.getProp('ro.build.version.sdk')}`;
@@ -156,11 +143,6 @@ async function refreshDeviceInfo () {
 			terminalOutput.disabled = false;
 			terminalOutput.textContent += (terminalOutput.textContent ? '\n> ' : '> ');
 			$('button$clearTerminal$').disabled = false;
-			/* for (const line of (await Device.adb.getProp()).split('\n')) {
-				const elem = document.createElement('li');
-				elem.textContent = line;
-				$('$devicePropDump$').appendChild(elem);
-			} */
 		} else {
 			onDevice = false;
 		}
@@ -175,8 +157,13 @@ async function refreshDeviceInfo () {
 function toggleDeviceElems (enabled) {
 	$('$deviceInfo$').hidden = !enabled;
 	$('button$apkInstall$').disabled = !enabled;
+	$('button$packagesUninstall$').disabled = true;
+	$('button$packagesInvertSelect$').disabled = !enabled;
 	$('input$terminalInput$').disabled = !enabled;
 	resizeTerminal();
+	if (!enabled) {
+		$('ul$packageList$').innerHTML = null;
+	}
 }
 
 async function refreshDeviceSection () {
@@ -228,25 +215,86 @@ $('button$wrapTerminal$').onclick = (function(){
 	terminalOutput.scrollTop = terminalOutput.scrollHeight;
 });
 
+$('button$apkInstall$').onclick = (async function(){
+	// TODO allow installing via drag&drop on packages section
+	const fileInput = this.querySelector('input');
+	fileInput.onchange = (async function(event){
+		const count = event.target.files.length;
+		if (!count > 0) {
+			return;
+		}
+		popupBox(`Installing ${count} package(s)...`);
+		const pm = new PackageManager(Device.adb);
+		for (const index in Object.keys(event.target.files)) {
+			const file = event.target.files[index];
+			try {
+				await pm.installStream(file.size, (new WrapReadableStream(file.stream())).pipeThrough(new WrapConsumableStream()));
+				popupBox(`Successfully installed package ${Number(index) + 1} of ${count}.`);
+				refreshPackagesList();
+			} catch (err) {
+				popupBox('Operation has failed:' + err);
+				break;
+			}
+		}
+	});
+	fileInput.click();
+});
+
+$('button$packagesUninstall$').onclick = (async function(event){
+	const checkedPackagesElems = $('ul$packageList$').querySelectorAll('input[type="checkbox"]:checked');
+	const count = checkedPackagesElems.length;
+	if (!confirm(`Confirm uninstalling ${count} packages? (Currently only works on user packages, will fail on system ones.)`)) {
+		return;
+	}
+	$('button$packagesUninstall$').disabled = true;
+	const pm = new PackageManager(Device.adb);
+	for (const index in Object.keys(checkedPackagesElems)) {
+		try {
+			const packageElem = checkedPackagesElems[index].parentElement;
+			const packageName = packageElem.textContent.trim();
+			await pm.uninstall(packageName);
+			popupBox(`Successfully uninstalled package ${Number(index) + 1} of ${count}.`);
+			refreshPackagesList();
+		} catch(err) {
+			popupBox('Operation has failed:' + err);
+			break;
+		}
+	}
+	$('button$packagesUninstall$').disabled = false;
+	refreshPackagesList();
+})
+
+$('button$packagesInvertSelect$').onclick = (function(){
+	Array.from($('ul$packageList$').querySelectorAll('input[type="checkbox"]')).forEach(function(packageElem){
+		packageElem.checked = !packageElem.checked;
+	});
+});
+
 async function refreshPackagesList () {
 	$('ul$packageList$').innerHTML = null;
+	$('button$packagesUninstall$').disabled = true;
 	const pm = new PackageManager(Device.adb);
 	const list = await pm.listPackages();
+	const checkedList = {};
+	let index = 0;
 	let result = await list.next();
 	while (!result.done) {
 		var packageElem = document.createElement('li');
-		packageElem.innerHTML = `${result.value.packageName}<!-- <input type="checkbox" class="floatRight"/>-->`;
-		/* packageElem.querySelector('input').onclick = (function(){
-			// TODO: hide or show action buttons that do actions on selected elements if there is none or at least one
-		}); */
+		packageElem.index = index;
+		packageElem.innerHTML = `${result.value.packageName} <input type="checkbox" class="floatRight"/>`;
+		packageElem.querySelector('input').onchange = (function(){
+			checkedList[this.parentElement.index] = this.checked;
+			$('button$packagesUninstall$').disabled = !Object.values(checkedList).includes(true);
+		});
 		$('ul$packageList$').appendChild(packageElem);
+		index++;
 		result = await list.next();
 	}
 }
 
 window.addEventListener('hashchange', (async function(){
 	const sectionHash = location.hash.slice(2).split('/')[0];
-	if (Device.adb && sectionHash === 'packages' /* && !$('ul$packageList$').innerHTML */) {
+	if (Device.adb && sectionHash === 'packages') {
 		refreshPackagesList();
 	}
 }));
