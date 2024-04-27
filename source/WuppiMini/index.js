@@ -37,7 +37,8 @@ const newHtmlPage = (content, title) => `<!DOCTYPE html><html><head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 	<meta property="og:title" content="${title ? `${title} — ` : ''}${appName}"/>
 	<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/WuppiMini/"/>
-	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone', 'icons':[{ 'src':'./icon.png', 'type':'image/png', 'sizes':'256x256' }]"/>
+	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone', 'icons':[{ 'src':'./icon.png', 'type':'image/png', 'sizes':'256x256' }],"/>
+	<link rel="apple-touch-icon" href="./icon.png"/>
 	<script src="../../shared/OctoHub-Global.js"></script>
 	<style>
 * {
