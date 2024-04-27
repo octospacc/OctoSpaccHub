@@ -1,5 +1,9 @@
 @import url("Font_F25_Bank_Printer.css");
 
+:root {
+	--FooterPadding: 8px;
+}
+
 A {
 	Color: #17C3EA;
 }
@@ -87,10 +91,7 @@ Body {
 	Justify-Content: Space-Between;
 	Bottom: 0px;
 	Width: 100vw;
-	Padding-Top: 2px;
-	Padding-Bottom: 2px;
-	Padding-Left: 6px;
-	Padding-Right: 6px;
+	Padding: var(--FooterPadding);
 	Text-Align: Center;
 	Overflow-X: Auto;
 	Overflow-Y: Hidden;
@@ -111,6 +112,6 @@ Body {
 	Background-Color: RGBA(36, 36, 36, 0.85);
 	Font-Size: Larger;
 }
-.Footer > .FooterRight { Margin-Right: 12px; }
+.Footer > .FooterRight { Margin-Right: calc(var(--FooterPadding) * 2); }
 
 #OcttAgeView { Padding: 16px; }

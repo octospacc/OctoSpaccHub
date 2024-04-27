@@ -12,7 +12,7 @@
 		{
 			"src": "https://cdn.jsdelivr.net/gh/octospacc/twemoji-astonishing@gh-pages/i/1f9f2.svg",
 			"type": "image/svg+xml",
-			"sizes": "512x512"
+			"sizes": "any"
 		}
 	]
 }

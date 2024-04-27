@@ -28,23 +28,23 @@
 		</div>
 		<br/><br/>
 		<div style="font-size: x-small">
-			<audio src="https://octospacc.gitlab.io/Web-ThirdParty-Unknown/Assets/Media/MightyFinalFightSlums.mp3" controls muted loop autoplay></audio>
+			<audio src="https://octospacc.gitlab.io/Web-ThirdParty-Unknown/Assets/Media/MightyFinalFightSlums.mp3" onloadstart="this.volume=0.5" controls muted loop autoplay></audio>
 			<p>Theme Song: <i><a target="_blank" href="https://www.youtube.com/watch?v=TwqutMIfc94">Spirit of Famiclone Selection Menu</a></i></p>
 		</div>
 		<br/><br/><br/>
 		<div id="Links"><div>
 			<h4><!--
 				--><small>[🇮🇹]</small>
-				<a href="https://sitoctt.octt.eu.org">✨sitoctt✨</a>
+				<a rel="me" href="https://sitoctt.octt.eu.org">✨sitoctt✨</a>
 				<small>(long-form blog, personale)</small><!--
 			--></h4>
 			<h4><!--
-				--><a href="https://kb.octt.eu.org">📝 OcttKB</a>
+				--><a rel="me" href="https://kb.octt.eu.org">📝 OcttKB</a>
 				<small>(knowledge base & personal wiki)</small><!--
 			--></h4>
 			<h4><!--
 				--><small>[🇮🇹]</small>
-				<a href="https://octospacc.altervista.org">📓️ fritto misto di octospacc</a>
+				<a rel="me" href="https://octospacc.altervista.org">📓️ fritto misto di octospacc</a>
 				<small>(microblog)</small><!--
 			--></h4>
 			<!--<h4><del><a href="https://octtspacc.gitlab.io/bachecoctt">🔖️ bachecoctt</a> (my WebPinBoard)</del></h4>-->
@@ -100,6 +100,8 @@
 			<span>&nbsp;</span>
 			<a rel="me" href="https://github.com/andrigamerita">-&gt; GitHub 🐙️</a>
 			<span>&nbsp;</span>
+			<a rel="me" href="https://octt.itch.io">-&gt; Itch.io 🛍️</a>
+			<span>&nbsp;</span>
 			<a rel="me" href="https://mastodon.uno/@octo">-&gt; Mastodon (<dfn title="inactive">💤️</dfn>) 🐘</a>
 			<!--<span>&nbsp;</span>
 			<a rel="me" href="https://botsin.space/@octtpz">-&gt; pezziposting 🦜</a>-->
@@ -112,26 +114,31 @@
 	<script>(function(){
 		var footerElem = document.querySelector('div.Footer');
 		var footerScrollLast;
-		var footerScrollDir = 1;
+		var footerScrollDirection = 1;
 		var footerShouldScroll = true;
 		footerElem.onclick = footerElem.ontouch = footerElem.ontouchstart = footerElem.onmouseover = footerElem.onmouseenter = stopFooterScroll;
 		footerElem.onmouseleave = footerElem.ontouchend = restartFooterScroll;
 		var footerScrollIndex;
-		function serviceFooterScroll() {
+		function serviceFooterScroll () {
 			footerScrollIndex = setInterval(function(){
 				if (footerElem.scrollLeft === footerScrollLast) {
-					footerScrollDir *= -1;
+					reverseScrollDirection();
 				}
 				footerScrollLast = footerElem.scrollLeft;
-				footerElem.scrollLeft += footerScrollDir;
+				footerElem.scrollLeft += footerScrollDirection;
 			}, 25);
 		}
-		function restartFooterScroll() {
+		function reverseScrollDirection () {
+			footerScrollDirection *= -1;
+			stopFooterScroll();
+			restartFooterScroll(1250);
+		}
+		function restartFooterScroll (delay) {
 			if (!footerScrollIndex) {
-				footerScrollIndex = setTimeout(serviceFooterScroll, 2000);
+				footerScrollIndex = setTimeout(serviceFooterScroll, (delay || 2000));
 			}
 		}
-		function stopFooterScroll() {
+		function stopFooterScroll () {
 			clearInterval(footerScrollIndex);
 			footerScrollIndex = null;
 		}
