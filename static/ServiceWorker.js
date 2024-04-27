@@ -3,7 +3,13 @@ const cachables = {
 	"//": "networkFirst",
 };
 
-const checkUrlCaching = (url) => (cachables[url] || cachables[`/${url.split('://').slice(1).join('://').split('/')[1]}/`]);
+const checkUrlCaching = (url) => {
+	let caching = (cachables[url] || cachables[`/${url.split('://').slice(1).join('://').split('/')[1]}/`]);
+	if (caching === undefined) {
+		caching = cachables['//'];
+	};
+	return caching;
+};
 
 const putResponseInCache = (request, response) => {
 	if (response.ok) {
