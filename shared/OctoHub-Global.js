@@ -1,6 +1,10 @@
 window.addEventListener('load', (function(){
 
-if (!['', 'hub.octt.eu.org'].includes(location.host)) {
+if (['', 'hub.octt.eu.org'].includes(location.host)) {
+	if ('serviceWorker' in navigator) {
+		navigator.serviceWorker.register('/ServiceWorker.js');
+	}
+} else {
 	var noticeElem = document.createElement('p');
 	noticeElem.style = `
 		position: fixed;
