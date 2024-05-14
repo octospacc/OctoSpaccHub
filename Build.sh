@@ -1,6 +1,6 @@
 #!/bin/sh
 SourceApps="SpiderADB WuppiMini"
-HubSdkApps="${SourceApps} MatrixStickerHelper"
+HubSdkApps="${SourceApps} MatrixStickerHelper TiktOctt"
 
 quoteVar(){ echo '"'"$1"'"' ;}
 
