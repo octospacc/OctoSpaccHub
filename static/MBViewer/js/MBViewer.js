@@ -19,19 +19,32 @@
 let MbState = {};
 let MbApiTransformer;
 
+function MbStorage (key, value) {
+	base = 'org.eu.octt.MBViewer/v1';
+	data = (JSON.parse(localStorage.getItem(base)) || {});
+	if (value === undefined) {
+		return data[key];
+	}
+	data[key] = value;
+	return localStorage.setItem(base, JSON.stringify(data));
+}
+
 function ArgsRewrite (props={}, navigate=true) {
 	for (const key in props) {
 		const value = props[key];
 		value ? (MbState.args[key] = value) : (delete MbState.args[key]);
 	}
-	let hash = '/';
+	let hash = '';
 	for (const arg in MbState.args) {
 		hash += `${arg}=${MbState.args[arg]}|`;
+	}
+	if (hash) {
+		hash = `/${hash}`;
 	}
 	if (navigate) {
 		location.hash = hash;
 	}
-	return hash
+	return hash;
 }
 
 const SureArray = (obj) => (Array.isArray(obj) ? obj : [obj]);
@@ -74,8 +87,9 @@ function MakeSiteRestUrl (path='') {
 		return `${siteUrl}/wp-content/uploads/${siteUrl.split('.').slice(0, 1)[0].split('//')[1]}/scripts/stuff.php?&Thing=SiteWpJsonCors&AccessToken=9ab6e20c&$Query=${encodeURIComponent(path)}`;
 	} else {
 		if (["atom", "rss", "wordpress.org"].includes(MbState.platform)) {
-			const proxies = ["corsproxy.io", "corsproxy.org"];
-			return `https://${proxies[~~(Math.random() * proxies.length)]}/?${siteUrl}/${MbState.platform === 'wordpress.org' ? `wp-json/${path}` : ''}`;
+			const proxies = ["hlb0.octt.eu.org/cors-main.php/", "corsproxy.io/?", /*"corsproxy.org/?"*/];
+			const proxy = proxies[~~(Math.random() * proxies.length)];
+			return `https://${proxy}${siteUrl}${MbState.platform === 'wordpress.org' ? `/wp-json/${path}` : ''}`;
 		} else if (MbState.platform === 'wordpress.com') {
 			return `https://public-api.wordpress.com/rest/v1.1/sites/${GetDomainFromUrl(siteUrl)}/${path}`;
 		} else if (MbState.platform === 'mastodon') {
@@ -117,7 +131,7 @@ function MakeApiEndpoint (type, options={}) {
 	return query;
 }
 
-function MakeAcroName(name) {
+function MakeAcroName (name) {
 	let acro = '';
 	for (const word of name.split(' ').slice(0,3)) {
 		acro += word[0].toUpperCase();
@@ -125,10 +139,40 @@ function MakeAcroName(name) {
 	return acro;
 }
 
-async function MbViewerInit () {
-	if (!location.hash) {
-		location.hash = '/';
+function UpdateChatOpenTime (queryUrl) {
+	const chats = MbStorage('chats');
+	for (const chatIndex in chats) {
+		if (chats[chatIndex].queryUrl == queryUrl) {
+			chats[chatIndex].openTime = Date.now();
+			MbStorage('chats', chats);
+			break;
+		}
 	}
+}
+
+function CheckChatFavorite (siteUrl) {
+	return MbStorage('chats').some((chat) => (chat.siteUrl === siteUrl));
+}
+
+function ToggleChatFavorite (siteUrl) {
+	const chats = MbStorage('chats');
+	const present = CheckChatFavorite(siteUrl);
+	if (!present) {
+		chats.push({ name: MbState.siteData.name, iconUrl: MbState.siteData.iconUrl, siteUrl, queryUrl: location.hash, openTime: Date.now() });
+		MbStorage('chats', chats);
+	} else {
+		for (const chatIndex in chats) {
+			if (chats[chatIndex].siteUrl === siteUrl) {
+				chats.splice(chatIndex, 1);
+				MbStorage('chats', chats);
+				break;
+			}
+		}
+	}
+	$('button[name="ToggleChatFavorite"]').html(`${present ? '➕️ Add to' : '❌️ Remove from'} favorites ⭐️`);
+}
+
+async function MbViewerInit () {
 	if (!MbApiTransformer) {
 		MbApiTransformer = Trasformapi(MbViewerTrasformapiSchema).TransformForInput;
 	}
@@ -159,11 +203,7 @@ async function MbViewerInit () {
 		if (!urlLow.startsWith('http://') && !urlLow.startsWith('https://')) {
 			url = `https://${url}`;
 		}
-		if (["t.me", "telegram.me"].includes(url.toLowerCase().split('://')[1].split('/')[0])) {
-			location = url;
-		} else {
-			ArgsRewrite({ siteurl: url });
-		}
+		ArgsRewrite({ siteurl: url });
 		event.preventDefault();
 	};
 	$('a.tgme_header_link')[0].onclick = function(){
@@ -196,8 +236,40 @@ async function MbViewerInit () {
 			MbState.args[argTokens[0].toLowerCase()] = (valueItems.length > 1 ? valueItems : valueItems[0]);
 		}
 	}
+	if (!Object.keys(MbState.args).length) {
+		$('a[name="goBack"]')[0].hidden = true;
+		$('.tgme_header_title').html(MbState.siteData.name);
+		$('.tgme_header_right_column')[0].hidden = true;
+		$('div.ChatList > div.ChatAdds')[0].innerHTML = '';
+		$('div.ChatList')[0].hidden = false;
+		for (const chat of [...MbStorage('chats')].sort((a, b) => (b.openTime || 0) - (a.openTime || 0))) {
+			if (!chat.queryUrl) {
+				continue;
+			}
+			$('div.ChatList > div.ChatAdds')[0].innerHTML += `<div class="ChatButton">
+				<a href="${chat.queryUrl}" onclick="UpdateChatOpenTime('${chat.queryUrl}')">
+					<i class="tgme_widget_message_user_photo" data-content="${!chat.iconUrl ? MakeAcroName(chat.name) : ''}">
+						<img src="${chat.iconUrl || ''}"/>
+					</i>
+					<span>${chat.name}</span>
+				</a>
+			</div>`;
+		}
+		return
+	}
+	$('div.ChatList')[0].hidden = true;
+	$('.tgme_header_right_column')[0].hidden = false;
 	MbState.siteUrl = MbState.args.siteurl;
 	MbState.platform = /*SureArray(*/MbState.args.platform/*)*/;
+	if (!MbState.platform && MbState.siteUrl) {
+		if (["t.me", "telegram.me"].includes(GetDomainFromUrl(MbState.siteUrl).toLowerCase())) {
+			MbState.siteUrl = `https://rsshub.app/telegram/channel/${MbState.siteUrl.split('//')[1].split('/')[1]}`;
+			MbState.platform = 'rss';
+		}
+		if (MbState.siteUrl.toLowerCase().endsWith('.rss')) {
+			MbState.platform = 'rss';
+		}
+	}
 	MbState.postId = MbState.args.postid;
 	//MbState.postSlug = MbState.args.postslug;
 	RefreshIncludeStyle();
@@ -318,9 +390,7 @@ async function MbViewerInit () {
 		$('form.tgme_header_search_form')[0].onsubmit = null;
 		$('.tgme_channel_info_header_username').html(`<a href="${siteLink}">${GetDomainFromUrl(siteLink).toLowerCase()}</a>`);
 	}
-	if (MbState.siteUrl || MbState.dataInject) {
-		$('a[name="goBack"]')[0].hidden = false;
-	}
+	$('a[name="goBack"]')[0].hidden = false;
 	if (["atom", "rss"].includes(MbState.platform)) {
 		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
 		TWeb.loadMore($('.js-messages_more_wrap > a'), MbState.siteData);
@@ -333,13 +403,12 @@ async function MbViewerInit () {
 		MbState.siteData.iconUrl = `${MbState.siteUrl}${MbState.siteData.iconUrl}`;
 	}
 	if (!MbState.siteUrl && !MbState.dataInject) {
-		$('a[name="goBack"]')[0].hidden = true;
 		$('section.tgme_channel_history.js-message_history').html(MakeMoreWrapperHtml());
 		TWeb.loadMore($('.js-messages_more_wrap > a'), [{ content: `<p>
 			Here I am, doing another strange thing of mine.
 			This is my personal experiment to make an MB-style frontend for sources that are by default not really friendly to that concept.
 			Since this first day, we will start with just WordPress, and we'll see what comes from that.
-			See <a href="https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/">https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/</a>.
+			See <a href="https://octospacc.altervista.org/2024/01/13/wordpress-che-non-e/">octospacc.altervista.org/2024/01/13/wordpress-che-non-e/</a>.
 		</p>`, time: '2024-01-13T21:00' }, { content: `<p>
 			After fixing a few post-release issues driving me insane (scrolling cough cough), here are some new improvements:
 			<br/> * Handling of posts without date is just a bit nicer.
@@ -386,7 +455,7 @@ async function MbViewerInit () {
 			<br/> * Read Telegram's JSON chat exports (experimental, very slow and resource-heavy)
 			<br/>
 			Regarding Trasformapi, I transformed some of my development tears into words, read here if you're curious:
-			<a href="https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/">https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/</a>.
+			<a href="https://octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/">octospacc.altervista.org/2024/01/25/mbviewer-per-distrarci/</a>.
 		</p>`, time: '2024-01-25T01:00' }, { content: `<p>
 			Some small things:
 			<br/> * Fixed RSS feeds parsing on Firefox (mentioned in the post linked above), by fixing a bug in Trasformapi
@@ -396,12 +465,19 @@ async function MbViewerInit () {
 			New changes:
 			<br/> * Support including user-defined JS scripts from URL (<code>data:</code> supported) via the <code>includeScript</code> argument. A script must expose a <code>MbViewerFunction(data)</code> function to be invoked by the main application to do useful operations, and then return data by calling the <code>MbViewerReturn(data)</code> API function.
 			<br/>
-			...I will probably need to write actual documentation about this, but for sure I will post about this on <a href="https://octospacc.altervista.org/?p=1416">https://octospacc.altervista.org/?p=1416</a>.
+			...I will probably need to write actual documentation about this, but for sure I will post about this on <a href="https://octospacc.altervista.org/?p=1416">octospacc.altervista.org/?p=1416</a>.
 		</p>`, time: '2024-02-01T00:00' }, { content: `<p>
 			Updates:
 			<br/> * Include special CSS for optimized PDF/paper printing
-		</p>`, time: '2024-02-05T11:00' }, { content: `<p>
-			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">t.me</a>,
+		</p>`, time: '2024-02-05T11:00' }, { content: `<p><!--
+			++-->* Added a main sources list, new ones can be added via a button in their menu after being open by URL
+			<br/>* Made the printable CSS a bit nicer with borders, margins, and properly-sized images
+			<br/>* Updated CORS proxies
+			<br/>* Now handling Telegram URLs via <a href="https://rsshub.app">RSSHub.app</a>
+			<br/>* Probably fixed an issue with <code>location.hash</code> overriding that made going back to another site from the app impossible
+			<br/>Devlog: <a href="https://octospacc.altervista.org/?p=7098">octospacc.altervista.org/?p=7098</a>.
+		</p>`, time: '2024-07-01T20:00' }, { content: `<p>
+			Copyright notice: MBViewer uses code borrowed from <a href="https://t.me">https://t.me</a>,
 			specially modified to handle customized data visualizations in an MB-style.
 			<br/>
 			This webapp is not affiliated with Telegram (Telegram FZ LLC, Telegram Messenger Inc.), and 
@@ -411,7 +487,7 @@ async function MbViewerInit () {
 	document.title = `${MbState.siteData.name} — 👁️‍🗨️️ MBViewer`;
 	$('.tgme_page_photo_image').attr('data-content', MbState.siteData.acroName);
 	$('.tgme_header_title, .tgme_channel_info_header_title').html(MbState.siteData.name);
-	$('.tgme_channel_info_description').html(MbState.siteData.description);
+	$('.tgme_channel_info_description').html((MbState.siteUrl ? `<div><p><button name="ToggleChatFavorite" onclick="ToggleChatFavorite('${MbState.siteUrl}')">${!CheckChatFavorite(MbState.siteUrl) ? '➕️ Add to' : '❌️ Remove from'} favorites ⭐️</button></p></div>` : '') + MbState.siteData.description);
 	if (MbState.siteData.iconUrl) {
 		$('.tgme_page_photo_image').html(`<img src="${MbState.siteData.iconUrl}"/>`);
 	} else {
@@ -652,8 +728,15 @@ function ResizeLayouts () {
 }
 
 $('a[name="goBack"]')[0].onclick = function(){
-	ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, includestyle: null, includescript: null /*postslug: null*/ });
+	//ArgsRewrite({ dataurl: null, siteurl: null, postid: null, platform: null, includestyle: null, includescript: null /*postslug: null*/ });
+	location.hash = '';
 };
+
+if (!MbStorage('chats')) {
+	const octospacc = { name: "fritto misto di octospacc <small>(Consigliato)</small>", siteUrl: "https://octospacc.altervista.org", iconUrl: "https://octospacc.altervista.org/wp-content/uploads/2024/05/fried-shrimp_1f364.png" };
+	octospacc.queryUrl = `#/siteUrl=${octospacc.siteUrl}`;
+	MbStorage('chats', [{}, octospacc]);
+}
 
 // TODO: we should check origin
 window.addEventListener('message', function(event){

@@ -19,7 +19,7 @@ if (['', 'hub.octt.eu.org'].includes(location.host)) {
 		font-size: smaller;
 		text-align: center;
 	`;
-	noticeElem.innerHTML = `You are viewing this page on the secondary/backup domain. <a style="color: darkblue;" href="https://hub.octt.eu.org${location.pathname}">Open it on hub.octt.eu.org</a>.
+	noticeElem.innerHTML = `You are viewing this page on a secondary/backup domain. <a style="color: darkblue;" href="https://hub.octt.eu.org${location.pathname}">Open it on hub.octt.eu.org</a>.
 	<button style="
 		float: right;
 		height: 1.25em;

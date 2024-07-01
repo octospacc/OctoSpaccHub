@@ -3,9 +3,11 @@ body {
 	color: black;
 }
 
-img {
-	max-width: 100%;
+img, video, iframe {
+	max-width: 40em;
+	max-height: 30em;
 	height: auto;
+	width: auto;
 }
 
 div.tgme_background_wrap,
@@ -34,4 +36,10 @@ div.tgme_widget_message_footer a {
 .tgme_page_photo_image img {
 	width: 36px;
 	height: 36px;
+}
+
+div.tgme_widget_message_wrap {
+	border-top: 2px solid black;
+	margin-top: 16px;
+	margin-bottom: 8px;
 }

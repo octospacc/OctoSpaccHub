@@ -14,3 +14,33 @@ div.tgme_widget_message_text > div.MbPost * {
 div.tgme_widget_message_text > div.MbPost figure {
 	margin: 1em;
 }
+
+section.tgme_right_column > div.tgme_channel_info {
+	overflow-y: auto;
+	width: calc(100% - 36px);
+}
+
+main.tgme_main > div.ChatList div.ChatButton {
+	background-color: var(--bubble-bgcolor);
+	margin-top: 4px;
+}
+
+main.tgme_main > div.ChatList div.ChatButton > a {
+	display: flex;
+}
+
+main.tgme_main > div.ChatList div.ChatButton > a > * {
+	float: left;
+}
+
+main.tgme_main > div.ChatList div.ChatButton > a > i.tgme_widget_message_user_photo {
+	margin: 4px;
+	background-color: unset;
+}
+
+main.tgme_main > div.ChatList div.ChatButton > a > span {
+	display: block;
+	padding-top: 0.8em;
+	padding-left: 4px;
+}
+
