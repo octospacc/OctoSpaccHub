@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>TiVuOcto</title>
+	<title>📺️ TiVuOcto</title>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
 	<meta property="og:title" content="TiVuOcto"/>
@@ -424,11 +424,11 @@ async function loadFromHash (event) {
 		}
 		video.src({ src, type: (headers.get('content-type') || 'application/x-mpegURL') });
 		video.play();
-		videoEl.hidden = false;
+		videoEl.style.display = '';
 	} else {
 		setTitle();
 		var hashMain = location.hash.split('/')[1];
-		videoEl.hidden = true;
+		videoEl.style.display = 'none';
 		switch (hashMain) {
 			default:
 				noVideoEl.hidden = false;
