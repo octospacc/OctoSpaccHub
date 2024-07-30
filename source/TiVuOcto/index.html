@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>TiVuOcto</title>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<meta property="og:title" content="TiVuOcto"/>
+	<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/TiVuOcto/"/>
+	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone',"/>
+	<link href="./node_modules/muicss/dist/css/mui.min.css" rel="stylesheet"/>
+	<link href="./node_modules/video.js/dist/video-js.min.css" rel="stylesheet"/>
+	<style>
+:root {
+	--headerHeight: 48px;
+	--sidebarWidth: 200px;
+	--colorBackground: #000;
+	--colorBackground2: #102;
+	--colorForeground: #fff;
+	--colorForeground2: #bbb;
+	--colorAccent: #305;
+	--colorAccent2: #203;
+}
+
+html,
+body {
+	height: 100%;
+	background-color: var(--colorBackground);
+	color: var(--colorForeground);
+}
+
+body a {
+	color: var(--colorForeground2);
+}
+
+html,
+body,
+input,
+textarea,
+button {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.004);
+}
+
+#header {
+	position: fixed;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 2;
+	transition: left 0.2s;
+}
+
+#sidedrawer {
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	width: var(--sidebarWidth);
+	left: calc(0px - var(--sidebarWidth));
+	overflow: auto;
+	z-index: 2;
+	background-color: var(--colorBackground2);
+	transition: transform 0.2s;
+}
+
+#content-wrapper {
+	min-height: 100%;
+	overflow-x: hidden;
+	margin-left: 0px;
+	transition: margin-left 0.2s;
+}
+
+#content-wrapper > * {
+	position: relative;
+	top: var(--headerHeight);
+	width: 100%;
+	height: calc(100vh - var(--headerHeight));
+}
+
+@media (min-width: 768px) {
+	#header {
+		left: var(--sidebarWidth);
+	}
+
+	#sidedrawer {
+		transform: translate(var(--sidebarWidth));
+	}
+
+	#content-wrapper {
+		margin-left: var(--sidebarWidth);
+	}
+
+	#footer {
+		margin-left: var(--sidebarWidth);
+	}
+
+	body[data-hide-sidedrawer="1"] #header {
+		left: 0;
+	}
+
+	body[data-hide-sidedrawer="1"] #sidedrawer {
+		transform: translate(0px);
+	}
+
+	body[data-hide-sidedrawer="1"] #content-wrapper,
+	body[data-hide-sidedrawer="1"] #footer {
+		margin-left: 0;
+	}
+}
+
+#sidedrawer[data-active="true"] {
+	transform: translate(var(--sidebarWidth));
+}
+
+#header .sidedrawer-toggle,
+#header .sidemenu-toggle {
+	color: var(--colorForeground);
+	cursor: pointer;
+	user-select: none;
+	font-size: 20px;
+}
+
+#header .sidedrawer-toggle {
+	margin-right: 10px;
+	line-height: 20px;
+}
+
+#header .sidedrawer-toggle:hover,
+#header .sidemenu-toggle:hover {
+	color: var(--colorForeground2);
+	text-decoration: none;
+}
+
+#header .mui-dropdown {
+	float: right;
+}
+
+#sidedrawer-brand {
+	padding-left: 20px;
+}
+
+#sidedrawer ul {
+	list-style: none;
+	padding: 1em;
+}
+
+#sidedrawer > ul {
+	padding-left: 0px;
+}
+
+#sidedrawer > ul > li:first-child {
+	padding-top: 15px;
+}
+
+#sidedrawer > ul > li > ul > li {
+	padding: 1em;
+	word-break: break-word;
+}
+
+#sidedrawer > ul > li > ul > li:hover {
+	background: var(--colorAccent);
+}
+
+#sidedrawer > ul > li > ul > li:target {
+	background: var(--colorAccent2) !important;
+}
+
+#sidedrawer > ul > li > a {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+#sidedrawer ul > li > a > strong {
+	display: block;
+	padding: 15px 22px;
+	background-color: var(--colorBackground2);
+}
+
+#sidedrawer ul > li > a > strong:hover {
+	background-color: var(--colorAccent);
+}
+
+#sidedrawer strong + ul > li {
+	padding: 6px 0px;
+}
+
+#sidedrawer > ul > li > ul > li > a {
+	font-size: x-large;
+	display: block;
+}
+
+#sidedrawer > ul > li > ul > li > a > img {
+	width: auto;
+	height: auto;
+	max-width: 100%;
+	max-height: 160px;
+	/* <https://stackoverflow.com/questions/12690444/css-border-on-png-image-with-transparent-parts/70470266#70470266> */
+	filter:
+		drop-shadow(2px 0 0 var(--colorForeground))
+		drop-shadow(0 2px 0 var(--colorForeground))
+		drop-shadow(-2px 0 0 var(--colorForeground))
+		drop-shadow(0 -2px 0 var(--colorForeground));
+}
+
+#header .mui-appbar {
+	height: var(--headerHeight);
+	min-height: var(--headerHeight);
+	line-height: var(--headerHeight);
+	background-color: var(--colorAccent);
+}
+
+#no-video,
+#app-info {
+	box-sizing: border-box;
+	overflow: auto;
+	padding-left: 1em;
+	padding-right: 1em;
+}
+	</style>
+</head>
+<body>
+	<div id="sidedrawer" class="mui--no-user-select">
+		<div id="sidedrawer-brand" class="mui--appbar-line-height">
+			<span class="mui--text-title"></span>
+		</div>
+		<div class="mui-divider"></div>
+	</div>
+	<header id="header">
+		<div class="mui-appbar mui--appbar-line-height">
+			<div class="mui-container-fluid"><!--
+				--><a class="sidedrawer-toggle mui--visible-xs-inline-block mui--visible-sm-inline-block js-show-sidedrawer">☰</a><!--
+				--><a class="sidedrawer-toggle mui--hidden-xs mui--hidden-sm js-hide-sidedrawer">☰</a><!--
+				--><span class="mui--text-title"></span>
+				<div class="mui-dropdown">
+					<a class="sidemenu-toggle" data-mui-toggle="dropdown">︙</a>
+					<ul class="mui-dropdown__menu mui-dropdown__menu--right" style="top: 31px;">
+						<li><a href="#/about">About TiVuOcto</a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</header>
+	<div id="content-wrapper">
+		<div id="app-info">
+			<p id="no-javascript" style="padding-top: 1em;">
+				⚠️ You need to <a href="https://enable-javascript.com">enable JavaScript</a> to run this app.
+			</p>
+			<h2>About TiVuOcto</h2><p>
+				A minimal webapp for playing IPTV streams.
+				Includes free TV channels from the entire world
+				with a responsive UI, clean UX, no ads, no spyware.
+			</p>
+			<h3>Disclaimer</h3><p>
+				This app allows users to play video live streams
+				based on Internet standards, from either embedded sources,
+				or user-specified sources that the app is not affiliated with.
+				<br/>
+				The embedded sources are specified below and publicly available,
+				only including fully legal free-to-watch/public-domain content.
+				This app does not make any pay-per-view content freely available,
+				nor does it include any DRM/geoblocking circumvention measures.
+			</p>
+			<h3>Licensing</h3><p>
+				Copyright (C) 2024 OctoSpacc
+				<br/>
+				This program is free software: you can redistribute it and/or modify
+				it under the terms of the GNU Affero General Public License as
+				published by the Free Software Foundation, either version 3 of the
+				License, or (at your option) any later version.
+				<br/>
+				This program is distributed in the hope that it will be useful,
+				but WITHOUT ANY WARRANTY; without even the implied warranty of
+				MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+				GNU Affero General Public License for more details.
+				<br/>
+				You should have received a copy of the GNU Affero General Public License
+				along with this program. If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.
+			</p>
+			<h3>Thanks and Third Party Libraries</h3>
+			<p>This app wouldn't have been possible without the following:</p><ul>
+				<li><a href="https://github.com/Free-TV/IPTV">Free-TV IPTV</a> playlist</li>
+				<li><a href="https://videojs.com">Video.js</a> player [<a href="https://github.com/videojs/video.js/blob/main/LICENSE">Apache 2.0</a>]</li>
+				<li><a href="https://muicss.com">MUI CSS</a> framework [<a href="https://github.com/muicss/mui/blob/master/LICENSE.txt">MIT</a>]</li>
+			</ul>
+			<h3>Changelog</h3>
+			<h4>2024-07-30</h4>
+			<ul>
+				<li>First MVP version using the biggest free IPTV list, and about screen.</li>
+				<li>Channel list in sidebar, divided by country with flag emojis.</li>
+			</ul>
+		</div>
+	</div>
+	<script src="./node_modules/muicss/dist/js/mui.min.js"></script>
+	<script src="./node_modules/video.js/dist/video.min.js"></script>
+	<script>(async function(){
+var COUNTRIES = {
+	ar: '🇸🇦️',
+	en: '🏴󠁧󠁢󠁥󠁮󠁧󠁿️',
+	es: '🇪🇸️',
+	albania: '🇦🇱️',
+	andorra: '🇦🇩️',
+	argentina: '🇦🇷️',
+	australia: '🇦🇺️',
+	austria: '🇦🇹️',
+	azerbaijan: '🇦🇿️',
+	belarus: '🇧🇾️',
+	belgium: '🇧🇪️',
+	bosnia_and_herzegovina: '🇧🇦️',
+	brazil: '🇧🇷️',
+	bulgaria: '🇧🇬️',
+	canada: '🇨🇦️',
+	chad: '🇹🇩️',
+	chile: '🇨🇱️',
+	china: '🇨🇳️',
+	costa_rica: '🇨🇷️',
+	croatia: '🇭🇷️',
+	cyprus: '🇨🇾️',
+	czech_republic: '🇨🇿️',
+	denmark: '🇩🇰️',
+	dominican_republic: '🇩🇴️',
+	estonia: '🇪🇪️',
+	faroe_islands: '🇫🇴️',
+	finland: '🇫🇮️',
+	france: '🇫🇷️',
+	georgia: '🇬🇪️',
+	germany: '🇩🇪️',
+	greece: '🇬🇷️',
+	greenland: '🇬🇱️',
+	hong_kong: '🇭🇰️',
+	hungary: '🇭🇺️',
+	iceland: '🇮🇸️',
+	india: '🇮🇳️',
+	iran: '🇮🇷️',
+	iraq: '🇮🇶️',
+	ireland: '🇮🇪️',
+	israel: '🇮🇱️',
+	italy: '🇮🇹️',
+	japan: '🇯🇵️',
+	korea: '🇰🇷️',
+	kosovo: '🇽🇰️',
+	latvia: '🇱🇻️',
+	lithuania: '🇱🇹️',
+	luxembourg: '🇱🇺️',
+	macau: '🇲🇴️',
+	malta: '🇲🇹️',
+	mexico: '🇲🇽️',
+	moldova: '🇲🇩️',
+	monaco: '🇲🇨️',
+	montenegro: '🇲🇪️',
+	netherlands: '🇳🇱️',
+	north_korea: '🇰🇵️',
+	north_macedonia: '🇲🇰️',
+	norway: '🇳🇴️',
+	paraguay: '🇵🇾️',
+	peru: '🇵🇪️',
+	poland: '🇵🇱️',
+	portugal: '🇵🇹️',
+	qatar: '🇶🇦️',
+	romania: '🇷🇴️',
+	russia: '🇷🇺️',
+	san_marino: '🇸🇲️',
+	saudi_arabia: '🇸🇦️',
+	serbia: '🇷🇸️',
+	slovakia: '🇸🇰️',
+	slovenia: '🇸🇮️',
+	somalia: '🇸🇴️',
+	spain: '🇪🇸️',
+	sweden: '🇸🇪️',
+	switzerland: '🇨🇭️',
+	taiwan: '🇹🇼️',
+	trinidad: '🇹🇹️',
+	turkey: '🇹🇷️',
+	uk: '🇬🇧️',
+	ukraine: '🇺🇦️',
+	united_arab_emirates: '🇦🇪️',
+	usa: '🇺🇸️',
+	venezuela: '🇻🇪️',
+};
+
+var APPNAME = document.title;
+//var APPINFO = document.querySelector('#app-info-container > div').innerHTML;
+
+function setTitle (title='') {
+	title = title.trim();
+	document.title = (title ? `${title} — ${APPNAME}` : APPNAME);
+	document.querySelector('#header .mui--text-title').textContent = (title || APPNAME);
+}
+
+setTitle();
+document.querySelector('#sidedrawer .mui--text-title').textContent = APPNAME;
+
+function getQuotedValue (data, key) {
+	return data.split(`${key}="`)?.[1]?.split('"')?.[0];
+}
+
+function getToActiveChannel () {
+	var channelEl = document.querySelector(`#sidedrawer a[href="${location.hash}"]`);
+	if (!channelEl) {
+		return;
+	}
+	channelEl.parentElement.parentElement.hidden = false;
+	channelEl.parentElement.scrollIntoView();
+	//document.querySelector('#sidedrawer').scrollTop -= parseInt(getComputedStyle(document.querySelector('#header')).height.slice(0, -2));
+	return channelEl;
+}
+
+async function loadFromHash (event) {
+	var videoEl = document.querySelector('#video-player');
+	var noVideoEl = document.querySelector('#no-video');
+	var appInfoEl = document.querySelector('#app-info');
+	var channelEl = getToActiveChannel();
+	var video = videojs('video-player');
+	video.pause();
+	if (channelEl) {
+		noVideoEl.hidden = true;
+		appInfoEl.hidden = true;
+		channelEl.click();
+		setTitle(channelEl.textContent);
+		var src = `https://hlb0.octt.eu.org/cors-main.php/${channelEl.dataset.src}`;
+		var headers = (await fetch(src)).headers;
+		if (event.videoInitialLoad) {
+			video.muted(true);
+		}
+		video.src({ src, type: (headers.get('content-type') || 'application/x-mpegURL') });
+		video.play();
+		videoEl.hidden = false;
+	} else {
+		setTitle();
+		var hashMain = location.hash.split('/')[1];
+		videoEl.hidden = true;
+		switch (hashMain) {
+			default:
+				noVideoEl.hidden = false;
+				appInfoEl.hidden = true;
+			break; case 'about':
+				noVideoEl.hidden = true;
+				appInfoEl.hidden = false;
+		}
+	}
+}
+
+var sideDrawerEl = document.querySelector('#sidedrawer');
+document.querySelector('.js-show-sidedrawer').onclick = (function(){
+	var overlayEl = mui.overlay('on', { onclose: function(){
+		sideDrawerEl.dataset.active = false;
+		document.body.appendChild(sideDrawerEl);
+	}});
+	document.body.appendChild(overlayEl);
+	overlayEl.appendChild(sideDrawerEl);
+	sideDrawerEl.dataset.active = true;
+	getToActiveChannel();
+});
+
+document.querySelector('.js-hide-sidedrawer').onclick = (function(){
+	document.body.dataset.hideSidedrawer = Number(!Number(document.body.dataset.hideSidedrawer || 0));
+});
+
+document.querySelector('#no-javascript').remove();
+document.querySelector('#app-info').hidden = true;
+document.querySelector('#content-wrapper').innerHTML += `
+<div id="no-video" hidden="true">
+	<p style="margin-top: 1em;">
+		Select a valid channel to play video.
+	</p>
+</div>
+<video id="video-player" class="video-js" controls="controls" data-setup="{}"></video>
+`;
+
+// TODO error handling
+var iptvRequest = await fetch('https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8');
+var iptvData = await iptvRequest.text();
+var iptvChannels = iptvData.split('\n#EXTINF:-1').slice(1);
+
+var channelsHtml = '';
+var channelGroupEls = {};
+for (var channel of iptvChannels) {
+	var group = getQuotedValue(channel, 'group-title');
+	var channelId = getQuotedValue(channel, 'tvg-id');
+	if (!channelId) {
+		continue;
+	}
+	channelGroupEls[group] ||= '';
+	channelGroupEls[group] += `<li id="/0/${channelId}">
+		<a href="#/0/${channelId}" data-src="${channel.split('\n')[1]}">
+			<img loading="lazy" src="${getQuotedValue(channel, 'tvg-logo')}"/>
+			${getQuotedValue(channel, 'tvg-name')}
+		</a>
+	</li>`;
+}
+for (var group in channelGroupEls) {
+	var groupLower = group.toLowerCase();
+	channelsHtml += `<li>
+		<a class="category-toggle" href="javascript:void(0);">
+			<strong>${
+				COUNTRIES[groupLower.replaceAll(' ', '_')] ||
+				COUNTRIES[groupLower.replace('vod', '').trim().replaceAll(' ', '_')] ||
+				COUNTRIES[groupLower.split('(')[1]?.split(')')[0]] ||
+			''} ${group}</strong>
+		</a><ul>${channelGroupEls[group]}</ul>
+	</li>`;
+}
+document.querySelector('#sidedrawer').innerHTML += `<ul>${channelsHtml}</ul>`;
+
+Array.from(document.querySelectorAll('#sidedrawer a.category-toggle')).forEach(function(titleEl){
+	var groupEl = titleEl.nextElementSibling;
+	groupEl.hidden = true;
+	titleEl.onclick = (function(){
+		groupEl.hidden = !groupEl.hidden;
+		titleEl.scrollIntoView();
+	});
+});
+
+window.addEventListener('hashchange', loadFromHash);
+loadFromHash({ videoInitialLoad: true });
+
+})();</script>
+</body>
+</html>

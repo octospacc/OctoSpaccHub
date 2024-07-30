@@ -1,13 +1,14 @@
 #!/bin/sh
-SourceApps="SpiderADB WuppiMini"
+SourceApps="SpiderADB TiVuOcto WuppiMini"
 HubSdkApps="${SourceApps} MatrixStickerHelper TiktOctt"
+HtmlHeadInject='<script src="../../shared/OctoHub-Global.js"></script>'
 
 quoteVar(){ echo '"'"$1"'"' ;}
 
 getMetaAttr(){
 	file="$1"
 	name="$2"
-	key="$([ -n "$3" ] && echo "$3" || echo "property")"
+	key="$([ -n "$3" ] && echo "$3" || echo property)"
 	grep '<meta '"$key"'="'"$name"'"' "$file" | grep '>' | cut -d '"' -f4
 }
 
@@ -30,9 +31,9 @@ node ../WriteRedirectPages.js
 for App in ${HubSdkApps}
 do
 	file="./${App}/index.html"
-	name="$(getMetaAttr "${file}" og:title)"
-	description="$(getMetaAttr "${file}" og:description property)"
-	url="$(getMetaAttr "${file}" Url OctoSpaccHubSdk)" #"$(getMetaAttr "${file}" og:url property)"
+	name="$(       getMetaAttr "${file}" og:title)"
+	description="$(getMetaAttr "${file}" og:description)"
+	url="$(        getMetaAttr "${file}" Url OctoSpaccHubSdk)"
 	cat << [OctoSpaccHubSdk-WebManifest-EOF] > "./${App}/WebManifest.json"
 	{
 		$(getMetaAttr "${file}" WebManifestExtra OctoSpaccHubSdk | sed s/\'/\"/g)
@@ -42,5 +43,7 @@ do
 		"name": "${name}"
 	}
 [OctoSpaccHubSdk-WebManifest-EOF]
-	sed -i 's|</head>|<title>'"${name}"'</title><link rel="manifest" href="./WebManifest.json"/></head>|' "${file}"
+	htmltitle='<title>'"${name}"'</title>'
+	htmlcanonical='<link rel="canonical" href="'"${url}"'"/>'
+	sed -i 's|</head>|<link rel="manifest" href="./WebManifest.json"/>'"${htmltitle}${htmlcanonical}${htmlmanifest}${HtmlHeadInject}"'</head>|' "${file}"
 done
