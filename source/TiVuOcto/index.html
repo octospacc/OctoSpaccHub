@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>📺️ TiVuOcto</title>
+	<title>TiVuOcto 📺️</title>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<meta property="og:title" content="TiVuOcto"/>
+	<meta property="og:title" content="TiVuOcto 📺️"/>
 	<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/TiVuOcto/"/>
 	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone',"/>
 	<link href="./node_modules/muicss/dist/css/mui.min.css" rel="stylesheet"/>
@@ -19,11 +19,11 @@
 	--colorForeground2: #bbb;
 	--colorAccent: #305;
 	--colorAccent2: #203;
+	--colorAccent3: #407;
 }
 
 html,
 body {
-	height: 100%;
 	background-color: var(--colorBackground);
 	color: var(--colorForeground);
 }
@@ -41,6 +41,30 @@ button {
 	-moz-osx-font-smoothing: grayscale;
 	text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.004);
 }
+
+.mui-dropdown hr {
+	margin: revert;
+}
+
+.mui-dropdown__menu > div > li > * {
+	display: block;
+	padding: 3px 20px;
+	clear: both;
+	font-weight: 400;
+	line-height: 1.429;
+	color: rgba(0,0,0,.87);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+
+.mui-dropdown__menu > div > li > *:focus,
+.mui-dropdown__menu > div > li > *:hover {
+	text-decoration: none;
+	color: rgba(0,0,0,.87);
+	background-color: #EEE;
+}
+
 
 #header {
 	position: fixed;
@@ -61,20 +85,14 @@ button {
 	z-index: 2;
 	background-color: var(--colorBackground2);
 	transition: transform 0.2s;
+	word-break: break-word;
 }
 
 #content-wrapper {
-	min-height: 100%;
+	margin-top: var(--headerHeight);
 	overflow-x: hidden;
 	margin-left: 0px;
 	transition: margin-left 0.2s;
-}
-
-#content-wrapper > * {
-	position: relative;
-	top: var(--headerHeight);
-	width: 100%;
-	height: calc(100vh - var(--headerHeight));
 }
 
 @media (min-width: 768px) {
@@ -117,15 +135,21 @@ button {
 	color: var(--colorForeground);
 	cursor: pointer;
 	user-select: none;
-	font-size: 20px;
 }
 
 #header .sidedrawer-toggle {
 	margin-right: 10px;
 	line-height: 20px;
+	font-size: 19px;
 }
 
+#header .sidemenu-toggle {
+	font-size: 21px;
+}
+
+#header .sidedrawer-toggle:focus,
 #header .sidedrawer-toggle:hover,
+#header .sidemenu-toggle:focus,
 #header .sidemenu-toggle:hover {
 	color: var(--colorForeground2);
 	text-decoration: none;
@@ -139,7 +163,19 @@ button {
 	padding-left: 20px;
 }
 
-#sidedrawer ul {
+#sidedrawer .mui-dropdown {
+	z-index: 2;
+	padding: 1em;
+	box-sizing: border-box;
+	width: 100%;
+}
+
+#sidedrawer .mui-dropdown > button {
+	width: 100%;
+	background: var(--colorAccent3);
+}
+
+#sidedrawer > ul ul {
 	list-style: none;
 	padding: 1em;
 }
@@ -148,21 +184,25 @@ button {
 	padding-left: 0px;
 }
 
-#sidedrawer > ul > li:first-child {
-	padding-top: 15px;
+/* #sidedrawer > ul > li > ul > li {
+	margin-top: 1em;
+	margin-bottom: 1em;
+} */
+
+#sidedrawer > ul > li > ul > li,
+#sidedrawer > ul > li > ul > li > a {
+	padding: 0.5em;
+	padding-top: 1em;
+	padding-bottom: 1em;
 }
 
-#sidedrawer > ul > li > ul > li {
-	padding: 1em;
-	word-break: break-word;
+#sidedrawer > ul > li > ul > li > a:target {
+	background: var(--colorAccent2);
 }
 
-#sidedrawer > ul > li > ul > li:hover {
+#sidedrawer > ul > li > ul > li > a:focus,
+#sidedrawer > ul > li > ul > li > a:hover {
 	background: var(--colorAccent);
-}
-
-#sidedrawer > ul > li > ul > li:target {
-	background: var(--colorAccent2) !important;
 }
 
 #sidedrawer > ul > li > a {
@@ -171,18 +211,16 @@ button {
 	z-index: 1;
 }
 
-#sidedrawer ul > li > a > strong {
+#sidedrawer ul#channels-list > li > a {
 	display: block;
 	padding: 15px 22px;
 	background-color: var(--colorBackground2);
+	font-weight: bold;
 }
 
-#sidedrawer ul > li > a > strong:hover {
-	background-color: var(--colorAccent);
-}
-
-#sidedrawer strong + ul > li {
-	padding: 6px 0px;
+#sidedrawer ul#channels-list > li > a:focus,
+#sidedrawer ul#channels-list > li > a:hover {
+	background-color: var(--colorAccent) !important;
 }
 
 #sidedrawer > ul > li > ul > li > a {
@@ -210,14 +248,25 @@ button {
 	background-color: var(--colorAccent);
 }
 
+#video-player {
+	width: 100%;
+	height: calc(100vh - var(--headerHeight));
+}
+
 #no-video,
+#label-loading,
 #app-info {
 	box-sizing: border-box;
 	overflow: auto;
 	padding-left: 1em;
 	padding-right: 1em;
 }
+
+#no-video, #label-loading {
+	margin-top: 1em;
+}
 	</style>
+	<style id="video-player-style"> #video-player { display: none; } </style>
 </head>
 <body>
 	<div id="sidedrawer" class="mui--no-user-select">
@@ -225,23 +274,48 @@ button {
 			<span class="mui--text-title"></span>
 		</div>
 		<div class="mui-divider"></div>
+		<div class="mui-dropdown" id="channel-select">
+			<button class="mui-btn mui-btn--primary" data-mui-toggle="dropdown">
+				<span id="channel-selected">Channels</span> <span class="mui-caret"></span>
+			</button>
+			<ul class="mui-dropdown__menu">
+				<!-- TODO: implement these, add playlists, delete playlists, delete history
+				<li><a>⭐️ Favorites</a></li>
+				<li><a>📅️ Recent</a></li>
+				<hr/> -->
+				<li><a data-m3u="https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8">
+					Free-TV IPTV
+				</a></li>
+				<li><a data-m3u="https://iptv-org.github.io/iptv/index.m3u">
+					iptv-org IPTV
+				</a></li>
+			</ul>
+		</div>
+		<ul id="channels-list"></ul>
 	</div>
 	<header id="header">
 		<div class="mui-appbar mui--appbar-line-height">
 			<div class="mui-container-fluid"><!--
-				--><a class="sidedrawer-toggle mui--visible-xs-inline-block mui--visible-sm-inline-block js-show-sidedrawer">☰</a><!--
-				--><a class="sidedrawer-toggle mui--hidden-xs mui--hidden-sm js-hide-sidedrawer">☰</a><!--
+				--><a class="sidedrawer-toggle mui--visible-xs-inline-block mui--visible-sm-inline-block js-show-sidedrawer">𝋯</a><!--
+				--><a class="sidedrawer-toggle mui--hidden-xs mui--hidden-sm js-hide-sidedrawer">𝋯</a><!--
 				--><span class="mui--text-title"></span>
 				<div class="mui-dropdown">
 					<a class="sidemenu-toggle" data-mui-toggle="dropdown">︙</a>
-					<ul class="mui-dropdown__menu mui-dropdown__menu--right" style="top: 31px;">
-						<li><a href="#/about">About TiVuOcto</a></li>
+					<ul class="mui-dropdown__menu mui-dropdown__menu--right">
+						<div id="stream-actions" hidden="true">
+							<!--<li><label><input type="checkbox"/> Favorite Channel ⭐️</label></li>-->
+							<li><a name="stream-info">Stream Info 📜️</a></li>
+							<hr/>
+						</div>
+						<div>
+							<li><a href="#/about">About TiVuOcto ℹ️</a></li>
+						</div>
 					</ul>
 				</div>
 			</div>
 		</div>
 	</header>
-	<div id="content-wrapper">
+	<div id="content-wrapper" class="header-margined">
 		<div id="app-info">
 			<p id="no-javascript" style="padding-top: 1em;">
 				⚠️ You need to <a href="https://enable-javascript.com">enable JavaScript</a> to run this app.
@@ -279,17 +353,32 @@ button {
 			</p>
 			<h3>Thanks and Third Party Libraries</h3>
 			<p>This app wouldn't have been possible without the following:</p><ul>
-				<li><a href="https://github.com/Free-TV/IPTV">Free-TV IPTV</a> playlist</li>
 				<li><a href="https://videojs.com">Video.js</a> player [<a href="https://github.com/videojs/video.js/blob/main/LICENSE">Apache 2.0</a>]</li>
 				<li><a href="https://muicss.com">MUI CSS</a> framework [<a href="https://github.com/muicss/mui/blob/master/LICENSE.txt">MIT</a>]</li>
+				<li><a href="https://github.com/Free-TV/IPTV">Free-TV IPTV</a> playlist</li>
+				<li><a href="https://iptv-org.github.io">iptv-org IPTV</a> playlist [<a href="https://github.com/iptv-org/iptv/blob/master/LICENSE">public domain</a>]</li>
 			</ul>
 			<h3>Changelog</h3>
-			<h4>2024-07-30</h4>
-			<ul>
-				<li>First MVP version using the biggest free IPTV list, and about screen.</li>
+			<h4>2024-08-01</h4><ul>
+				<li>Improved UI: better-sized icons, added all button highlights, fixed element margins and mobile scaling, and add loading feedback text.</li>
+				<li>Improved autoplay to handle default <code>allowed</code> and <code>disallowed</code> in addition to <code>allowed-muted</code>.</li>
+				<li>Fixed the m3u8 parsing logic, which now doesn't exclude channels without EPG id.</li>
+				<li>Added a playlist selector dropdown, and with that a new IPTV list: iptv-org.</li>
+				<li>Improved the logic for loading a stream, now also handling reloading via reclick.</li>
+				<li>Added an experimental button to view information about the currently playing stream.</li>
+			</ul>
+			<h4>2024-07-30</h4><ul>
+				<li>First MVP version using the Free-TV IPTV list, and about screen.</li>
 				<li>Channel list in sidebar, divided by country with flag emojis.</li>
 			</ul>
 		</div>
+		<p id="label-loading" hidden="true"><!-- TODO make this more useful -->
+			Loading...
+		</p>
+		<p id="no-video" hidden="true">
+			Select a valid channel to play video.
+		</p>
+		<video id="video-player" class="video-js" controls="controls" data-setup="{}"></video>
 	</div>
 	<script src="./node_modules/muicss/dist/js/mui.min.js"></script>
 	<script src="./node_modules/video.js/dist/video.min.js"></script>
@@ -378,8 +467,23 @@ var COUNTRIES = {
 	venezuela: '🇻🇪️',
 };
 
+var loadingEl = document.querySelector('#label-loading');
+var noVideoEl = document.querySelector('#no-video');
+var appInfoEl = document.querySelector('#app-info');
+var streamActionsEl = document.querySelector('#stream-actions');
+
+var videoStyleEl = document.querySelector('style#video-player-style');
+var videoEl = document.querySelector('#video-player');
+var videoPlayer = videojs('video-player');
+
 var APPNAME = document.title;
-//var APPINFO = document.querySelector('#app-info-container > div').innerHTML;
+var PLAYERHIDDEN = videoStyleEl.innerHTML;
+
+document.querySelector('#no-javascript').remove();
+appInfoEl.hidden = true;
+loadingEl.hidden = false;
+setTitle();
+document.querySelector('#sidedrawer .mui--text-title').textContent = APPNAME;
 
 function setTitle (title='') {
 	title = title.trim();
@@ -387,55 +491,69 @@ function setTitle (title='') {
 	document.querySelector('#header .mui--text-title').textContent = (title || APPNAME);
 }
 
-setTitle();
-document.querySelector('#sidedrawer .mui--text-title').textContent = APPNAME;
-
 function getQuotedValue (data, key) {
 	return data.split(`${key}="`)?.[1]?.split('"')?.[0];
 }
 
 function getToActiveChannel () {
-	var channelEl = document.querySelector(`#sidedrawer a[href="${location.hash}"]`);
+	var channelEl = document.querySelector(`#sidedrawer #channels-list a[href="${location.hash}"]`);
 	if (!channelEl) {
 		return;
 	}
 	channelEl.parentElement.parentElement.hidden = false;
 	channelEl.parentElement.scrollIntoView();
-	//document.querySelector('#sidedrawer').scrollTop -= parseInt(getComputedStyle(document.querySelector('#header')).height.slice(0, -2));
 	return channelEl;
 }
 
+// TODO handle livestreams not skipping to realtime after time wasted buffering
 async function loadFromHash (event) {
-	var videoEl = document.querySelector('#video-player');
-	var noVideoEl = document.querySelector('#no-video');
-	var appInfoEl = document.querySelector('#app-info');
+	// TODO refactor this to not block the showing of metascreens
+	if (!document.querySelector('#sidedrawer #channels-list').innerHTML) {
+		return setTimeout((function(){ loadFromHash(event); }), 80);
+	}
+	loadingEl.hidden = true;
 	var channelEl = getToActiveChannel();
-	var video = videojs('video-player');
-	video.pause();
 	if (channelEl) {
+		//document.body.classList.remove('screen-about');
+		//document.body.classList.add('screen-player');
 		noVideoEl.hidden = true;
 		appInfoEl.hidden = true;
 		channelEl.click();
 		setTitle(channelEl.textContent);
 		var src = `https://hlb0.octt.eu.org/cors-main.php/${channelEl.dataset.src}`;
 		var headers = (await fetch(src)).headers;
-		if (event.videoInitialLoad) {
-			video.muted(true);
+		videoPlayer.pause();
+		videoPlayer.src({ src, type: (headers.get('content-type') || 'application/x-mpegURL') });
+		videoStyleEl.innerHTML = '';
+		streamActionsEl.hidden = false;
+		if (event.videoInitialLoad && (navigator.getAutoplayPolicy("mediaelement") !== "allowed")) {
+			var policy = navigator.getAutoplayPolicy("mediaelement");
+			if (policy === "allowed-muted") {
+				videoPlayer.muted(true);
+			} else if (policy === "disallowed") {
+				return;
+			}
 		}
-		video.src({ src, type: (headers.get('content-type') || 'application/x-mpegURL') });
-		video.play();
-		videoEl.style.display = '';
+		videoPlayer.play();
 	} else {
 		setTitle();
+		streamActionsEl.hidden = true;
+		videoStyleEl.innerHTML = PLAYERHIDDEN;
+		videoPlayer.pause();
+		//document.body.classList.remove('screen-player');
 		var hashMain = location.hash.split('/')[1];
-		videoEl.style.display = 'none';
 		switch (hashMain) {
 			default:
 				noVideoEl.hidden = false;
 				appInfoEl.hidden = true;
+				if (hashMain && (document.querySelector('#channel-select #channel-selected').dataset.index !== hashMain)) {
+					document.querySelectorAll('#channel-select ul > li > a[data-m3u]')[hashMain]?.click();
+					setTimeout((function(){ loadFromHash(event); }), 80);
+				}
 			break; case 'about':
 				noVideoEl.hidden = true;
 				appInfoEl.hidden = false;
+				//document.body.classList.add('screen-about');
 		}
 	}
 }
@@ -456,59 +574,74 @@ document.querySelector('.js-hide-sidedrawer').onclick = (function(){
 	document.body.dataset.hideSidedrawer = Number(!Number(document.body.dataset.hideSidedrawer || 0));
 });
 
-document.querySelector('#no-javascript').remove();
-document.querySelector('#app-info').hidden = true;
-document.querySelector('#content-wrapper').innerHTML += `
-<div id="no-video" hidden="true">
-	<p style="margin-top: 1em;">
-		Select a valid channel to play video.
-	</p>
-</div>
-<video id="video-player" class="video-js" controls="controls" data-setup="{}"></video>
-`;
+streamActionsEl.querySelector('[name="stream-info"]').onclick = (function(){
+	alert(JSON.stringify(videoPlayer.tech().vhs.playlists.media().attributes));
+});
 
-// TODO error handling
-var iptvRequest = await fetch('https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8');
-var iptvData = await iptvRequest.text();
-var iptvChannels = iptvData.split('\n#EXTINF:-1').slice(1);
-
-var channelsHtml = '';
-var channelGroupEls = {};
-for (var channel of iptvChannels) {
-	var group = getQuotedValue(channel, 'group-title');
-	var channelId = getQuotedValue(channel, 'tvg-id');
-	if (!channelId) {
-		continue;
+async function loadChannelsM3u (url, index) {
+	var channelsHtml = '';
+	var channelGroupEls = {};
+	// TODO fetch error handling
+	var channels = (await (await fetch(url)).text()).split('\n#EXTINF:-1').slice(1);
+	for (var channel of channels) {
+		var groupName = getQuotedValue(channel, 'group-title');
+		var channelUrl = channel.split('\n')[1];
+		var channelId = (getQuotedValue(channel, 'tvg-id') || encodeURIComponent(channelUrl));
+		channelGroupEls[groupName] ||= '';
+		channelGroupEls[groupName] += `<li>
+			<a id="/${index}/${channelId}" href="#/${index}/${channelId}" data-src="${channelUrl}">
+				<span data-metaclick="null"></span><span data-metaclick="hashchange"></span>
+				<img loading="lazy" src="${getQuotedValue(channel, 'tvg-logo')}"/>
+				${getQuotedValue(channel, 'tvg-name') || channel.split(',').slice(1).join(',').split('\n')[0]}
+			</a>
+		</li>`;
 	}
-	channelGroupEls[group] ||= '';
-	channelGroupEls[group] += `<li id="/0/${channelId}">
-		<a href="#/0/${channelId}" data-src="${channel.split('\n')[1]}">
-			<img loading="lazy" src="${getQuotedValue(channel, 'tvg-logo')}"/>
-			${getQuotedValue(channel, 'tvg-name')}
-		</a>
-	</li>`;
-}
-for (var group in channelGroupEls) {
-	var groupLower = group.toLowerCase();
-	channelsHtml += `<li>
-		<a class="category-toggle" href="javascript:void(0);">
-			<strong>${
-				COUNTRIES[groupLower.replaceAll(' ', '_')] ||
-				COUNTRIES[groupLower.replace('vod', '').trim().replaceAll(' ', '_')] ||
-				COUNTRIES[groupLower.split('(')[1]?.split(')')[0]] ||
-			''} ${group}</strong>
-		</a><ul>${channelGroupEls[group]}</ul>
-	</li>`;
-}
-document.querySelector('#sidedrawer').innerHTML += `<ul>${channelsHtml}</ul>`;
-
-Array.from(document.querySelectorAll('#sidedrawer a.category-toggle')).forEach(function(titleEl){
-	var groupEl = titleEl.nextElementSibling;
-	groupEl.hidden = true;
-	titleEl.onclick = (function(){
-		groupEl.hidden = !groupEl.hidden;
-		titleEl.scrollIntoView();
+	for (var group in channelGroupEls) {
+		var groupLower = group.toLowerCase();
+		channelsHtml += `<li>
+			<a class="category-toggle" href="javascript:void(0);">${
+					COUNTRIES[groupLower.replaceAll(' ', '_')] ||
+					COUNTRIES[groupLower.replace('vod', '').trim().replaceAll(' ', '_')] ||
+					COUNTRIES[groupLower.split('(')[1]?.split(')')[0]] ||
+				''} ${group}
+			</a><ul>${channelGroupEls[group]}</ul>
+		</li>`;
+	}
+	document.querySelector('#sidedrawer > #channels-list').innerHTML = channelsHtml;
+	Array.from(document.querySelectorAll('#sidedrawer > ul#channels-list > li > ul > li > a')).forEach(function(linkEl){
+		linkEl.onclick = (function(event){
+			if (event.isTrusted && (linkEl.getAttribute('href') === location.hash)) {
+				loadFromHash({});
+			}
+		});
 	});
+	Array.from(document.querySelectorAll('#sidedrawer a.category-toggle')).forEach(function(titleEl){
+		var groupEl = titleEl.nextElementSibling;
+		groupEl.hidden = true;
+		titleEl.onclick = (function(){
+			groupEl.hidden = !groupEl.hidden;
+			titleEl.scrollIntoView();
+		});
+	});
+}
+
+Array.from(document.querySelectorAll('#channel-select ul > li > a')).forEach(function(listEl, index){
+	listEl.onclick = (async function(){
+		var channelEl = document.querySelector('#channel-select #channel-selected');
+		channelEl.textContent = listEl.textContent;
+		channelEl.dataset.index = index;
+		var m3uUrl = listEl.dataset.m3u;
+		if (m3uUrl) {
+			await loadChannelsM3u(m3uUrl, index);
+		}
+	});
+});
+document.querySelector('#channel-select ul > li > a[data-m3u]').click();
+
+Array.from(document.querySelectorAll('a')).forEach(function(linkEl){
+	if (!linkEl.href) {
+		linkEl.href = 'javascript:void(0);';
+	}
 });
 
 window.addEventListener('hashchange', loadFromHash);
