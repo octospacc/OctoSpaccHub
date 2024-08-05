@@ -1,6 +1,6 @@
 #!/bin/sh
-SourceApps="SpiderADB TiVuOcto WuppiMini"
-HubSdkApps="${SourceApps} MatrixStickerHelper TiktOctt"
+SourceApps="SpiderADB TiktOctt TiVuOcto WuppiMini"
+HubSdkApps="${SourceApps} MatrixStickerHelper"
 HtmlHeadInject='<script src="../../shared/OctoHub-Global.js"></script>'
 
 quoteVar(){ echo '"'"$1"'"' ;}
@@ -20,8 +20,20 @@ for App in ${SourceApps}
 do
 	mkdir -p "./public/${App}"
 	cd "./source/${App}"
-	sh ./Requirements.sh
-	cp -vr $(sh ./Build.sh) "../../public/${App}/"
+	if [ -f ./Requirements.sh ]
+	then sh ./Requirements.sh
+	else
+		[ -f ./package.json ] && (npm update; npm install)
+	fi
+	copyfiles="$(sh ./Build.sh)"
+	cp -vr $copyfiles "../../public/${App}/"
+	for file in $copyfiles
+	do
+		path="../../public/${App}/${file}"
+		if [ ! -e "${path}" ]
+		then mkdir -p "${path}" && rm -rf "${path}" && cp "${file}" "${path}"
+		fi
+	done
 	cd ../..
 done
 
@@ -33,10 +45,10 @@ do
 	file="./${App}/index.html"
 	name="$(       getMetaAttr "${file}" og:title)"
 	description="$(getMetaAttr "${file}" og:description)"
-	url="$(        getMetaAttr "${file}" Url OctoSpaccHubSdk)"
+	url="$(        getMetaAttr "${file}" OctoSpaccHubSdk:Url)"
 	cat << [OctoSpaccHubSdk-WebManifest-EOF] > "./${App}/WebManifest.json"
 	{
-		$(getMetaAttr "${file}" WebManifestExtra OctoSpaccHubSdk | sed s/\'/\"/g)
+		$(getMetaAttr "${file}" OctoSpaccHubSdk:WebManifestExtra | sed s/\'/\"/g)
 		$([ -n "${description}" ] && echo "$(quoteVar description): $(quoteVar "${description}"),")
 		"start_url": "${url}",
 		"scope": "${url}",

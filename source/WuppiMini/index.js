@@ -148,8 +148,8 @@ const htmlPager = (content, title, opts={}, ctx) => `<!DOCTYPE html><html><head>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 	<meta property="og:title" content="${title ? `${title} — ` : ''}${appName}"/>
-	<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/WuppiMini/"/>
-	<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone', 'icons':[{ 'src':'./icon.png', 'type':'image/png', 'sizes':'256x256' }],"/>
+	<meta property="OctoSpaccHubSdk:Url" content="https://hub.octt.eu.org/WuppiMini/"/>
+	<meta property="OctoSpaccHubSdk:WebManifestExtra" content="'display':'standalone', 'icons':[{ 'src':'./icon.png', 'type':'image/png', 'sizes':'256x256' }],"/>
 	<title>${title ? `${title} — ` : ''}${appName}</title>
 	<link rel="apple-touch-icon" href="./icon.png"/>
 	${linkStyles.map((path) => SpaccDotWebServer.makeHtmlStyleFragment(path, appSelfContained)).join('')}

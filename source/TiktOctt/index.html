@@ -4,8 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <meta property="og:title" content="🎵️ TiktOctt"/>
-<meta OctoSpaccHubSdk="Url" content="https://hub.octt.eu.org/TiktOctt/"/>
-<meta OctoSpaccHubSdk="WebManifestExtra" content="'display':'standalone', 'icons':[{ 'src':'./logo.png', 'type':'image/png', 'sizes':'1024x1024' }],"/>
+<meta property="OctoSpaccHubSdk:Url" content="https://hub.octt.eu.org/TiktOctt/"/>
+<meta property="OctoSpaccHubSdk:WebManifestExtra" content="'display':'standalone', 'icons':[{ 'src':'./logo.png', 'type':'image/png', 'sizes':'1024x1024' }],"/>
 <link rel="apple-touch-icon" href="./logo.png"/>
 <style>
 :root {
@@ -228,11 +228,8 @@ button[name="menu"] {
 	background: black;
 }
 </style>
-<link href="https://cdn.jsdelivr.net/npm/vlitejs@6/dist/vlite.css" rel="stylesheet" crossorigin />
-<script type="module">
-	import Vlitejs from 'https://cdn.jsdelivr.net/npm/vlitejs@6';
-	window.Vlitejs = Vlitejs;
-</script>
+<link rel="stylesheet" href="./node_modules/vlitejs/dist/vlite.css"/>
+<script src="./node_modules/vlitejs/dist/vlite.js"></script>
 </head>
 <body>
 	<div class="splash">
@@ -250,7 +247,6 @@ button[name="menu"] {
 	<div class="videosContainer">
 		<div class="videosList"></div>
 	</div>
-	<!-- <div class="footer"></div> -->
 <script>(function(){
 
 const icons = {
@@ -263,7 +259,7 @@ const icons = {
 let currentVideoElem, firstVideoElem, lastVideoElem;
 let isSplashNeeded = true;
 let userInteracted = false;
-let preloadCount = 5;
+let videoPreloadCount = 5;
 const backendFetchCount = 50;
 const videoObjects = [];
 const postsCache = {};
@@ -272,7 +268,7 @@ const postsHistory = [];
 const scrollObserver = new IntersectionObserver(function(elems){
 	for (elem of elems) {
 		if (elem.isIntersecting) {
-			addVideos();
+			addVideos(videoPreloadCount);
 		}
 	}
 });
@@ -305,7 +301,6 @@ async function pullNewVideos () {
 function onUserInteract () {
 	userInteracted = true;
 	if (currentVideoElem) {
-		//currentVideoElem.muted = false;
 		videoObjects[currentVideoElem.dataset.videoId].player.unMute();
 	}
 	document.querySelector('.audioNag')?.remove();
@@ -380,16 +375,16 @@ function openContentFrame (content, name, link) {
 	});
 }
 
-async function addVideos () {
+async function addVideos (preloadCount) {
 	const fragmentElem = document.createDocumentFragment();
-	if (firstVideoElem) { //if (lastVideoElem) {
-		scrollObserver.unobserve(firstVideoElem);//lastVideoElem);
+	if (firstVideoElem) {
+		scrollObserver.unobserve(firstVideoElem);
 		firstVideoElem = null;
 	}
 	try {
 		await pullNewVideos();
 	} catch(err) {
-		setTimeout(addVideos, 1000);
+		setTimeout((function(){ addVideos(preloadCount); }), 1000);
 		return;
 	}
 	for (let i=0; i<preloadCount; i++) {
@@ -418,8 +413,7 @@ async function addVideos () {
 		hudElem.querySelector('button[name="share"]').onclick = shareLink;
 		const videoElem = Object.assign(document.createElement('video'), {
 			src: post.videoUrl,
-			muted: true, loop: true, //autoplay: true,
-			//onclick: onClickVideo,
+			muted: true, loop: true,
 			onerror: (function(){
 				// we must find a clean way to make the video autoplay if it loads
 				// after failing the first time, this is just a temporary patch
@@ -446,8 +440,6 @@ async function addVideos () {
 		}
 		itemElem.classList.add('videoItem');
 		itemElem.appendChild(videoElem);
-		//const videoObject = videojs(videoElem);
-		//videoElem.dataset.videoObject = (videoObjects.push(videoObject) - 1);
 		itemElem.appendChild(hudElem);
 		fragmentElem.appendChild(itemElem);
 		const videoObject = await new Vlitejs(videoElem, { onReady: onCanPlayVideo });
@@ -455,16 +447,11 @@ async function addVideos () {
 		videoElem.parentElement.onclick = onClickVideo;
 	}
 	document.querySelector('.videosList').appendChild(fragmentElem);
-	scrollObserver.observe(firstVideoElem);//lastVideoElem);
+	scrollObserver.observe(firstVideoElem);
 }
-addVideos();
-//preloadCount -= 1;
+addVideos(1);
 
 function onClickVideo () {
-	//currentVideoElem = (this.querySelector('video') || this);
-	//if (userInteracted) {
-		//currentVideoElem[currentVideoElem.paused ? 'play' : 'pause']();
-	//} else {
 	if (!userInteracted) {
 		onUserInteract();
 		videoObjects[this.querySelector('video').dataset.videoId].player.play();
@@ -492,31 +479,21 @@ function onCanPlayVideo () {
 // TODO fix, it's kinda bad with touch scrolling since so many events are generated;
 // pausing should maybe only happen when the scoll is completed?
 function onVideosScroll () {
-	//let alignedVideoElem;
 	for (const videoElem of document.querySelectorAll('.videoItem video')) {
 		const videoObject = videoObjects[videoElem.dataset.videoId];
 		if (~~videoElem.getBoundingClientRect().y === 0) {
-			/* alignedVideoElem = */ currentVideoElem = videoElem;
-			//videoElem.load();
-			//videoElem.currentTime = 0;
-			//videoElem.play();
+			currentVideoElem = videoElem;
 			videoObject.player.seekTo(0);
 			videoObject.player.play();
 			if (userInteracted) {
-				//videoElem.muted = false;
 				videoObject.player.unMute();
 			}
 			videoElem.parentElement.focus();
 		} else {
-			//videoElem.pause();
-			//videoElem.currentTime = 0;
 			videoObject.player.pause();
 			videoObject.player.seekTo(0);
 		}
 	}
-	//document.querySelector('.videoItem').remove();
-	//videoObjects.pop();
-	//if (alignedVideoElem) {}
 }
 document.querySelector('.videosContainer').onscroll = onVideosScroll;
 document.querySelector('.videosContainer').focus();
