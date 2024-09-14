@@ -24,6 +24,7 @@ cd ../..
 rm -vrf ./public || true
 cp -vr ./static ./public
 cp -vr ./shared ./public/shared
+cp -vr ./node_modules ./public/node_modules
 
 for App in ${SourceApps}
 do
