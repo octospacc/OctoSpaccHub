@@ -2,14 +2,16 @@
 <!-- TODO:
 * deprecate old pseudo-framework and use SpaccDotWeb
 * options menu/zone?
-* js/css injection?
+* tools for js/css injection
 * open file via drag&drop
-* windowing system
+* multiple frames loaded simoultaneously
+	* windowing system
 * reordering tabs
 * automatically add useful meta tags to injected HTML data URIs?
 * URL hash parameters documentation and more features, also implement extended syntax mode
-* investigate bug on Firefox Android with bottom navbar covering part of frame?
 * full-screen edit of HTML data URIs? (probably better to not include this and make a dedicated app)
+* loading notices
+* decide how to handle resized iframe border offset dimensions
 -->
 <html lang="en">
 	<head>
@@ -19,7 +21,7 @@
 		<link rel="canonical" href="https://hub.octt.eu.org/FramesBrowser/"/>
 		<link rel="shortcut icon" type="image/x-icon" href="./icon.png"/>
 		<link rel="apple-touch-icon" href="./icon.png"/>
-		<link rel="manifest" href="./manifest.json"/>
+		<link rel="manifest" href="./WebManifest.json"/>
 		<title>🪟️ Frames Browser</title>
 		<meta name="description" content="iFrame-based HTML5 Browser for fun and development"/>
 		<meta property="og:title" content="🪟️ Frames Browser"/>
@@ -29,7 +31,7 @@
 				--BaseMargin: 8px;
 				--BtnHeight: calc(1rem + var(--BaseMargin));
 				--BtnActionHeight: calc(2rem + var(--BaseMargin));
-				--BtnActionWidth: calc(2.5rem + var(--BaseMargin));
+				--BtnActionWidth: calc(3rem + var(--BaseMargin));
 				--ColorBg: #f0f0f0;
 				--ColorFg: #0f0f0f;
 			}
@@ -39,10 +41,14 @@
 			body {
 				margin: 0px;
 				max-width: 100vw;
-				max-height: 100vh;
+				max-height: 100%;
+				position: absolute;
 			}
 			button {
 				height: var(--BtnHeight);
+			}
+			#MainAppContent {
+				height: 100%;
 			}
 			iframe, #IframeMain, #IframeMainBox {
 				border: none;
@@ -111,7 +117,10 @@
 			}
 		</style>
 		<script src="../../shared/OctoHub-Global.js"></script>
+		<script src="../../../SpaccDotWeb/SpaccDotWeb.Alt.js"></script><!--dev-->
+		<script src="../../node_modules/SpaccDotWeb/Build/SpaccDotWeb.Alt.min.js"></script><!--prod-->
 		<script> window.FramesBrowser = { Lib: {} }; </script>
+		<script src="./utils.js"></script>
 	</head>
 	<body>
 		<button id="BtnFullscreen" onclick="ToggleFullscreen()">🎞️ Menu</button>
@@ -129,7 +138,7 @@
 			<td style="width: 100%;"><input id="InputUri" type="text" style="min-width: 100%;" placeholder="🔗️ Enter URI..." onkeydown="InputHandleKey(event)"/></td>
 			<td><button id="BtnLoad" onclick="LoadFrame()">↩️ Load</button></td>
 			<td><button id="BtnExcise" onclick="ExciseFrame()">↗️ Excise</button></td>
-			<td><button onclick="FrameDispatch('Screenshot')">🖼️ Shot</button></td>
+			<td><button onclick="FrameDispatch('Screenshot')">📷️ Shot</button></td>
 			<td><button onclick="FrameDispatch('Print')">🖨️ Print</button></td>
 		<tr></table></div>
 		<div id="BoxHandy"></div>
@@ -168,6 +177,11 @@
 				<li>Clicking "<code>📐️ Tools</code>" will open or close <a href="https://eruda.liriliri.io">the Eruda console</a> as desired. (Note that Eruda is currently only injected in the root window and not inside any iFrame.)</li>
 			</ul>
 			<h2>Changelog</h2>
+			<h3>2024-09-14</h3><ul>
+				<li>Fix mobile browsers' UI shifting in place, causing part of the bottom of the iFrame to be hidden.</li>
+				<li>Handle code injection in frames efficiently, by externally loading library dependencies.</li>
+				<li>Always show modal with screenshot preview after taking one, show download button instead of automatically downloading.</li>
+			</ul>
 			<h3>2024-09-13</h3><ul>
 				<li>Better normalized the action buttons' width.</li>
 				<li>Allow resizing frames (and then resetting the size), by hand or by inputting numbers.</li>
@@ -215,7 +229,7 @@
 				})
 			</script>
 		</div></div>
-		<script src="./html2canvas.min.wrappedLib.js"></script>
+		<!--<script src="./html2canvas.min.wrappedLib.js"></script>-->
 		<script>
 var AppData, SesAppData, SesAppDataBak;
 function SaveAppData(){
@@ -229,9 +243,15 @@ MainAppContent.innerHTML = `<div id="IframeMainContainer">
 		<iframe id="IframeMain"></iframe>
 	</div>
 </div>`;
-document.body.style.overflow = 'hidden';
+document.body.style = 'overflow: hidden; height: 100%;';
 
-var FrameHtmlInjectable = ('<scr' + 'ipt> window.FramesBrowser = ' + JSON.stringify(window.FramesBrowser) + ' ; (' + (function(){
+var htmlInjectPrefix = ((location.protocol === 'file:') ? '.' : location.href.split('#')[0].split('/').slice(0, -1).join('/'));
+var FrameHtmlInjectable = (`
+<${'script'} src="../../../SpaccDotWeb/SpaccDotWeb.Alt.js"></${'script'}><!--dev-->
+<${'script'} src="${htmlInjectPrefix}/../../node_modules/SpaccDotWeb/Build/SpaccDotWeb.Alt.min.js"></${'script'}><!--prod-->
+<${'script'} src="${htmlInjectPrefix}/node_modules/html2canvas/dist/html2canvas.min.js"></${'script'}>
+<${'script'}> window.FramesBrowser = ${JSON.stringify(window.FramesBrowser)};
+(` + (function(){
 	for (var name in window.FramesBrowser.Lib) {
 		var content = window.FramesBrowser.Lib[name];
 		if ((typeof content) === 'string') {
@@ -247,19 +267,49 @@ var FrameHtmlInjectable = ('<scr' + 'ipt> window.FramesBrowser = ' + JSON.string
 	window.FramesBrowser.Screenshot = (function(){
 		// TODO must somehow load images in canvas with cors proxy or it becomes tainted and undownloadable
 		// for now just show on screen and let user download via browser actions
+		function postFinished () {
+			window.parent.postMessage({ FramesBrowser: "Screenshot:0" }, '*');
+		}
+		window.parent.postMessage({ FramesBrowser: "Screenshot:1" }, '*');
 		html2canvas(document.body, { allowTaint: true }).then(function(canvas){
-			try {
+			/*try {
 				Object.assign(document.createElement('a'), {
 					download: `FramesBrowser-Screenshot-${(new Date).toJSON()}`,
 					href: canvas.toDataURL('image/png'),
 				}).click();
 			} catch(err) {
 				console.error(err);
-				var modalEl = document.createElement('dialog');
-				document.body.appendChild(modalEl);
-				modalEl.appendChild(canvas);
-				modalEl.showModal();
+				SpaccDotWeb.ShowModal({
+					text: "Use the browser's context menu to download the image.",
+					extraHTML: `<div style="overflow: auto;"></div>`,
+				}).then(function(modalEl){
+					modalEl.querySelector('div').appendChild(canvas);
+				});
+			}*/
+			var imageData;
+			try {
+				imageData = canvas.toDataURL('image/png');
+			} catch(err) {
+				console.error(err);
 			}
+			SpaccDotWeb.ShowModal({
+				text: ((!imageData) && "Use the browser's context menu to download the image."),
+				action: (imageData && (function(){
+					Object.assign(document.createElement('a'), {
+						download: `FramesBrowser-Screenshot-${(new Date).toJSON()}`,
+						href: imageData,
+					}).click();
+				})),
+				confirmText: '📥️ Download',
+				extraHTML: '<div style="overflow: auto;"></div>',
+				buttonsPosition: 'top',
+			}).then(function(modalEl){
+				modalEl.querySelector('div').appendChild(canvas);
+			});
+			postFinished();
+		}).catch(function(err){
+			console.error(err);
+			postFinished();
 		});
 	});
 	window.addEventListener('message', (function(messageEv){
@@ -268,7 +318,7 @@ var FrameHtmlInjectable = ('<scr' + 'ipt> window.FramesBrowser = ' + JSON.string
 			FramesBrowser[action]();
 		}
 	}));
-}) + ')(); </scr' + 'ipt>');
+}) + `)(); </${'script'}>`);
 
 function $new (tag, props) {
 	var el = document.createElement(tag);
@@ -305,17 +355,9 @@ function GetTabUrlFromTabIndex (index) {
 	return (index === -1 ? null : AppData.urls[AppData.tabs[index].urlIndex]);
 }
 
-function ShowFrame (index) {
-	var isFrameRoot = (index === -1);
-	var url = (GetTabUrlFromTabIndex(index) || '');
-	ListFramesClose();
-	AppData.currentTabIndex = index;
-	SaveAppData();
-	InputUri.disabled = isFrameRoot;
-	InputUri.value = url;
-	BtnFile.disabled = isFrameRoot;
-	BtnLoad.disabled = isFrameRoot;
-	BtnExcise.disabled = isFrameRoot;
+// TODO fallback to no-inject loading, or data: inject loading, in case of failure (mainly regarding the external domain)
+var htmlInjectIndex = 0;
+function makeRealFrameUrl (url, isFrameRoot) {
 	if (isFrameRoot) {
 		url = createDataUrl('text/html', SampleHtmlContent, 'utf8');
 	}
@@ -324,16 +366,54 @@ function ShowFrame (index) {
 		if (mime.toLowerCase() !== 'text/html') {
 			return url;
 		}
+		//url = (((location.protocol === 'file:') ? '.' /* `./${Date.now()}/..` */ : 'http://data-sandbox.octt.eu.org')
+		//	+ /* `/html-data-url-loader.html#${Date.now()}#` */ `/html-data-url-loader-${htmlInjectIndex = Math.abs(1- htmlInjectIndex)}.html#`
+		//	+ createDataUrl(mime, patchFrameHtml(body), ((location.protocol === 'file:') ? (encoding || 'utf8') : 'base64'), (location.protocol !== 'file:')));
 		url = createDataUrl(mime, patchFrameHtml(body), (encoding || 'utf8'));
+		if (location.protocol === 'file:') {
+			url = `./html-data-url-loader-${htmlInjectIndex = Math.abs(1- htmlInjectIndex)}.html#${url}`;
+		}
 	}
-	document.querySelector('iframe').src = url;
+	return url;
+}
+
+// TODO check why on Chromium mobile this here is not enough, force-reloading any page breaks the iFrame and requires page reload
+function loadUrlInFrame (url) {
+	IframeMain.src = ''; // needed for URLs with hashes
+	IframeMain.src = url;
+/*	// (Firefox issue?) sometimes wrapper page isn't loaded properly and iframe remains blank, we fix it here
+	if (url === 'about:blank') {
+		return;
+	}
+	var loadInterval = setInterval((function(){
+		try {
+			if (IframeMain.contentWindow.location.toString() === 'about:blank') {
+				IframeMain.src = url;
+			} else {
+				throw '';
+			}
+		} catch(err) {
+			clearInterval(loadInterval);
+		}
+	}), 100);*/
+}
+
+function ShowFrame (index) {
+	var isFrameRoot = (index === -1);
+	var url = (GetTabUrlFromTabIndex(index) || '');
+	ListFramesClose();
+	AppData.currentTabIndex = index;
+	SaveAppData();
+	InputUri.disabled = BtnFile.disabled = BtnLoad.disabled = BtnExcise.disabled = isFrameRoot;
+	InputUri.value = url;
+	loadUrlInFrame(makeRealFrameUrl(url, isFrameRoot));
 }
 
 function SaveUrl (url) {
 	if (url) {
-		document.querySelector('input[type="text"]').value = url;
+		InputUri.value = url;
 	}
-	url = document.querySelector('input[type="text"]').value;
+	url = InputUri.value;
 	var urlIndex = AppData.urls.indexOf(url);
 	if (urlIndex === -1) {
 		// it's a new url, store it
@@ -396,7 +476,7 @@ function RefreshFramesCounter () {
 }
 
 function GetNeededIframeHeight (hScale=100) {
-	return (SesAppData.fullscreen ? `${hScale}vh` : `calc(${hScale}vh - (var(--BtnActionHeight) * ${hScale / 100}))`);
+	return (SesAppData.fullscreen ? `${hScale}%` : `calc(${hScale}% - (var(--BtnActionHeight) * ${hScale / 100}))`);
 }
 
 function ApplyFullscreen () {
@@ -417,9 +497,9 @@ function ToggleFullscreen () {
 }
 
 function LoadFrame () {
-	var url = document.querySelector('input[type="text"]').value;
+	var url = InputUri.value;
 	if (!url.toLowerCase().startsWith('javascript:')) {
-		document.querySelector('iframe').src = SaveUrl();
+		loadUrlInFrame(makeRealFrameUrl(SaveUrl(), false));
 	}
 }
 
@@ -427,26 +507,21 @@ function isDataUrl (url) {
 	return url.toLowerCase().startsWith('data:');
 }
 
-function extractDataUrl (url) {
-	var [mime, encoding] = url.split(',')[0].split('data:')[1].split(';');
-	var body = url.split(',').slice(1).join(',');
-	switch ((encoding || '').toLowerCase()) { default:
-		break; case 'utf8':
-			body = decodeURIComponent(body);
-		break; case 'base64':
-			body = atob(body);
-	}
-	return [mime, body, encoding];
-}
-
-function createDataUrl (mime, body, encoding) {
+function createDataUrl (mime, body, encoding, reverse) {
 	switch (encoding) { default:
 		break; case 'utf8':
 			body = encodeURIComponent(body);
 		break; case 'base64':
-			body = btoa(body);
+			body = btoa(unescape(encodeURIComponent(body)));
+		//break; case '46esab':
+		//	body = reverseString(btoa(unescape(encodeURIComponent(body))));
 	}
-	return `data:${mime};${encoding},${body}`;
+	if (reverse) {
+		mime = reverseString(mime);
+		body = reverseString(body);
+		encoding = reverseString(encoding);
+	}
+	return `${!reverse ? 'data' : 'atad'}:${mime};${encoding},${body}`;
 }
 
 function patchFrameHtml (html) {
@@ -476,7 +551,7 @@ function ExciseFrame () {
 function LoadFile (file) {
 	var reader = new FileReader();
 	reader.onload = function(){
-		document.querySelector('input[type="text"]').value = reader.result;
+		InputUri.value = reader.result;
 		LoadFrame();
 	};
 	reader.readAsDataURL(file);
@@ -489,10 +564,10 @@ function ApplyFrameZoom () {
 		IframeMainContainer.style[prop] = '';
 	});
 	if (level < 100) {
-		IframeMainContainer.style.bottom = `calc(${level}vh - 16px)`;
+		IframeMainContainer.style.bottom = `calc(${level}% - 16px)`;
 		IframeMainContainer.style.right = `${level}vw`;
 	} else {
-		IframeMainContainer.style.top = `calc(${levelopp/2}vh - 8px)`;
+		IframeMainContainer.style.top = `calc(${levelopp/2}% - 8px)`;
 		IframeMainContainer.style.left = `${levelopp/2}vw`;
 	}
 	if (SesAppData.frameZoomIndex !== -1) {
@@ -686,7 +761,7 @@ window.onload = (function(){
 	};
 	AlertMigrateAppData();
 	SaveAppData();
-	document.querySelector('input[type="text"]').value = GetTabUrlFromTabIndex(AppData.currentTabIndex);
+	InputUri.value = GetTabUrlFromTabIndex(AppData.currentTabIndex);
 	ApplyFullscreen();
 	ApplyFrameZoom();
 	ShowFrame(AppData.currentTabIndex);
@@ -721,7 +796,7 @@ window.onload = (function(){
 							var url = ((optLow.startsWith('h=') ? 'data:text/html;utf8,' : '') + fieldData);
 							if (GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url) {
 								AddFrame();
-								document.querySelector('input[type="text"]').value = url;
+								InputUri.value = url;
 								LoadFrame();
 							}
 							flags.immersiveView && !SesAppData.fullscreen && ToggleFullscreen();
@@ -735,6 +810,14 @@ window.onload = (function(){
 		}
 	}
 });
+
+window.addEventListener('message', (function(messageEv){
+	var data = (messageEv.data && messageEv.data.FramesBrowser);
+	if (data) {
+		data = data.split(':');
+		document.querySelector(`button[onclick="FrameDispatch('${data[0]}')"]`).disabled = parseInt(data[1]);
+	}
+}));
 		</script>
 	</body>
 </html>

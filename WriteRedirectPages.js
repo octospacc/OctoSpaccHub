@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const fs = require('fs');
 for (const page of [
 	{ path: "a/fb", target: "'../../FramesBrowser/'+location.hash"                    }, // Apps/FramesBrowser

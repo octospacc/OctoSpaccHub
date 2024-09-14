@@ -12,6 +12,15 @@ getMetaAttr(){
 	grep '<meta '"$key"'="'"$name"'"' "$file" | grep '>' | cut -d '"' -f4
 }
 
+################################################################################
+
+npm update
+npm install
+cd ./node_modules/SpaccDotWeb
+npm install
+npm run build:lib
+cd ../..
+
 rm -vrf ./public || true
 cp -vr ./static ./public
 cp -vr ./shared ./public/shared
@@ -21,9 +30,9 @@ do
 	mkdir -p "./public/${App}"
 	cd "./source/${App}"
 	if [ -f ./Requirements.sh ]
-	then sh ./Requirements.sh
-	else
-		[ -f ./package.json ] && (npm update; npm install)
+		then sh ./Requirements.sh
+	elif [ -f ./package.json ]
+		then (npm update; npm install)
 	fi
 	copyfiles="$(sh ./Build.sh)"
 	cp -vr $copyfiles "../../public/${App}/"
@@ -42,13 +51,17 @@ node ../WriteRedirectPages.js
 
 for App in ${HubSdkApps}
 do
-	file="./${App}/index.html"
-	name="$(       getMetaAttr "${file}" og:title)"
-	description="$(getMetaAttr "${file}" og:description)"
-	url="$(        getMetaAttr "${file}" OctoSpaccHubSdk:Url)"
-	cat << [OctoSpaccHubSdk-WebManifest-EOF] > "./${App}/WebManifest.json"
+	htmlfile="./${App}/index.html"
+	jsonfile="./${App}/WebManifest.json"
+	if [ -f "${jsonfile}" ]
+	then continue
+	fi
+	name="$(       getMetaAttr "${htmlfile}" og:title)"
+	description="$(getMetaAttr "${htmlfile}" og:description)"
+	url="$(        getMetaAttr "${htmlfile}" OctoSpaccHubSdk:Url)"
+	cat << [OctoSpaccHubSdk-WebManifest-EOF] > "${jsonfile}"
 	{
-		$(getMetaAttr "${file}" OctoSpaccHubSdk:WebManifestExtra | sed s/\'/\"/g)
+		$(getMetaAttr "${htmlfile}" OctoSpaccHubSdk:WebManifestExtra | sed s/\'/\"/g)
 		$([ -n "${description}" ] && echo "$(quoteVar description): $(quoteVar "${description}"),")
 		"start_url": "${url}",
 		"scope": "${url}",
@@ -57,5 +70,5 @@ do
 [OctoSpaccHubSdk-WebManifest-EOF]
 	htmltitle='<title>'"${name}"'</title>'
 	htmlcanonical='<link rel="canonical" href="'"${url}"'"/>'
-	sed -i 's|</head>|<link rel="manifest" href="./WebManifest.json"/>'"${htmltitle}${htmlcanonical}${htmlmanifest}${HtmlHeadInject}"'</head>|' "${file}"
+	sed -i 's|</head>|<link rel="manifest" href="./WebManifest.json"/>'"${htmltitle}${htmlcanonical}${htmlmanifest}${HtmlHeadInject}"'</head>|' "${htmlfile}"
 done
