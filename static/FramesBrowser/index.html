@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- TODO:
+* deprecate old pseudo-framework and use SpaccDotWeb
 * options menu/zone?
 * js/css injection?
 * open file via drag&drop
@@ -28,6 +29,7 @@
 				--BaseMargin: 8px;
 				--BtnHeight: calc(1rem + var(--BaseMargin));
 				--BtnActionHeight: calc(2rem + var(--BaseMargin));
+				--BtnActionWidth: calc(2.5rem + var(--BaseMargin));
 				--ColorBg: #f0f0f0;
 				--ColorFg: #0f0f0f;
 			}
@@ -42,20 +44,35 @@
 			button {
 				height: var(--BtnHeight);
 			}
-			iframe {
+			iframe, #IframeMain, #IframeMainBox {
 				border: none;
+				width: 100%;
+				height: 100%;
+			}
+			#IframeMainBox {
+				overflow: hidden;
+				resize: both;
+			}
+			#IframeMainBox[style] {
+				border: 4px dashed gray;
+			}
+			#IframeMainContainer {
 				width: 100vw;
 				position: relative;
+				overflow: auto;
 			}
 			#BoxControls {
 				overflow: auto;
 			}
 			#BoxControls table, #BoxControls table td, #BoxControls table td > * {
 				height: var(--BtnActionHeight);
-				min-width: var(--BtnActionHeight);
+				min-width: var(--BtnActionWidth);
 				padding-top: 0;
 				padding-bottom: 0;
 				border-spacing: 0;
+			}
+			#BoxControls table td > button {
+				word-spacing: 100vw;
 			}
 			#BtnFullscreen {
 				position: absolute;
@@ -94,6 +111,7 @@
 			}
 		</style>
 		<script src="../../shared/OctoHub-Global.js"></script>
+		<script> window.FramesBrowser = { Lib: {} }; </script>
 	</head>
 	<body>
 		<button id="BtnFullscreen" onclick="ToggleFullscreen()">🎞️ Menu</button>
@@ -104,12 +122,15 @@
 				<button id="BtnFile" onclick="this.nextElementSibling.click()">📄 File</button>
 				<input type="file" hidden="hidden" style="display: none;" onchange="LoadFile(this.files[0])"/>
 			</td>
-			<td><button style="min-width: calc(4em + 4px);" onclick="ZoomFrame()">🔍️ Zoom</button></td>
+			<td><button onclick="ZoomFrame()">🔍️ Zoom</button></td>
+			<td><button onclick="ResizeFrame()">↘️ Size</button></td>
 			<td><button onclick="ToggleFullscreen()">🎞️ Hide</button></td>
-			<td><button style="min-width: calc(4em + 4px);" onclick="ListFrames()">🪟 Tabs</button></td>
+			<td><button onclick="ListFrames()">🪟 Tabs</button></td>
 			<td style="width: 100%;"><input id="InputUri" type="text" style="min-width: 100%;" placeholder="🔗️ Enter URI..." onkeydown="InputHandleKey(event)"/></td>
 			<td><button id="BtnLoad" onclick="LoadFrame()">↩️ Load</button></td>
 			<td><button id="BtnExcise" onclick="ExciseFrame()">↗️ Excise</button></td>
+			<td><button onclick="FrameDispatch('Screenshot')">🖼️ Shot</button></td>
+			<td><button onclick="FrameDispatch('Print')">🖨️ Print</button></td>
 		<tr></table></div>
 		<div id="BoxHandy"></div>
 		<noscript><div class="NoScript padded"><p>
@@ -147,6 +168,11 @@
 				<li>Clicking "<code>📐️ Tools</code>" will open or close <a href="https://eruda.liriliri.io">the Eruda console</a> as desired. (Note that Eruda is currently only injected in the root window and not inside any iFrame.)</li>
 			</ul>
 			<h2>Changelog</h2>
+			<h3>2024-09-13</h3><ul>
+				<li>Better normalized the action buttons' width.</li>
+				<li>Allow resizing frames (and then resetting the size), by hand or by inputting numbers.</li>
+				<li>Add "<code>🖨️ Print</code>" and (experimental, thanks to <a href="https://html2canvas.hertzen.com">html2canvas</a>) "<code>🖼️ Screenshot</code>" features for any current frame. (Note: this requires code injection and will not work 100%.)</li>
+			</ul>
 			<h3>2024-03-19</h3><ul>
 				<li>Remove info button from toolbar for now.</li>
 				<li>Update info page also adding Usage and Help section with tips.</li>
@@ -189,380 +215,526 @@
 				})
 			</script>
 		</div></div>
+		<script src="./html2canvas.min.wrappedLib.js"></script>
 		<script>
-			var AppData, SesAppData, SesAppDataBak;
-			function SaveAppData(){
-				localStorage.setItem('org.eu.octt.FramesBrowser.v1', JSON.stringify({ ...AppData, ...(SesAppData.optionsFromUrl ? SesAppDataBak : SesAppData) }));
-			};
+var AppData, SesAppData, SesAppDataBak;
+function SaveAppData(){
+	localStorage.setItem('org.eu.octt.FramesBrowser.v1', JSON.stringify({ ...AppData, ...(SesAppData.optionsFromUrl ? SesAppDataBak : SesAppData) }));
+};
 
-			var FrameZoomLevels = [50, 200];
-			var SampleHtmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body>${MainAppContent.innerHTML}</body></html>`;
-			MainAppContent.innerHTML = '<iframe id="IframeMain"></iframe>';
-			document.body.style.overflow = 'hidden';
+var FrameZoomLevels = [50, 200];
+var SampleHtmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body>${MainAppContent.innerHTML}</body></html>`;
+MainAppContent.innerHTML = `<div id="IframeMainContainer">
+	<div id="IframeMainBox">
+		<iframe id="IframeMain"></iframe>
+	</div>
+</div>`;
+document.body.style.overflow = 'hidden';
 
-			function $new(tag, props){
-				var el = document.createElement(tag);
-				if (props) {
-					Object.keys(props).forEach(function(key){
-						el[key] = props[key];
-					});
-				};
-				return el;
-			};
-
-			function $request(url, opts){
-				if (!opts.method) {
-					opts.method = 'GET';
-				};
-				var req = new XMLHttpRequest();
-				req.onreadystatechange = function(){
-					if (this.readyState == 4) {
-						opts.callback(req.responseText);
-					};
-				};
-				req.open(opts.method, url, true);
-				req.send();
-			};
-
-			function InputHandleKey(ev){
-				// Enter
-				if (ev.keyCode == 13) {
-					LoadFrame();
-				};
-			};
-
-			function GetTabUrlFromTabIndex (index) {
-				return (index === -1 ? null : AppData.urls[AppData.tabs[index].urlIndex]);
-			};
-
-			function ShowFrame(index){
-				var isFrameRoot = (index === -1);
-				var url = (GetTabUrlFromTabIndex(index) || '');
-				ListFramesClose();
-				AppData.currentTabIndex = index;
-				SaveAppData();
-				InputUri.disabled = isFrameRoot;
-				InputUri.value = url;
-				BtnFile.disabled = isFrameRoot;
-				BtnLoad.disabled = isFrameRoot;
-				BtnExcise.disabled = isFrameRoot;
-				document.querySelector('iframe').src = (isFrameRoot ? `data:text/html;utf8,${encodeURIComponent(SampleHtmlContent)}` : url);
-			};
-
-			function SaveUrl(){
-				var url = document.querySelector('input[type="text"]').value;
-				var urlIndex = AppData.urls.indexOf(url);
-				if (urlIndex === -1) {
-					// it's a new url, store it
-					AppData.urls.push(url);
-					urlIndex = (AppData.urls.length - 1);
-				}
-				AppData.tabs[AppData.currentTabIndex].urlIndex = urlIndex;
-				PruneUnusedUrls();
-				SaveAppData();
-				return url;
-			};
-
-			function PruneUnusedUrls () {
-				var urlsNew = [];
-				for (var urlIndex in AppData.urls) {
-					if (AppData.tabs.filter(function(tab){
-						var usesUrl = (tab.urlIndex === Number(urlIndex));
-						if (usesUrl) {
-							tab.urlIndex = urlsNew.length;
-						}
-						return usesUrl;
-					}).length > 0) {
-						urlsNew.push(AppData.urls[urlIndex]);
-					}
-				}
-				AppData.urls = urlsNew;
-				SaveAppData();
-			};
-
-			function AddFrame(){
-				AppData.tabs = AppData.tabs.concat([{}]);
-				ListFrames();
-				ShowFrame(AppData.tabs.length - 1);
-				SaveAppData();
-				RefreshFramesCounter();
-			};
-
-			function CloseFrame(index){
-				AppData.tabs.splice(index, 1);
-				PruneUnusedUrls();
-				if (AppData.currentTabIndex === index) {
-					ShowFrame(-1);
-				} else if (AppData.currentTabIndex > index) {
-					AppData.currentTabIndex--;
-				};
-				ListFrames(); ListFrames();
-				SaveAppData();
-				RefreshFramesCounter();
-			};
-
-			function RefreshFramesCounter(){
-				var count = AppData.tabs.length;
-				var countHtml = '';
-				if (count > 99) {
-					countHtml = '(...)';
-				} else if (count > 0) {
-					countHtml = `(${count})`;
-				};
-				document.querySelector('button[onclick="ListFrames()"]').textContent = `🪟${countHtml} Tabs`;
-			};
-
-			function GetNeededIframeHeight (hScale=100) {
-				return (SesAppData.fullscreen ? `${hScale}vh` : `calc(${hScale}vh - (var(--BtnActionHeight) * ${hScale / 100}))`);
+var FrameHtmlInjectable = ('<scr' + 'ipt> window.FramesBrowser = ' + JSON.stringify(window.FramesBrowser) + ' ; (' + (function(){
+	for (var name in window.FramesBrowser.Lib) {
+		var content = window.FramesBrowser.Lib[name];
+		if ((typeof content) === 'string') {
+			content = eval(content);
+			if ((typeof content) === 'boolean') {
+				window.FramesBrowser.Lib[name] = window[name];
 			}
-
-			function ApplyFullscreen () {
-				if (SesAppData.fullscreen) {
-					BoxControls.style.display = 'none';
-					BtnFullscreen.style.display = '';
-				} else {
-					BoxControls.style.display = '';
-					BtnFullscreen.style.display = 'none';
-				}
-				ApplyFrameZoom();
+		}
+	}
+	window.FramesBrowser.Print = (function(){
+		window.print();
+	});
+	window.FramesBrowser.Screenshot = (function(){
+		// TODO must somehow load images in canvas with cors proxy or it becomes tainted and undownloadable
+		// for now just show on screen and let user download via browser actions
+		html2canvas(document.body, { allowTaint: true }).then(function(canvas){
+			try {
+				Object.assign(document.createElement('a'), {
+					download: `FramesBrowser-Screenshot-${(new Date).toJSON()}`,
+					href: canvas.toDataURL('image/png'),
+				}).click();
+			} catch(err) {
+				console.error(err);
+				var modalEl = document.createElement('dialog');
+				document.body.appendChild(modalEl);
+				modalEl.appendChild(canvas);
+				modalEl.showModal();
 			}
+		});
+	});
+	window.addEventListener('message', (function(messageEv){
+		var action = (messageEv.data && messageEv.data.FramesBrowser);
+		if (action) {
+			FramesBrowser[action]();
+		}
+	}));
+}) + ')(); </scr' + 'ipt>');
 
-			function ToggleFullscreen () {
-				SesAppData.fullscreen = !SesAppData.fullscreen;
-				ApplyFullscreen();
-				SaveAppData();
+function $new (tag, props) {
+	var el = document.createElement(tag);
+	if (props) {
+		Object.keys(props).forEach(function(key){
+			el[key] = props[key];
+		});
+	};
+	return el;
+}
+
+function $request (url, opts) {
+	if (!opts.method) {
+		opts.method = 'GET';
+	};
+	var req = new XMLHttpRequest();
+	req.onreadystatechange = function(){
+		if (this.readyState == 4) {
+			opts.callback(req.responseText);
+		};
+	};
+	req.open(opts.method, url, true);
+	req.send();
+}
+
+function InputHandleKey (ev) {
+	// Enter
+	if (ev.keyCode == 13) {
+		LoadFrame();
+	};
+}
+
+function GetTabUrlFromTabIndex (index) {
+	return (index === -1 ? null : AppData.urls[AppData.tabs[index].urlIndex]);
+}
+
+function ShowFrame (index) {
+	var isFrameRoot = (index === -1);
+	var url = (GetTabUrlFromTabIndex(index) || '');
+	ListFramesClose();
+	AppData.currentTabIndex = index;
+	SaveAppData();
+	InputUri.disabled = isFrameRoot;
+	InputUri.value = url;
+	BtnFile.disabled = isFrameRoot;
+	BtnLoad.disabled = isFrameRoot;
+	BtnExcise.disabled = isFrameRoot;
+	if (isFrameRoot) {
+		url = createDataUrl('text/html', SampleHtmlContent, 'utf8');
+	}
+	if (isDataUrl(url)) {
+		var [mime, body, encoding] = extractDataUrl(url);
+		if (mime.toLowerCase() !== 'text/html') {
+			return url;
+		}
+		url = createDataUrl(mime, patchFrameHtml(body), (encoding || 'utf8'));
+	}
+	document.querySelector('iframe').src = url;
+}
+
+function SaveUrl (url) {
+	if (url) {
+		document.querySelector('input[type="text"]').value = url;
+	}
+	url = document.querySelector('input[type="text"]').value;
+	var urlIndex = AppData.urls.indexOf(url);
+	if (urlIndex === -1) {
+		// it's a new url, store it
+		AppData.urls.push(url);
+		urlIndex = (AppData.urls.length - 1);
+	}
+	AppData.tabs[AppData.currentTabIndex].urlIndex = urlIndex;
+	PruneUnusedUrls();
+	SaveAppData();
+	return url;
+}
+
+function PruneUnusedUrls () {
+	var urlsNew = [];
+	for (var urlIndex in AppData.urls) {
+		if (AppData.tabs.filter(function(tab){
+			var usesUrl = (tab.urlIndex === Number(urlIndex));
+			if (usesUrl) {
+				tab.urlIndex = urlsNew.length;
 			}
+			return usesUrl;
+		}).length > 0) {
+			urlsNew.push(AppData.urls[urlIndex]);
+		}
+	}
+	AppData.urls = urlsNew;
+	SaveAppData();
+}
 
-			function LoadFrame(){
-				var url = document.querySelector('input[type="text"]').value;
-				if (!url.toLowerCase().startsWith('javascript:')) {
-					document.querySelector('iframe').src = SaveUrl();
-				}
-			};
+function AddFrame () {
+	AppData.tabs = AppData.tabs.concat([{}]);
+	ListFrames();
+	ShowFrame(AppData.tabs.length - 1);
+	SaveAppData();
+	RefreshFramesCounter();
+}
 
-			function ExciseFrame(){
-				var uri = SaveUrl();
-				if (uri.toLowerCase().startsWith('data:')) {
-					opendatauri(uri);
-				} else {
-					open(uri, '_blank');
-				};
-			};
+function CloseFrame (index) {
+	AppData.tabs.splice(index, 1);
+	PruneUnusedUrls();
+	if (AppData.currentTabIndex === index) {
+		ShowFrame(-1);
+	} else if (AppData.currentTabIndex > index) {
+		AppData.currentTabIndex--;
+	};
+	ListFrames(); ListFrames();
+	SaveAppData();
+	RefreshFramesCounter();
+}
 
-			function LoadFile(file){
-				var reader = new FileReader();
-				reader.onload = function(){
-					document.querySelector('input[type="text"]').value = reader.result;
-					LoadFrame();
-				};
-				reader.readAsDataURL(file);
-			};
+function RefreshFramesCounter () {
+	var count = AppData.tabs.length;
+	var countHtml = '';
+	if (count > 99) {
+		countHtml = '(...)';
+	} else if (count > 0) {
+		countHtml = `(${count})`;
+	};
+	document.querySelector('button[onclick="ListFrames()"]').textContent = `🪟${countHtml} Tabs`;
+}
 
-			function ApplyFrameZoom () {
-				var level = FrameZoomLevels[SesAppData.frameZoomIndex];
-				var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - SesAppData.frameZoomIndex];
-				['bottom', 'top', 'left', 'right', 'scale', 'width'].forEach(function(prop){
-					IframeMain.style[prop] = '';
-				});
-				if (level < 100) {
-					IframeMain.style.bottom = `calc(${level}vh - 16px)`;
-					IframeMain.style.right = `${level}vw`;
-				} else {
-					IframeMain.style.top = `calc(${levelopp/2}vh - 8px)`;
-					IframeMain.style.left = `${levelopp/2}vw`;
-				}
-				if (SesAppData.frameZoomIndex !== -1) {
-					IframeMain.style.scale = (level / 100);
-					IframeMain.style.width = `${levelopp}vw`;
-				}
-				IframeMain.style.height = GetNeededIframeHeight(levelopp);
-				var zoomButton = document.querySelector('button[onclick="ZoomFrame()"]');
-				if (level < 100) {
-					zoomButton.textContent = '🔍️(-) Zoom';
-				} else if (level > 100) {
-					zoomButton.textContent = '🔍️(+) Zoom';
-				} else {
-					zoomButton.textContent = '🔍️ Zoom';
-				};
+function GetNeededIframeHeight (hScale=100) {
+	return (SesAppData.fullscreen ? `${hScale}vh` : `calc(${hScale}vh - (var(--BtnActionHeight) * ${hScale / 100}))`);
+}
+
+function ApplyFullscreen () {
+	if (SesAppData.fullscreen) {
+		BoxControls.style.display = 'none';
+		BtnFullscreen.style.display = '';
+	} else {
+		BoxControls.style.display = '';
+		BtnFullscreen.style.display = 'none';
+	}
+	ApplyFrameZoom();
+}
+
+function ToggleFullscreen () {
+	SesAppData.fullscreen = !SesAppData.fullscreen;
+	ApplyFullscreen();
+	SaveAppData();
+}
+
+function LoadFrame () {
+	var url = document.querySelector('input[type="text"]').value;
+	if (!url.toLowerCase().startsWith('javascript:')) {
+		document.querySelector('iframe').src = SaveUrl();
+	}
+}
+
+function isDataUrl (url) {
+	return url.toLowerCase().startsWith('data:');
+}
+
+function extractDataUrl (url) {
+	var [mime, encoding] = url.split(',')[0].split('data:')[1].split(';');
+	var body = url.split(',').slice(1).join(',');
+	switch ((encoding || '').toLowerCase()) { default:
+		break; case 'utf8':
+			body = decodeURIComponent(body);
+		break; case 'base64':
+			body = atob(body);
+	}
+	return [mime, body, encoding];
+}
+
+function createDataUrl (mime, body, encoding) {
+	switch (encoding) { default:
+		break; case 'utf8':
+			body = encodeURIComponent(body);
+		break; case 'base64':
+			body = btoa(body);
+	}
+	return `data:${mime};${encoding},${body}`;
+}
+
+function patchFrameHtml (html) {
+	var replaced = false;
+	for (var ref of ["</head>", "</body>", "</html>"]) {
+		if (html.includes(ref)) {
+			html = html.replace(ref, (FrameHtmlInjectable + ref));
+			replaced = true;
+			break;
+		}
+	}
+	if (!replaced) {
+		html = (html + FrameHtmlInjectable);
+	}
+	return html;
+}
+
+function ExciseFrame () {
+	var url = SaveUrl();
+	if (isDataUrl(url)) {
+		opendatauri(url);
+	} else {
+		open(url, '_blank');
+	};
+}
+
+function LoadFile (file) {
+	var reader = new FileReader();
+	reader.onload = function(){
+		document.querySelector('input[type="text"]').value = reader.result;
+		LoadFrame();
+	};
+	reader.readAsDataURL(file);
+}
+
+function ApplyFrameZoom () {
+	var level = FrameZoomLevels[SesAppData.frameZoomIndex];
+	var levelopp = FrameZoomLevels[FrameZoomLevels.length - 1 - SesAppData.frameZoomIndex];
+	['bottom', 'top', 'left', 'right', 'scale', 'width'].forEach(function(prop){
+		IframeMainContainer.style[prop] = '';
+	});
+	if (level < 100) {
+		IframeMainContainer.style.bottom = `calc(${level}vh - 16px)`;
+		IframeMainContainer.style.right = `${level}vw`;
+	} else {
+		IframeMainContainer.style.top = `calc(${levelopp/2}vh - 8px)`;
+		IframeMainContainer.style.left = `${levelopp/2}vw`;
+	}
+	if (SesAppData.frameZoomIndex !== -1) {
+		IframeMainContainer.style.scale = (level / 100);
+		IframeMainContainer.style.width = `${levelopp}vw`;
+	}
+	IframeMainContainer.style.height = GetNeededIframeHeight(levelopp);
+	var zoomButton = document.querySelector('button[onclick="ZoomFrame()"]');
+	if (level < 100) {
+		zoomButton.textContent = '🔍️(-) Zoom';
+	} else if (level > 100) {
+		zoomButton.textContent = '🔍️(+) Zoom';
+	} else {
+		zoomButton.textContent = '🔍️ Zoom';
+	};
+}
+
+function ZoomFrame () {
+	if (SesAppData.frameZoomIndex === FrameZoomLevels.length - 1) {
+		SesAppData.frameZoomIndex = -1;
+	} else {
+		SesAppData.frameZoomIndex ++;
+	};
+	ApplyFrameZoom();
+	SaveAppData();
+}
+
+function ResizeFrame () {
+	var prevStyle = IframeMainBox.style.length;
+	IframeMainBox.removeAttribute('style');
+	if (!prevStyle) {
+		var props = (prompt("Format: width,height") || '').trim();
+		if (!props) {
+			return;
+		}
+		props = (props
+			.replaceAll(' ', ',').replaceAll('\t', ',')
+			.replaceAll(':', ',').replaceAll(';', ',')
+			.replaceAll(',,', ',').replaceAll(',,', ','));
+		if ((!props.includes(',')) && props.includes('x')) {
+			props = props.replace('x', ',');
+		}
+		props = props.split(',');
+		if (!(props[0] || props[1])) {
+			return;
+		}
+		for (var i=0; i<props.length; i++) {
+			if (!props[i]) {
+				props[i] = '100%';
+			} else if (!isNaN(props[i])) {
+				props[i] += 'px';
 			}
+		}
+		IframeMainBox.style = `width: ${props[0]}; height: ${props[1]};`;
+	}
+}
 
-			function ZoomFrame(){
-				if (SesAppData.frameZoomIndex === FrameZoomLevels.length - 1) {
-					SesAppData.frameZoomIndex = -1;
-				} else {
-					SesAppData.frameZoomIndex ++;
-				};
-				ApplyFrameZoom();
-				SaveAppData();
-			};
-
-			function ListFrames(){
-				if (!ListFramesClose()){
-					var Box = NewBoxPopup('BoxFramesList');
-					var BtnAdd = $new('button', { className: 'BtnAction', innerHTML: '➕ Add', onclick: AddFrame });
-					Box.Content.appendChild(BtnAdd);
-					var BoxList = $new('ul', { style: 'text-align: initial;' });
-					Box.Content.appendChild(BoxList);
-					var LiMain = $new('li');
-					BoxList.appendChild(LiMain);
-					var BtnMain = $new('button', { innerHTML: '[ Root Window ]', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: AppData.currentTabIndex === -1 });
-					LiMain.appendChild(BtnMain);
-					for (var i=0; i<AppData.tabs.length; i++) {
-						var li = $new('li');
-						li.ItemIndex = i;
-						BoxList.appendChild(li);
-						var open = $new('button', { innerHTML: `&nbsp;${(GetTabUrlFromTabIndex(i) || '').slice(0, 16)}&nbsp;`, onclick: function(){ShowFrame(this.parentElement.ItemIndex)}, disabled: AppData.currentTabIndex === i });
-						li.append(open);
-						var close = $new('button', { innerHTML: '✖️', style: 'float: right;', onclick: function(){CloseFrame(this.parentElement.ItemIndex)} });
-						li.append(close);
-					};
-				};
-			};
-			
-			function ListFramesClose(){
-				var exist = document.querySelector('#BoxFramesList');
-				if (exist) {
-					BoxFramesList.remove();
-				};
-				return exist;
-			};
-
-			var isDevToolsOpen = false;
-			function ToggleDevTools(){
-				if (typeof(eruda) === 'undefined') {
-					$request('https://cdn.jsdelivr.net/npm/eruda', { callback: function(text){
-						eval(text);
-						eruda.init();
-						eruda._shadowRoot.querySelector('div.eruda-entry-btn').style.display = 'none';
-						eruda.show();
-						isDevToolsOpen = true;
-					} });
-				} else {
-					eruda[isDevToolsOpen ? 'hide' : 'show']();
-					isDevToolsOpen = !isDevToolsOpen;
-				}
-			};
-
-			function NewBoxPopup(id){
-				var Container = $new('div', { id: id, className: 'BoxPopup Container' });
-				var Content = $new('div', { className: 'BoxPopup Content' });
-				Container.appendChild(Content);
-				var BtnClose = $new('button', { className: 'BtnAction', innerHTML: '❌ Close', onclick: function(){this.parentElement.parentElement.remove()} });
-				Content.appendChild(BtnClose);
-				BoxHandy.appendChild(Container);
-				return { Container: Container, Content: Content };
-			};
-
-			function opendatauri (data) {
-				var head = data.split(',')[0].split('data:')[1];
-				var [mime, encoding] = head.split(';');
-				data = data.split(',').slice(1).join(',');
-				if (encoding.toLowerCase() === 'base64') {
-					data = atob(data);
-				} else if (encoding.toLowerCase() === 'utf8') {
-					data = decodeURIComponent(data);
-				};
-				var bytes = new Array(data.length);
-				for (var i = 0; i < data.length; i++) {
-					bytes[i] = data.charCodeAt(i);
-				};
-				window.open(URL.createObjectURL(
-					new Blob([new Uint8Array(bytes)], { type: `${mime};${encoding ? encoding : 'utf8'}` })
-				), '_blank');
-			};
-
-			// https://stackoverflow.com/questions/45053624/convert-hex-to-binary-in-javascript/45054052#45054052
-			function hex2bin (hex) {
-				return (parseInt(hex, 16).toString(2)).padStart((hex.length * 4), '0');
-			}
-
-			function AlertMigrateAppData(){
-				var stored = Object.keys(localStorage);
-				if (stored.includes('FramesBrowser.CurrentFrames') || stored.includes('FramesBrowser.FrameIndexes') || stored.includes('FramesBrowser.url')) {
-					var overlay = document.createElement('div');
-					overlay.style = 'position: absolute; width: 100vw; height: 100vh; top: 0; background: white; color: black;';
-					overlay.innerHTML = `<p>The app handling of data has changed in the last update. Please copy and backup externally all the data you need and reset the app to continue using it.</p>
-					<button>Reset</button>
-					<p>Your open URLs:</p><ul>${JSON.parse(localStorage.getItem('FramesBrowser.CurrentFrames'))?.map(function(item){
-						return `<li>${item.replaceAll('<','&lt;').replaceAll('>','&gt;')}</li>`;
-					}).join('') || '<p>[nothing previously saved]</p>'}</ul>`;
-					overlay.querySelector('button').onclick = function(){
-						['CurrentFrames','FrameIndexes','url'].forEach(function(key){
-							localStorage.removeItem(`FramesBrowser.${key}`);
-						});
-						location.reload();
-					};
-					document.body.appendChild(overlay);
-				}
-			};
-
-			window.onhashchange = function(){ location.reload() };
-
-			window.onload = function(){
-				Array.from(document.querySelectorAll('noscript, .NoScript')).forEach(function(el){ el.remove() });
-				AppData = (JSON.parse(localStorage.getItem('org.eu.octt.FramesBrowser.v1')) || {});
-				SesAppData = {
-					optionsFromUrl: (AppData.optionsFromUrl || false),
-					fullscreen: (AppData.fullscreen || false),
-					frameZoomIndex: (isNaN(parseInt(AppData.frameZoomIndex)) ? -1 : AppData.frameZoomIndex),
-				};
-				SesAppDataBak = structuredClone(SesAppData);
-				AppData = {
-					tabs: (AppData.tabs || []),
-					urls: (AppData.urls || []),
-					currentTabIndex: (isNaN(parseInt(AppData.currentTabIndex)) ? -1 : AppData.currentTabIndex),
-				};
-				AlertMigrateAppData();
-				SaveAppData();
-				document.querySelector('input[type="text"]').value = GetTabUrlFromTabIndex(AppData.currentTabIndex);
-				ApplyFullscreen();
-				ApplyFrameZoom();
+function FrameDispatch (action) {
+	var url = ((AppData.currentTabIndex !== -1) && SaveUrl());
+	if (url && (!isDataUrl(url))) {
+		IframeMain.src = createDataUrl('text/plain', 'Reloading, please wait...');
+		// TODO use dynamic proxy
+		fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`).then(function(response){
+			response.text().then(function(html){
+				AddFrame();
+				SaveUrl(createDataUrl('text/html', html, 'utf8'));
 				ShowFrame(AppData.currentTabIndex);
-				RefreshFramesCounter();
-				if (location.hash) {
-					var tokens = location.hash.slice(1).split('|');
-					if (tokens[0].startsWith('_')) {
-						// leading underscore indicates a restricted quick query, succeding charaters are identifiers for versioning
-						var paramsVersion = tokens[0].slice(1);
-						var flags = {};
-						SesAppData.optionsFromUrl = true;
-						tokens = tokens.slice(1);
-						switch (paramsVersion) {
-							case '1':
-								while (tokens.length > 0) {
-									var opt = tokens[0];
-									var optLow = opt.toLowerCase();
-									if (optLow.startsWith('f=')) {
-										var flagStr = hex2bin(opt.slice(2));
-										var flags = {
-											//disallowPrefsOverride: flagStr[0],
-											//fullscreen: flagStr[3],
-											immersiveView: flagStr[3],
-										};
-										for (var flag in flags) {
-											flags[flag] = !!Number(flags[flag]);
-										}
-									} else if (optLow.startsWith('u=') || optLow.startsWith('h=')) {
-										// load data URI, or HTML content
-										tokens[0] = tokens[0].slice(2);
-										var fieldData = tokens.join('|');
-										var url = ((optLow.startsWith('h=') ? 'data:text/html;utf8,' : '') + fieldData);
-										if (GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url) {
-											AddFrame();
-											document.querySelector('input[type="text"]').value = url;
-											LoadFrame();
-										}
-										flags.immersiveView && !SesAppData.fullscreen && ToggleFullscreen();
-										!flags.immersiveView && SesAppData.fullscreen && ToggleFullscreen();
-										break;
-									}
-									tokens = tokens.slice(1);
-								}
+			});
+		}).catch(function(error){
+			console.error(error);
+			IframeMain.src = createDataUrl('text/plain', error);
+		});
+		return;
+	}
+	IframeMain.contentWindow.postMessage({ FramesBrowser: action }, '*');
+	return true;
+}
+
+function ListFrames () {
+	if (!ListFramesClose()){
+		var Box = NewBoxPopup('BoxFramesList');
+		var BtnAdd = $new('button', { className: 'BtnAction', innerHTML: '➕ Add', onclick: AddFrame });
+		Box.Content.appendChild(BtnAdd);
+		var BoxList = $new('ul', { style: 'text-align: initial;' });
+		Box.Content.appendChild(BoxList);
+		var LiMain = $new('li');
+		BoxList.appendChild(LiMain);
+		var BtnMain = $new('button', { innerHTML: '[ Root Window ]', onclick: /*ShowRootFrame*/function(){ ShowFrame(-1) }, disabled: AppData.currentTabIndex === -1 });
+		LiMain.appendChild(BtnMain);
+		for (var i=0; i<AppData.tabs.length; i++) {
+			var li = $new('li');
+			li.ItemIndex = i;
+			BoxList.appendChild(li);
+			var open = $new('button', { innerHTML: `&nbsp;${(GetTabUrlFromTabIndex(i) || '').slice(0, 16)}&nbsp;`, onclick: function(){ShowFrame(this.parentElement.ItemIndex)}, disabled: AppData.currentTabIndex === i });
+			li.append(open);
+			var close = $new('button', { innerHTML: '✖️', style: 'float: right;', onclick: function(){CloseFrame(this.parentElement.ItemIndex)} });
+			li.append(close);
+		};
+	};
+}
+
+function ListFramesClose () {
+	var exist = document.querySelector('#BoxFramesList');
+	if (exist) {
+		BoxFramesList.remove();
+	};
+	return exist;
+}
+
+var isDevToolsOpen = false;
+function ToggleDevTools () {
+	if (typeof(eruda) === 'undefined') {
+		$request('https://cdn.jsdelivr.net/npm/eruda', { callback: function(text){
+			eval(text);
+			eruda.init();
+			eruda._shadowRoot.querySelector('div.eruda-entry-btn').style.display = 'none';
+			eruda.show();
+			isDevToolsOpen = true;
+		} });
+	} else {
+		eruda[isDevToolsOpen ? 'hide' : 'show']();
+		isDevToolsOpen = !isDevToolsOpen;
+	}
+}
+
+function NewBoxPopup (id) {
+	var Container = $new('div', { id: id, className: 'BoxPopup Container' });
+	var Content = $new('div', { className: 'BoxPopup Content' });
+	Container.appendChild(Content);
+	var BtnClose = $new('button', { className: 'BtnAction', innerHTML: '❌ Close', onclick: function(){this.parentElement.parentElement.remove()} });
+	Content.appendChild(BtnClose);
+	BoxHandy.appendChild(Container);
+	return { Container, Content };
+}
+
+function opendatauri (url) {
+	var [mime, body, encoding] = extractDataUrl(url);
+	var bytes = new Array(body.length);
+	for (var i = 0; i < body.length; i++) {
+		bytes[i] = body.charCodeAt(i);
+	};
+	window.open(URL.createObjectURL(
+		new Blob([new Uint8Array(bytes)], { type: `${mime};${encoding || 'utf8'}` })
+	), '_blank');
+}
+
+// https://stackoverflow.com/questions/45053624/convert-hex-to-binary-in-javascript/45054052#45054052
+function hex2bin (hex) {
+	return (parseInt(hex, 16).toString(2)).padStart((hex.length * 4), '0');
+}
+
+function AlertMigrateAppData () {
+	var stored = Object.keys(localStorage);
+	if (stored.includes('FramesBrowser.CurrentFrames') || stored.includes('FramesBrowser.FrameIndexes') || stored.includes('FramesBrowser.url')) {
+		var overlay = document.createElement('div');
+		overlay.style = 'position: absolute; width: 100vw; height: 100vh; top: 0; background: white; color: black;';
+		overlay.innerHTML = `<p>The app handling of data has changed in the last update. Please copy and backup externally all the data you need and reset the app to continue using it.</p>
+		<button>Reset</button>
+		<p>Your open URLs:</p><ul>${JSON.parse(localStorage.getItem('FramesBrowser.CurrentFrames'))?.map(function(item){
+			return `<li>${item.replaceAll('<','&lt;').replaceAll('>','&gt;')}</li>`;
+		}).join('') || '<p>[nothing previously saved]</p>'}</ul>`;
+		overlay.querySelector('button').onclick = function(){
+			['CurrentFrames','FrameIndexes','url'].forEach(function(key){
+				localStorage.removeItem(`FramesBrowser.${key}`);
+			});
+			location.reload();
+		};
+		document.body.appendChild(overlay);
+	}
+}
+
+(new ResizeObserver(function(){
+	document.querySelector('button[onclick="ResizeFrame()"]').textContent = (IframeMainBox.style.length ? '↘️(~) Size' : '↘️ Size');
+})).observe(IframeMainBox);
+
+window.onhashchange = (function(){ location.reload() });
+
+window.onload = (function(){
+	Array.from(document.querySelectorAll('noscript, .NoScript')).forEach(function(el){ el.remove() });
+	AppData = (JSON.parse(localStorage.getItem('org.eu.octt.FramesBrowser.v1')) || {});
+	SesAppData = {
+		optionsFromUrl: (AppData.optionsFromUrl || false),
+		fullscreen: (AppData.fullscreen || false),
+		frameZoomIndex: (isNaN(parseInt(AppData.frameZoomIndex)) ? -1 : AppData.frameZoomIndex),
+	};
+	SesAppDataBak = structuredClone(SesAppData);
+	AppData = {
+		tabs: (AppData.tabs || []),
+		urls: (AppData.urls || []),
+		currentTabIndex: (isNaN(parseInt(AppData.currentTabIndex)) ? -1 : AppData.currentTabIndex),
+	};
+	AlertMigrateAppData();
+	SaveAppData();
+	document.querySelector('input[type="text"]').value = GetTabUrlFromTabIndex(AppData.currentTabIndex);
+	ApplyFullscreen();
+	ApplyFrameZoom();
+	ShowFrame(AppData.currentTabIndex);
+	RefreshFramesCounter();
+	if (location.hash) {
+		var tokens = location.hash.slice(1).split('|');
+		if (tokens[0].startsWith('_')) {
+			// leading underscore indicates a restricted quick query, succeding charaters are identifiers for versioning
+			var paramsVersion = tokens[0].slice(1);
+			var flags = {};
+			SesAppData.optionsFromUrl = true;
+			tokens = tokens.slice(1);
+			switch (paramsVersion) {
+				case '1':
+					while (tokens.length > 0) {
+						var opt = tokens[0];
+						var optLow = opt.toLowerCase();
+						if (optLow.startsWith('f=')) {
+							var flagStr = hex2bin(opt.slice(2));
+							var flags = {
+								//disallowPrefsOverride: flagStr[0],
+								//fullscreen: flagStr[3],
+								immersiveView: flagStr[3],
+							};
+							for (var flag in flags) {
+								flags[flag] = !!Number(flags[flag]);
+							}
+						} else if (optLow.startsWith('u=') || optLow.startsWith('h=')) {
+							// load data URI, or HTML content
+							tokens[0] = tokens[0].slice(2);
+							var fieldData = tokens.join('|');
+							var url = ((optLow.startsWith('h=') ? 'data:text/html;utf8,' : '') + fieldData);
+							if (GetTabUrlFromTabIndex(AppData.currentTabIndex) !== url) {
+								AddFrame();
+								document.querySelector('input[type="text"]').value = url;
+								LoadFrame();
+							}
+							flags.immersiveView && !SesAppData.fullscreen && ToggleFullscreen();
+							!flags.immersiveView && SesAppData.fullscreen && ToggleFullscreen();
 							break;
 						}
+						tokens = tokens.slice(1);
 					}
-				}
-			};
+				break;
+			}
+		}
+	}
+});
 		</script>
 	</body>
 </html>

@@ -1,7 +1,7 @@
 window.addEventListener('load', (function(){
 
 if (['', 'hub.octt.eu.org'].includes(location.host)) {
-	if ('serviceWorker' in navigator) {
+	if (('serviceWorker' in navigator) && (location.protocol.slice(0, 4) === 'http')) {
 		navigator.serviceWorker.register('/ServiceWorker.js');
 	}
 } else {
@@ -28,6 +28,14 @@ if (['', 'hub.octt.eu.org'].includes(location.host)) {
 		padding-bottom: 0;
 	" onclick="this.parentElement.remove()">X</button>`;
 	document.body.appendChild(noticeElem);
+}
+
+if (["www.octt.eu.org", "hub.octt.eu.org"].includes(location.hostname)) {
+	fetch('https://private-analytics-not-for-public-use.octt.eu.org/octospacchub/count?p=' + location.href /* + '&rnd=' + Date.now() */)
+		.catch(function(err){
+			console.error(err);
+			fetch('https://octospacchub.goatcounter.com/count?p=' + location.href);
+		});
 }
 
 }));

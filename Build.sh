@@ -1,5 +1,5 @@
 #!/bin/sh
-SourceApps="SpiderADB TiktOctt TiVuOcto WuppiMini"
+SourceApps="$(ls ./source/)"
 HubSdkApps="${SourceApps} MatrixStickerHelper"
 HtmlHeadInject='<script src="../../shared/OctoHub-Global.js"></script>'
 
