@@ -966,7 +966,7 @@ TODO:
 	}
 
 	async function TryUserLogin (event, modalButton) {
-		const modal = modalButton.parentElement;
+		const modal = modalButton.parentElement.parentElement;
 		const homeserver = modal.querySelector('input[name="homeserver"]').value;
 		const username = modal.querySelector('input[name="username"]').value;
 		const password = modal.querySelector('input[name="password"]').value;

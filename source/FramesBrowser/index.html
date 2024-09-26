@@ -272,20 +272,6 @@ var FrameHtmlInjectable = (`
 		}
 		window.parent.postMessage({ FramesBrowser: "Screenshot:1" }, '*');
 		html2canvas(document.body, { allowTaint: true }).then(function(canvas){
-			/*try {
-				Object.assign(document.createElement('a'), {
-					download: `FramesBrowser-Screenshot-${(new Date).toJSON()}`,
-					href: canvas.toDataURL('image/png'),
-				}).click();
-			} catch(err) {
-				console.error(err);
-				SpaccDotWeb.ShowModal({
-					text: "Use the browser's context menu to download the image.",
-					extraHTML: `<div style="overflow: auto;"></div>`,
-				}).then(function(modalEl){
-					modalEl.querySelector('div').appendChild(canvas);
-				});
-			}*/
 			var imageData;
 			try {
 				imageData = canvas.toDataURL('image/png');
