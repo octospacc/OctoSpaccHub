@@ -600,7 +600,7 @@ TODO:
 	async function CreateNewPack (event, modalButton, packUrl) {
 		let packData = { stickers: [] };
 		// if the user specified an URL, try downloading data from there
-		packUrl ||= modalButton.parentElement.querySelector('input[name="packUrl"]').value;
+		packUrl ||= modalButton.parentElement.parentElement.querySelector('input[name="packUrl"]').value;
 		// TODO: warn if an existing pack is imported from that URL and let the user choose if to continue or cancel
 		//if (packUrl && IsAnyPackImportedFrom(packUrl) && await Spacc.ShowModal({ label: Defaults.Strings.mAlreadyImported, action: () => 'continue', actionCancel: () => 'cancel' }) === 'continue') {
 		//	return;
