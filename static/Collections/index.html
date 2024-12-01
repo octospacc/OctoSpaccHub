@@ -49,10 +49,11 @@
 		<p>Alternatively, check out my collections directly on my external sites:</p>
 		<ul id="SitesList" class="BackgroundedBox">
 			<li>✨ <a href="https://sitoctt.octt.eu.org/Categories/"
-				data-platform="staticoso"
+				data-platform="json"
 				data-categories-blacklist="Blog MicroBlog Note"
 				data-staticoso-assets-root="https://sitoctt-assets.octt.eu.org"
-			>Tutte le categorie sul sitoctt</a></li>
+				data-dump="https://sitoctt.octt.eu.org/it/searchindex.js"
+			>Tutte le categorie sul sitoctt</a> (momentaneamente non in lista)</li>
 			<li>📓️ <a href="https://octospacc.altervista.org/libreria-post/"
 				data-platform="wordpress"
 				data-categories-blacklist="Senza-categoria"
@@ -102,6 +103,9 @@
 				break; case 'wordpress':
 					fetchUrl = refElem.dataset.dump;
 					fetchParser = wordpressFetchParser;
+				//break; case 'json':
+				//	fetchUrl = refElem.dataset.dump;
+				//	fetchParser = jsonFetchParser;
 			}
 			if (!fetchUrl || !fetchParser) {
 				continue;
@@ -227,6 +231,17 @@
 					post.image = (siteUrl + imageFrag.split('"')[0]);
 				}
 				finalPosts.push(post);
+			}
+			return finalPosts;
+		}
+
+		async function jsonFetchParser (req, extra) {
+			var json = await req.text();
+			var sourcePosts = JSON.parse(`[${json.split('[').slice(1).join('[')}`); // handle JSON-in-JS files
+			var finalPosts = [];
+			for (var post of sourcePosts) {
+				post.url = siteUrl + permalink;
+				// ... TODO
 			}
 			return finalPosts;
 		}
