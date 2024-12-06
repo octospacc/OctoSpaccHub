@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+:root {
+	--toolbarHeight: 32px
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	margin: 0;
+}
+textarea {
+	width: 100vw;
+	height: calc(100vh - var(--toolbarHeight));
+	margin: 0;
+	resize: none;
+	border: none;
+	background-color: transparent;
+}
+.Toolbar, .Toolbar * {
+	height: var(--toolbarHeight);
+}
+</style>
+<script>
+</script>
+<head>
+<body style="background-color: antiquewhite;">
+	<div class="Toolbar">
+		<label>
+			<input type="text" list="FontsList" placeholder="Font Family" onchange="setFont(this.value)" />
+			<datalist id="FontsList">
+				<option>Comic Sans MS</option>
+				<option>Times New Roman</option>
+			</datalist>
+		</label>
+		<label>
+			<input type="text" list="SizesList" placeholder="Font Size" onchange="setSize(this.value)" />
+			<datalist id="SizesList">
+				<option>8</option>
+				<option>10</option>
+				<option>12</option>
+				<option>14</option>
+				<option>16</option>
+				<option>18</option>
+			</datalist>
+		</label>
+		<button onclick="toggleBold()">Bold</button>
+		<button onclick="toggleItalic()">Italic</button>
+		<button onclick="toggleUnderline()">Underline</button>
+		<input type="color" style="padding: 8px;" />
+		<input type="color" style="padding: 8px;" />
+		<input type="range" min="0" max="25" value="0" onchange="setMargin(this.value)" style="margin-bottom: -12px;" />
+		<button onclick="かっかろさ()">?</button>
+	</div>
+	<textarea id="textarea" placeholder="What are you thinking about?" style="font-family: Times New Roman;"></textarea>
+<script>
+	function setTextInputEvents (element, handler) {
+		['input', 'paste', 'change'].forEach(function(event){
+			element.addEventListener(event, handler);
+		});
+	}
+	function setTextareaProp (prop, set, index) {
+		if (Array.isArray(set)) {
+			if (index) {
+				textarea.style[prop] = set[index] || '';
+			} else {
+				var index = textarea.dataset[prop] || 1;
+				textarea.style[prop] = set[index] || '';
+				textarea.dataset[prop] = 1 - index;
+			}
+		} else {
+			textarea.style[prop] = textarea.dataset[prop] = set;
+		}
+		localStorage.setItem('editor-textarea', JSON.stringify(textarea.dataset));
+	}
+	function setMargin (value) {
+		//setTextareaProp('marginLeft', value + '%');
+		//setTextareaProp('width', (100 - value) + '%');
+		setTextareaProp('paddingLeft', value + '%');
+		setTextareaProp('paddingRight', value + '%');
+	}
+	function setFont (value) {
+		setTextareaProp('fontFamily', value);
+	}
+	function setSize (value) {
+		setTextareaProp('fontSize', value + 'pt');
+	}
+	function toggleBold (index) {
+		setTextareaProp('fontWeight', [,'bold'], index);
+	}
+	function toggleItalic (index) {
+		setTextareaProp('fontStyle', [,'italic'], index);
+	}
+	function toggleUnderline (index) {
+		setTextareaProp('textDecoration', [,'underline'], index);
+	}
+	function かっかろさ () {
+		var buffer = '';
+		for (var i=0; i<4096; i++) {
+			buffer += String.fromCharCode(Math.random()*4096 + 32);
+		}
+		textarea.value = buffer;
+	}
+	var props = JSON.parse(localStorage.getItem('editor-textarea') || '{}');
+	for (var prop in props) {
+		setTextareaProp(prop, [,prop.toLowerCase()], props[prop])
+	}
+	textarea.value = JSON.parse(localStorage.getItem('editor-text') || '');
+	setTextInputEvents(textarea, function(){
+		localStorage.setItem('editor-text', JSON.stringify(textarea.value));
+	});
+</script>
+</body>
+</html>

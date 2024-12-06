@@ -33,7 +33,7 @@
 		</div>
 		<br/><br/><br/>
 		<div id="Links"><div>
-			<h3>Sites and Content 📚️</h3>
+			<h3><span data-lang-it="Siti e Contenuti">Sites and Content</span> 📚️</h3>
 			<h4><!--
 				--><small>[🇮🇹]</small>
 				<a rel="me" href="https://sitoctt.octt.eu.org">✨sitoctt✨</a>
@@ -86,11 +86,12 @@
 			--></h4>
 		</div><br/><div>
 			<h3>??? 💖️</h3>
-			<h4><a href="https://octospacc.gitlab.io/FumoPrisms/">🔺️ Fumo Prisms (!)</a></h4>
-			<h4><a href="./Collections/">🎀 My Collections</a> <small>(of posts/pages)</small></h4>
-			<h4><a href="./Userscripts/">⚙️ My Userscripts</a> <small>for a nicer web</small></h4>
-			<h4>Nice <a href="https://addons.mozilla.org/firefox/collections/18049170/octollection/">🦊 Firefox Add-ons</a>
-				<small>(<a href="https://addons.mozilla.org/firefox/user/18049170/">mine</a> + suggestions)</small></h4>
+			<h4><a href="https://octospacc.gitlab.io/FumoPrisms/">🔺️ <span data-lang-it="Fumo Prismi">Fumo Prisms</span> (!)</a></h4>
+			<h4><a href="./Collections/">🎀 <span data-lang-it="Mie Collezioni">My Collections</span></a> <small data-lang-it="(di post/pagine)">(of posts/pages)</small></h4>
+			<h4><a href="./Userscripts/">⚙️ <span data-lang-it="Miei Userscript">My Userscripts</span></a> <small data-lang-it="(per un web più bellino)">for a nicer web</small></h4>
+			<h4><span data-lang-it="Begli">Nice</span> <a href="https://addons.mozilla.org/firefox/collections/18049170/octollection/">🦊 <span data-lang-it="Add-on Firefox">Firefox Add-ons</span></a>
+				<small>(<a href="https://addons.mozilla.org/firefox/user/18049170/" data-lang-it="miei">mine</a> + <span data-lang-it="consigli">suggestions</span>)</small></h4>
+			<h4><a href="https://octospacc.altervista.org/contatti-%f0%9f%98%ba%ef%b8%8f/">😺️ <span data-lang-it="Contattami">Contact me</span></a></h4>
 		</div></div>
 		<br/><br/><br/>
 		<div id="OcttAgeView">
@@ -122,6 +123,32 @@
 			<a href="https://spacc-inc.github.io">-&gt; Spacc ⛏️</a>
 		</span>
 	</div>
+	<select id="LanguageSelect">
+		<option value="en">🇬🇧️ English</option>
+		<option value="it">🇮🇹️ Italiano</option>
+	</select>
+	<script>(function(){
+		function datasetLangKey (language) {
+			return ('lang' + language[0].toUpperCase() + language.slice(1));
+		}
+		var language = (localStorage.getItem('OctoSpaccHub-language') || (navigator.language || navigator.languages[0]).split('-')[0]);
+		var languages = Array.from(LanguageSelect.querySelectorAll('option')).map(function(option){ return option.value; });
+		LanguageSelect.onchange = function(){
+			var language = this.selectedOptions[0].value;
+			Array.from(document.querySelectorAll('[data-lang-'+language+']')).forEach(function(textEl){
+				var defaultKey = datasetLangKey(document.documentElement.lang);
+				if (!textEl.dataset[defaultKey]) {
+					textEl.dataset[defaultKey] = textEl.innerHTML;
+				}
+				textEl.innerHTML = textEl.dataset[datasetLangKey(language)];
+			});
+			localStorage.setItem('OctoSpaccHub-language', language);
+		};
+		if (languages.includes(language)) {
+			LanguageSelect.querySelector('option[value="'+language+'"]').selected = true;
+			LanguageSelect.onchange();
+		}
+	})();</script>
 	<script>(function(){
 		var footerElem = document.querySelector('div.Footer');
 		var footerScrollLast;

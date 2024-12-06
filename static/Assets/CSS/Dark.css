@@ -115,3 +115,15 @@ Body {
 .Footer > .FooterRight { Margin-Right: calc(var(--FooterPadding) * 2); }
 
 #OcttAgeView { Padding: 16px; }
+
+#LanguageSelect {
+	Position: absolute;
+	Z-Index: 1;
+	Top: 0;
+	Right: 0;
+	Margin: 1em;
+	Padding: 0.5em;
+	Color: white;
+	Background-Color: black;
+	Border: 2px solid darkgray;
+}
