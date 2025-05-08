@@ -4,6 +4,10 @@
 	--FooterPadding: 8px;
 }
 
+* {
+	scrollbar-width: thin;
+}
+
 A {
 	Color: #17C3EA;
 }
