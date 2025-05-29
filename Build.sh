@@ -1,4 +1,6 @@
 #!/bin/sh
+set -x
+
 SourceApps="$(ls ./source/)"
 HubSdkApps="${SourceApps} MatrixStickerHelper"
 HtmlHeadInject='<script src="../../shared/OctoHub-Global.js"></script>'
@@ -71,5 +73,5 @@ do
 	htmltitle='<title>'"${name}"'</title>'
 	htmlcanonical='<link rel="canonical" href="'"${url}"'"/>'
 	sed -i 's|</head>|<link rel="manifest" href="./WebManifest.json"/>'"${htmltitle}${htmlcanonical}${htmlmanifest}${HtmlHeadInject}"'</head>|' "${htmlfile}"
-	node ../TranscludeReadmes.js "./${App}"
+	node ../TranscludeReadmes.js "${App}"
 done

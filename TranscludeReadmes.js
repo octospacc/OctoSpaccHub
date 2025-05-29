@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 const fs = require('fs');
-const dir = require('process').argv.slice(-1)[0];
-const readme = `${dir}/README.md`;
+const app = require('process').argv.slice(-1)[0];
+const readme = `../source/${app}/README.md`;
 if (fs.existsSync(readme)) {
 	let index;
 	for (const ext of ['js', 'html']) {
-		const path = `${dir}/index.${ext}`;
+		const path = `./${app}/index.${ext}`;
 		if (fs.existsSync(path)) {
 			index = path;
 			break;
