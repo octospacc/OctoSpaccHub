@@ -1,3 +1,4 @@
+const cacheName = 'OctoSpaccHub/v1';
 const cachables = {
 	"/": "networkFirst",
 	"//": "networkFirst",
@@ -13,7 +14,7 @@ const checkUrlCaching = (url) => {
 
 const putResponseInCache = (request, response) => {
 	if (request.method === 'GET' && response.ok) {
-		return caches.open('GamingShitposting/v1').then((cache) => {
+		return caches.open(cacheName).then((cache) => {
 			try {
 				return cache.put(request, response.clone());
 			} catch(err) {}
