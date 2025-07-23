@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Papiellify</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/themes/light.css" />
+<script defer type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/shoelace-autoloader.js"></script>
+<script defer src="https://unpkg.com/alpinejs-component@latest/dist/component.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html, body, #app, #main {
+    position: relative;
+    width: 100%; height: 100%;
+  }
+  #main > * {
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+  }
+  div[slot="start"] {
+    overflow: auto;
+    z-index: 2;
+  }
+  sl-card {
+    max-width: 100%;
+  }
+  @media print {
+    div[slot="start"] {
+      display: none;
+    }
+    /* div[slot="end"] */ div#main {
+      position: absolute;
+      z-index: 1;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+    }
+  }
+</style>
+</head>
+<body x-data="layerManager">
+
+<sl-split-panel style="height: 100%;">
+  <div slot="start">
+    <sl-dropdown>
+      <sl-button slot="trigger" caret>File</sl-button>
+      <sl-menu>
+        <sl-menu-item @click="importJson()">
+          <sl-icon name="box-arrow-left"></sl-icon> Open JSON
+        </sl-menu-item>
+        <sl-menu-item @click="exportJson()">
+          <sl-icon name="box-arrow-right"></sl-icon> Save JSON
+        </sl-menu-item>
+        <sl-menu-item @click="print()">
+          <sl-icon name="printer"></sl-icon> Export PDF / Print
+        </sl-menu-item>
+      </sl-menu>
+    </sl-dropdown>
+    <sl-button @click="addLayer()">Add Layer <sl-icon name="plus-circle"></sl-icon></sl-button>
+    <!-- <sl-button @click="importJson()">Import <sl-icon name="box-arrow-left"></sl-icon></sl-button>
+    <sl-button @click="exportJson()">Export <sl-icon name="box-arrow-right"></sl-icon></sl-button> -->
+    <label>
+      <sl-color-picker :value="backgroundColor" @sl-change="backgroundColor = $event.target.value"></sl-color-picker>
+      Background: <span x-text="backgroundColor"></span>
+    </label>
+    <template x-for="layer, index in layers">
+      <sl-card>
+        <sl-switch :checked="layer.visible" @sl-change="layer.visible = $event.target.checked">
+          Layer <span x-text="index + 1"></span> <sl-icon name="eye"></sl-icon>
+        </sl-switch>
+        <sl-button-group>
+          <sl-button @click="moveItem(layers, index, index-1)">
+            Up <sl-icon name="chevron-up"></sl-icon>
+          </sl-button>
+          <sl-button @click="moveItem(layers, index, index+1)">
+            Down <sl-icon name="chevron-down"></sl-icon>
+          </sl-button>
+        </sl-button-group>
+        <sl-select label="Variant" :value="layer.variant" :data-value="layer.variant" @sl-change="layer.variant = $event.target.value" x-init="$nextTick(() => hydrateSelect($el))">
+          <sl-option value="squares">
+            <sl-icon name="square"></sl-icon> Squares
+          </sl-option>
+          <sl-option value="lines">
+            <sl-icon name="arrows"></sl-icon> Lines
+          </sl-option>
+          <sl-option value="dots">
+            <sl-icon name="dot"></sl-icon> Dots
+          </sl-option>
+          <!-- <sl-option value="marker">Marker</sl-option>
+          <sl-option value="pattern">Pattern</sl-option> -->
+          <sl-option value="symbol">Symbol</sl-option>
+          <sl-option value="custom">Custom</sl-option>
+        </sl-select>
+        <template x-if="layer.variant == 'symbol'">
+          <div>
+            <sl-input label="Symbol" x-model="layer.symbol" type="text"></sl-input>
+            <x-component template="number-input" x-data="{ model: 'fontSize', extra: { step: 1, min: 1, max: 48 } }"></x-component>
+          </div>
+        </template>
+        <template x-if="layer.variant == 'custom'">
+          <div>
+            <label>Image</label>
+            <sl-input x-model="layer.image" type="text"></sl-input>
+            <input type="file" @change="uploadImage($event, layer)" />
+          </div>
+        </template>
+        <sl-select label="Mode" :value="layer.mode" :data-value="layer.mode" @sl-change="layer.mode = $event.target.value" x-init="$nextTick(() => hydrateSelect($el))">
+          <sl-option value="background">Background</sl-option>
+          <sl-option value="background:contain">Background Contain</sl-option>
+          <sl-option value="background:cover">Background Cover</sl-option>
+          <sl-option value="element">Element</sl-option>
+        </sl-select>
+        <x-component template="number-input" x-data="{ model: 'marginTop',    extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'marginBottom', extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'marginLeft',   extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'marginRight',  extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
+        <sl-select label="Anchor" :value="layer.anchor" :data-value="layer.anchor" @sl-change="layer.anchor = $event.target.value" x-init="$nextTick(() => hydrateSelect($el))">
+          <sl-option value="top+left">
+            <sl-icon name="arrow-up-left"></sl-icon> Top Left
+          </sl-option>
+          <sl-option value="top+center">
+            <sl-icon name="arrow-up"></sl-icon> Top Center
+          </sl-option>
+          <sl-option value="top+right">
+            <sl-icon name="arrow-up-right"></sl-icon> Top Right
+          </sl-option>
+          <sl-option value="center+left">
+            <sl-icon name="arrow-left"></sl-icon> Center Left
+          </sl-option>
+          <sl-option value="center+center">
+            <sl-icon name="dot"></sl-icon> Center
+          </sl-option>
+          <sl-option value="center+right">
+            <sl-icon name="arrow-right"></sl-icon> Center Right
+          </sl-option>
+          <sl-option value="bottom+left">
+            <sl-icon name="arrow-down-left"></sl-icon> Bottom Left
+          </sl-option>
+          <sl-option value="bottom+center">
+            <sl-icon name="arrow-down"></sl-icon> Bottom Center
+          </sl-option>
+          <sl-option value="bottom+right">
+            <sl-icon name="arrow-down-right"></sl-icon> Bottom Right
+          </sl-option>
+        </sl-select>
+        <x-component template="number-input" x-data="{ model: 'shiftX', extra: { step: 0.5, min: -50, max: 50 }, init() { this.extra.disabled = (layer.anchor.split('+')[1] === 'center'); } }" x-effect="init()"></x-component>
+        <x-component template="number-input" x-data="{ model: 'shiftY', extra: { step: 0.5, min: -50, max: 50 }, init() { this.extra.disabled = (layer.anchor.split('+')[0] === 'center'); } }" x-effect="init()"></x-component>
+        <!-- <div x-data="{ step: 0.5, min: 1, max: 30 }">
+          <sl-input :step="step" :min="min" :max="max" x-model="layer.size" type="number"></sl-input>
+          <sl-range :step="step" :min="min" :max="max" x-model="layer.size"></sl-range>
+        </div> -->
+        <!-- <div x-data="{ step: 0.05, max: 1.0 }">
+          <sl-input :step="step" :min="step" :max="max" x-model="layer.opacity" type="number"></sl-input>
+          <sl-range :step="step" :min="step" :max="max" x-model="layer.opacity"></sl-range>
+        </div> -->
+        <!-- <div x-data="{ min: 0, max: 360 }">
+          <sl-input :min="min" :max="max" x-model="layer.rotate" type="number"></sl-input>
+          <sl-range :min="min" :max="max" x-model="layer.rotate"></sl-range>
+        </div> -->
+        <x-component template="number-input" x-data="{ model: 'size',       extra: { step: 0.5,  min: 0,    max: 50  } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'opacity',    extra: { step: 0.05, min: 0.05, max: 1.0 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'rotation',   extra: { step: 1,    min: 0,    max: 360 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'strokeSize', extra: { step: 0.5,  min: 1,    max: 5   } }"></x-component>
+        <label>
+          <sl-color-picker :value="layer.foregroundColor" @sl-change="layer.foregroundColor = $event.target.value"></sl-color-picker>
+          Foreground <span x-text="layer.foregroundColor"></span>
+        </label>
+        <sl-button @click="removeLayer(index)">
+          Remove <sl-icon name="x-circle"></sl-icon>
+        </sl-button>
+        <sl-button @click="cloneLayer(index)">
+          Clone <sl-icon name="copy"></sl-icon>
+        </sl-button>
+      </sl-card>
+    </template>
+  </div>
+  <div slot="end">
+  <div id="main" :style="{ backgroundColor }">
+    <template x-for="layer in layers">
+      <div :style="{
+        display: layer.visible ? '' : 'none',
+        _width: '100%',
+        _height: '100%',
+        opacity: layer.opacity,
+        transform: layer.variant === 'custom' ? `rotate(${layer.rotation}deg)` : '',
+        backgroundImage: layer.variant === 'custom' ? `url('${layer.image}')` : svgs[layer.variant](layer),
+        backgroundRepeat: layer.mode === 'element' ? 'no-repeat' : '',
+        backgroundPosition: makeLayerPosition(layer),
+        _backgroundPosition: `${layer.anchor.split('+')[1]} ${layer.shiftX}mm ${layer.anchor.split('+')[0]} ${layer.shiftY}mm`,
+        _backgroundPosition: layer.anchor.replace('+', ' '),
+        _backgroundPositionX: `${layer.anchor.split('+')[1]} ${layer.shiftX}mm`,
+        _backgroundPositionY: `${layer.anchor.split('+')[0]} ${layer.shiftY}mm`,
+        backgroundSize: layer.variant === 'custom' && layer.size ? `${layer.size}mm` : '',
+        inset: `${layer.marginTop}mm ${layer.marginRight}mm ${layer.marginBottom}mm ${layer.marginLeft}mm`,
+      }"></div>
+    </template>
+    <!-- <sl-card :style="{ position: 'relative', zIndex: 1 }">
+      <h2>Main Area</h2>
+      <p>This is the main content section.</p>
+      < !-- <template class="card-template" x-data="{ open: true }"></template> -- >
+      <x-component template="card-template" x-data="{ open: true }"></x-component>
+    </sl-card> -->
+  </div>
+  </div>
+</sl-split-panel>
+
+<div hidden> <!-- Force loading custom elements -->
+  <sl-card></sl-card>
+  <sl-icon></sl-icon>
+  <sl-input></sl-input>
+  <sl-range></sl-range>
+  <sl-switch></sl-switch>
+  <sl-select></sl-select>
+</div>
+
+<template id="number-input">
+  <label>
+    <span x-text="model[0].toUpperCase() + model.slice(1)"></span>
+    <sl-input :disabled="extra.disabled === true" :step="extra.step" :min="extra.min" :max="extra.max" x-model="layer[model]" type="number"></sl-input>
+    <sl-range :disabled="extra.disabled === true" :step="extra.step" :min="extra.min" :max="extra.max" x-model="layer[model]"></sl-range>
+  </label>
+</template>
+
+<script>
+
+document.addEventListener("alpine:init", () => {
+  Alpine.data("layerManager", () => ({
+    backgroundColor: "white",
+    layers: [],
+    addLayer() {
+      this.layers.push({
+        visible: true,
+        mode: "background",
+        variant: "squares",
+        foregroundColor: "#ccc",
+        image: "",
+        marginTop: 0,
+        marginBottom: 0,
+        marginLeft: 0,
+        marginRight: 0,
+        anchor: "center+center",
+        shiftX: 0,
+        shiftY: 0,
+        rotation: 0,
+        size: 10,
+        strokeSize: 2,
+        opacity: 1.0,
+        symbol: "💢",
+        fontSize: 24,
+      });
+    },
+    cloneLayer(index) {
+      this.layers.push(JSON.parse(JSON.stringify(this.layers[index])));
+    },
+    removeLayer(index) {
+      this.layers.splice(index, 1);
+    },
+    uploadImage(event, layer) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        layer.image = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    },
+    importJson() {
+      const target = this;
+      Object.assign(document.createElement('input'), {
+        type: "file",
+        accept: "application/json",
+        onchange: function(ev){
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            Object.assign(target, JSON.parse(e.target.result));
+          };
+          reader.readAsText(file);
+        },
+      }).click();
+    },
+    exportJson() {
+      Object.assign(document.createElement('a'), {
+        download: `Designer (${this.layers.length} layers), ${(new Date()).toISOString()}.json`,
+        href: `data:application/json;utf8,${encodeURIComponent(JSON.stringify({
+          backgroundColor: this.backgroundColor,
+          layers: this.layers,
+        }, null, 2))}`,
+      }).click();
+    },
+    svgs: {
+      squares: (layer) => makeSvgBackground(layer, `<line x1='0' y1='0' x2='${layer.size}mm' y2='0' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}'/>
+                                                    <line x1='0' y1='0' x2='0' y2='${layer.size}mm' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}'/>`),
+      lines:   (layer) => makeSvgBackground(layer, `<line x1='0' y1='0' x2='${layer.size * 4}mm' y2='0' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}'/>`),
+      dots:    (layer) => makeSvgBackground(layer, `<circle cx='50%' cy='50%' r='${layer.strokeSize / 2}' fill='${layer.foregroundColor}'/>`),
+      symbol:  (layer) => makeSvgBackground(layer, `<text x='50%' y='50%' text-anchor='middle' dominant-baseline='central' font-size='${layer.fontSize}' stroke='${layer.foregroundColor}'>${layer.symbol}</text>`),
+      // marker:  (layer) => makeSvgBackground(layer, `<defs>
+      //                                                 <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      //                                                   <path d="M 0 0 L 10 5 L 0 10 Z" fill="${layer.foregroundColor}"/>
+      //                                                 </marker>
+      //                                               </defs>
+      //                                               <line x1="0" y1="50" x2="100%" y2="50" stroke="${layer.foregroundColor}" stroke-width="${layer.strokeSize}" marker-end="url(#arrow)" />`),
+      // pattern: (layer) => makeSvgBackground(layer, `<defs>
+      //                                                 <pattern id="linePattern" patternUnits="userSpaceOnUse" width="${layer.size}mm" height="${layer.size}mm">
+      //                                                   <line x1="0" y1="0" x2="${layer.size}mm" y2="0" stroke="${layer.foregroundColor}" stroke-width="${layer.strokeSize}" />
+      //                                                 </pattern>
+      //                                               </defs>
+      //                                               <rect x="0" y="0" width="100%" height="100" fill="url(#linePattern)" />`),
+    },
+  }));
+});
+
+function makeSvgBackground(layer, content) {
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg width='${layer.size}mm' height='${layer.size}mm' _opacity='${layer.opacity}' transform='rotate(${layer.rotation})' xmlns='http://www.w3.org/2000/svg'>${content}</svg>`)}")`;
+}
+
+function makeLayerPosition(layer) {
+  let [y, x] = layer.anchor.split('+');
+  if (x !== 'center') {
+    x += ` ${layer.shiftX}mm`;
+  }
+  if (y !== 'center') {
+    y += ` ${layer.shiftY}mm`;
+  }
+  return `${x} ${y}`;
+}
+
+function moveItem(array, from, to) {
+  array.splice(to, 0, array.splice(from, 1)[0]);
+  return array;
+}
+
+function hydrateSelect($el) {
+  const observer = new MutationObserver(() => {
+    setTimeout(() => $el.value = $el.dataset.value, 1);
+    observer.disconnect();
+  });
+  observer.observe($el, {
+    subtree: true,
+    attributes: true,
+  });
+}
+
+</script>
+</body>
+</html>
