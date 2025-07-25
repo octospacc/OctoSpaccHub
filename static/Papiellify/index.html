@@ -8,6 +8,10 @@
 <script defer type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/shoelace-autoloader.js"></script>
 <script defer src="https://unpkg.com/alpinejs-component@latest/dist/component.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<!-- <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js" integrity="sha512-YcsIPGdhPK4P/uRW6/sruonlYj+Q7UHWeKfTAkBW+g83NKM+jMJFJ4iAPfSnVp7BKD4dKMHmVSvICUbE/V1sSw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+<!-- <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+<!-- <script defer src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script> -->
+<script src="../../shared/OctoHub-Global.js"></script>
 <style>
   *, *::before, *::after {
     box-sizing: border-box;
@@ -16,33 +20,60 @@
   }
   html, body, #app, #main {
     position: relative;
+    overflow: hidden;
     width: 100%; height: 100%;
   }
-  #main > * {
+
+  #main > div {
     position: absolute;
+    margin: auto;
+    width: 100%; height: 100%;
     top: 0; left: 0; bottom: 0; right: 0;
   }
+  #main > div[data-anchor~="top"] {
+    bottom: unset !important;
+  }
+  #main > div[data-anchor~="bottom"] {
+    top: unset !important;
+  }
+  #main > div[data-anchor~="left"] {
+    right: unset !important;
+  }
+  #main > div[data-anchor~="right"] {
+    left: unset !important;
+  }
+
   div[slot="start"] {
     overflow: auto;
     z-index: 2;
   }
+
   sl-card {
     max-width: 100%;
   }
+
   @media print {
     div[slot="start"] {
       display: none;
     }
-    /* div[slot="end"] */ div#main {
+    div#main {
       position: absolute;
       z-index: 1;
       top: 0; left: 0;
       width: 100vw; height: 100vh;
     }
+    /* @page {
+      size: 105mm 148mm;
+      margin: 0;
+    } */
   }
 </style>
 </head>
 <body x-data="layerManager">
+
+<noscript>
+  <p style="font-size: xx-large;">This application requires modern JavaScript.</p>
+</noscript>
 
 <sl-split-panel style="height: 100%;">
   <div slot="start">
@@ -61,12 +92,11 @@
       </sl-menu>
     </sl-dropdown>
     <sl-button @click="addLayer()">Add Layer <sl-icon name="plus-circle"></sl-icon></sl-button>
-    <!-- <sl-button @click="importJson()">Import <sl-icon name="box-arrow-left"></sl-icon></sl-button>
-    <sl-button @click="exportJson()">Export <sl-icon name="box-arrow-right"></sl-icon></sl-button> -->
-    <label>
+    <label style="white-space: nowrap;">
       <sl-color-picker :value="backgroundColor" @sl-change="backgroundColor = $event.target.value"></sl-color-picker>
       Background: <span x-text="backgroundColor"></span>
     </label>
+    <sl-divider></sl-divider>
     <template x-for="layer, index in layers">
       <sl-card>
         <sl-switch :checked="layer.visible" @sl-change="layer.visible = $event.target.checked">
@@ -90,8 +120,6 @@
           <sl-option value="dots">
             <sl-icon name="dot"></sl-icon> Dots
           </sl-option>
-          <!-- <sl-option value="marker">Marker</sl-option>
-          <sl-option value="pattern">Pattern</sl-option> -->
           <sl-option value="symbol">Symbol</sl-option>
           <sl-option value="custom">Custom</sl-option>
         </sl-select>
@@ -101,19 +129,36 @@
             <x-component template="number-input" x-data="{ model: 'fontSize', extra: { step: 1, min: 1, max: 48 } }"></x-component>
           </div>
         </template>
-        <template x-if="layer.variant == 'custom'">
+        <template x-if="layer.variant === 'custom'">
           <div>
-            <label>Image</label>
-            <sl-input x-model="layer.image" type="text"></sl-input>
-            <input type="file" @change="uploadImage($event, layer)" />
+            <div>
+              <label>
+                Image
+                <sl-input x-model="layer.image" type="text"></sl-input>
+                <input type="file" accept="image/*" @change="uploadImage($event, layer)" />
+              </label>
+            </div>
+            <!-- <x-component template="number-input" x-data="{ model: 'cropTop',    extra: { step: 1, min: 0, max: 100 }, init() { this.extra.disabled = !layer.image.toLowerCase().startsWith('data:'); } }" x-effect="init()"></x-component> -->
+            <x-component template="number-input" x-data="{ model: 'cropBottom', extra: { step: 1, min: 0, max: 100 }, init() { this.extra.disabled = !layer.image.toLowerCase().startsWith('data:'); } }" x-effect="init()"></x-component>
+            <!-- <x-component template="number-input" x-data="{ model: 'cropLeft',   extra: { step: 1, min: 0, max: 100 }, init() { this.extra.disabled = !layer.image.toLowerCase().startsWith('data:'); } }" x-effect="init()"></x-component> -->
+            <x-component template="number-input" x-data="{ model: 'cropRight',  extra: { step: 1, min: 0, max: 100 }, init() { this.extra.disabled = !layer.image.toLowerCase().startsWith('data:'); } }" x-effect="init()"></x-component>
           </div>
         </template>
         <sl-select label="Mode" :value="layer.mode" :data-value="layer.mode" @sl-change="layer.mode = $event.target.value" x-init="$nextTick(() => hydrateSelect($el))">
-          <sl-option value="background">Background</sl-option>
-          <sl-option value="background:contain">Background Contain</sl-option>
-          <sl-option value="background:cover">Background Cover</sl-option>
+          <sl-option value="background">Background (Auto)</sl-option>
+          <sl-option value="background:contain">Background, Contain (Fit X)</sl-option>
+          <sl-option value="background:cover">Background, Cover (Fit Y)</sl-option>
           <sl-option value="element">Element</sl-option>
         </sl-select>
+        <template x-if="layer.mode.split(':')[0] === 'background'">
+          <sl-select label="Background Repeat" :value="layer.backgroundRepeat" :data-value="layer.backgroundRepeat" @sl-change="layer.backgroundRepeat = $event.target.value" x-init="$nextTick(() => hydrateSelect($el))">
+            <sl-option value="">Auto (Repeat All)</sl-option>
+            <sl-option value="x">Repeat X (Horizontal)</sl-option>
+            <sl-option value="y">Repeat Y (Vertical)</sl-option>
+          </sl-select>
+        </template>
+        <x-component template="number-input" x-data="{ model: 'width',  extra: { step: 1, min: 0, max: 100 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'height', extra: { step: 1, min: 0, max: 100 } }"></x-component>
         <x-component template="number-input" x-data="{ model: 'marginTop',    extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
         <x-component template="number-input" x-data="{ model: 'marginBottom', extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
         <x-component template="number-input" x-data="{ model: 'marginLeft',   extra: { step: 0.5, min: -50, max: 50 } }"></x-component>
@@ -149,26 +194,19 @@
         </sl-select>
         <x-component template="number-input" x-data="{ model: 'shiftX', extra: { step: 0.5, min: -50, max: 50 }, init() { this.extra.disabled = (layer.anchor.split('+')[1] === 'center'); } }" x-effect="init()"></x-component>
         <x-component template="number-input" x-data="{ model: 'shiftY', extra: { step: 0.5, min: -50, max: 50 }, init() { this.extra.disabled = (layer.anchor.split('+')[0] === 'center'); } }" x-effect="init()"></x-component>
-        <!-- <div x-data="{ step: 0.5, min: 1, max: 30 }">
-          <sl-input :step="step" :min="min" :max="max" x-model="layer.size" type="number"></sl-input>
-          <sl-range :step="step" :min="min" :max="max" x-model="layer.size"></sl-range>
-        </div> -->
-        <!-- <div x-data="{ step: 0.05, max: 1.0 }">
-          <sl-input :step="step" :min="step" :max="max" x-model="layer.opacity" type="number"></sl-input>
-          <sl-range :step="step" :min="step" :max="max" x-model="layer.opacity"></sl-range>
-        </div> -->
-        <!-- <div x-data="{ min: 0, max: 360 }">
-          <sl-input :min="min" :max="max" x-model="layer.rotate" type="number"></sl-input>
-          <sl-range :min="min" :max="max" x-model="layer.rotate"></sl-range>
-        </div> -->
         <x-component template="number-input" x-data="{ model: 'size',       extra: { step: 0.5,  min: 0,    max: 50  } }"></x-component>
         <x-component template="number-input" x-data="{ model: 'opacity',    extra: { step: 0.05, min: 0.05, max: 1.0 } }"></x-component>
+        <x-component template="number-input" x-data="{ model: 'brightness', extra: { step: 1,    min: 1,    max: 150 } }"></x-component>
         <x-component template="number-input" x-data="{ model: 'rotation',   extra: { step: 1,    min: 0,    max: 360 } }"></x-component>
-        <x-component template="number-input" x-data="{ model: 'strokeSize', extra: { step: 0.5,  min: 1,    max: 5   } }"></x-component>
-        <label>
-          <sl-color-picker :value="layer.foregroundColor" @sl-change="layer.foregroundColor = $event.target.value"></sl-color-picker>
-          Foreground <span x-text="layer.foregroundColor"></span>
-        </label>
+        <template x-if="layer.variant !== 'custom'">
+          <div>
+            <x-component template="number-input" x-data="{ model: 'strokeSize', extra: { step: 0.5, min: 1, max: 5 } }"></x-component>
+            <label style="white-space: nowrap;">
+              <sl-color-picker :value="layer.foregroundColor" @sl-change="layer.foregroundColor = $event.target.value"></sl-color-picker>
+              Foreground <span x-text="layer.foregroundColor"></span>
+            </label>
+          </div>
+        </template>
         <sl-button @click="removeLayer(index)">
           Remove <sl-icon name="x-circle"></sl-icon>
         </sl-button>
@@ -181,46 +219,44 @@
   <div slot="end">
   <div id="main" :style="{ backgroundColor }">
     <template x-for="layer in layers">
-      <div :style="{
+      <div :data-anchor="layer.anchor.replace('+', ' ')" :style="{
         display: layer.visible ? '' : 'none',
-        _width: '100%',
-        _height: '100%',
+        width: layer.width != 0 ? `${layer.width}px` : '',
+        height: layer.height != 0 ? `${layer.height}px` : '',
         opacity: layer.opacity,
+        filter: `brightness(${layer.brightness}%)`,
         transform: layer.variant === 'custom' ? `rotate(${layer.rotation}deg)` : '',
-        backgroundImage: layer.variant === 'custom' ? `url('${layer.image}')` : svgs[layer.variant](layer),
-        backgroundRepeat: layer.mode === 'element' ? 'no-repeat' : '',
+        backgroundImage: makeCssImage(layer),
+        backgroundRepeat: layer.mode === 'element' ? 'no-repeat' : (layer.backgroundRepeat ? `repeat-${layer.backgroundRepeat}` : ''),
         backgroundPosition: makeLayerPosition(layer),
-        _backgroundPosition: `${layer.anchor.split('+')[1]} ${layer.shiftX}mm ${layer.anchor.split('+')[0]} ${layer.shiftY}mm`,
-        _backgroundPosition: layer.anchor.replace('+', ' '),
-        _backgroundPositionX: `${layer.anchor.split('+')[1]} ${layer.shiftX}mm`,
-        _backgroundPositionY: `${layer.anchor.split('+')[0]} ${layer.shiftY}mm`,
-        backgroundSize: layer.variant === 'custom' && layer.size ? `${layer.size}mm` : '',
+        backgroundSize: layer.variant === 'custom' && layer.size ? `${layer.size}mm` : layer.mode === 'background:contain' ? 'contain' : layer.mode === 'background:cover' ? 'cover' : '',
         inset: `${layer.marginTop}mm ${layer.marginRight}mm ${layer.marginBottom}mm ${layer.marginLeft}mm`,
       }"></div>
     </template>
-    <!-- <sl-card :style="{ position: 'relative', zIndex: 1 }">
-      <h2>Main Area</h2>
-      <p>This is the main content section.</p>
-      < !-- <template class="card-template" x-data="{ open: true }"></template> -- >
-      <x-component template="card-template" x-data="{ open: true }"></x-component>
-    </sl-card> -->
   </div>
   </div>
 </sl-split-panel>
 
 <div hidden> <!-- Force loading custom elements -->
+  <sl-menu></sl-menu>
+  <sl-menu-item></sl-menu-item>
+  <sl-divider></sl-divider>
+  <sl-dropdown></sl-dropdown>
+  <sl-split-panel></sl-split-panel>
   <sl-card></sl-card>
   <sl-icon></sl-icon>
   <sl-input></sl-input>
   <sl-range></sl-range>
   <sl-switch></sl-switch>
   <sl-select></sl-select>
+  <sl-option></sl-option>
+  <sl-button></sl-button>
 </div>
 
 <template id="number-input">
   <label>
     <span x-text="model[0].toUpperCase() + model.slice(1)"></span>
-    <sl-input :disabled="extra.disabled === true" :step="extra.step" :min="extra.min" :max="extra.max" x-model="layer[model]" type="number"></sl-input>
+    <sl-input :disabled="extra.disabled === true" :step="extra.step" :min="extra.min" x-model="layer[model]" type="number"></sl-input>
     <sl-range :disabled="extra.disabled === true" :step="extra.step" :min="extra.min" :max="extra.max" x-model="layer[model]"></sl-range>
   </label>
 </template>
@@ -235,22 +271,22 @@ document.addEventListener("alpine:init", () => {
       this.layers.push({
         visible: true,
         mode: "background",
+        backgroundRepeat: "",
         variant: "squares",
         foregroundColor: "#ccc",
-        image: "",
-        marginTop: 0,
-        marginBottom: 0,
-        marginLeft: 0,
-        marginRight: 0,
+        width: 0, height: 0,
+        cropTop: 0, cropBottom: 0, cropLeft: 0, cropRight: 0,
+        marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
         anchor: "center+center",
-        shiftX: 0,
-        shiftY: 0,
+        shiftX: 0, shiftY: 0,
         rotation: 0,
         size: 10,
         strokeSize: 2,
         opacity: 1.0,
+        brightness: 100,
         symbol: "💢",
         fontSize: 24,
+        image: "",
       });
     },
     cloneLayer(index) {
@@ -286,37 +322,34 @@ document.addEventListener("alpine:init", () => {
     },
     exportJson() {
       Object.assign(document.createElement('a'), {
-        download: `Designer (${this.layers.length} layers), ${(new Date()).toISOString()}.json`,
+        download: `Papiellify (${this.layers.length} layers), ${(new Date()).toISOString()}.json`,
         href: `data:application/json;utf8,${encodeURIComponent(JSON.stringify({
           backgroundColor: this.backgroundColor,
           layers: this.layers,
         }, null, 2))}`,
       }).click();
     },
+    makeCssImage(layer) {
+      let data;
+      if (layer.image.toLowerCase().startsWith('data:') && parseInt(layer.cropTop + layer.cropBottom + layer.cropLeft + layer.cropRight)) {
+        data = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${layer.cropRight != 0 ? layer.cropRight : '100%'}" height="${layer.cropBottom != 0 ? layer.cropBottom : '100%'}"><image xlink:href="${layer.image}" x="-${layer.cropLeft}" y="-${layer.cropTop}"/></svg>`)}`;
+      } else {
+        data = layer.variant === 'custom' ? layer.image : this.svgs[layer.variant](layer);
+      }
+      return `url("${data}")`;
+    },
     svgs: {
-      squares: (layer) => makeSvgBackground(layer, `<line x1='0' y1='0' x2='${layer.size}mm' y2='0' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}'/>
-                                                    <line x1='0' y1='0' x2='0' y2='${layer.size}mm' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}'/>`),
-      lines:   (layer) => makeSvgBackground(layer, `<line x1='0' y1='0' x2='${layer.size * 4}mm' y2='0' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}'/>`),
-      dots:    (layer) => makeSvgBackground(layer, `<circle cx='50%' cy='50%' r='${layer.strokeSize / 2}' fill='${layer.foregroundColor}'/>`),
-      symbol:  (layer) => makeSvgBackground(layer, `<text x='50%' y='50%' text-anchor='middle' dominant-baseline='central' font-size='${layer.fontSize}' stroke='${layer.foregroundColor}'>${layer.symbol}</text>`),
-      // marker:  (layer) => makeSvgBackground(layer, `<defs>
-      //                                                 <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      //                                                   <path d="M 0 0 L 10 5 L 0 10 Z" fill="${layer.foregroundColor}"/>
-      //                                                 </marker>
-      //                                               </defs>
-      //                                               <line x1="0" y1="50" x2="100%" y2="50" stroke="${layer.foregroundColor}" stroke-width="${layer.strokeSize}" marker-end="url(#arrow)" />`),
-      // pattern: (layer) => makeSvgBackground(layer, `<defs>
-      //                                                 <pattern id="linePattern" patternUnits="userSpaceOnUse" width="${layer.size}mm" height="${layer.size}mm">
-      //                                                   <line x1="0" y1="0" x2="${layer.size}mm" y2="0" stroke="${layer.foregroundColor}" stroke-width="${layer.strokeSize}" />
-      //                                                 </pattern>
-      //                                               </defs>
-      //                                               <rect x="0" y="0" width="100%" height="100" fill="url(#linePattern)" />`),
+      squares: (layer) => makeSvgImage(layer, `<line x1='0' y1='0' x2='${layer.size}mm' y2='0' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}' />
+                                               <line x1='0' y1='0' x2='0' y2='${layer.size}mm' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}' />`),
+      lines:   (layer) => makeSvgImage(layer, `<line x1='0' y1='0' x2='${layer.size}mm' y2='0' stroke='${layer.foregroundColor}' stroke-width='${layer.strokeSize}' />`),
+      dots:    (layer) => makeSvgImage(layer, `<circle cx='50%' cy='50%' r='${layer.strokeSize / 2}' fill='${layer.foregroundColor}' />`),
+      symbol:  (layer) => makeSvgImage(layer, `<text x='50%' y='50%' text-anchor='middle' dominant-baseline='central' font-size='${layer.fontSize}' stroke='${layer.foregroundColor}'>${layer.symbol}</text>`),
     },
   }));
 });
 
-function makeSvgBackground(layer, content) {
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg width='${layer.size}mm' height='${layer.size}mm' _opacity='${layer.opacity}' transform='rotate(${layer.rotation})' xmlns='http://www.w3.org/2000/svg'>${content}</svg>`)}")`;
+function makeSvgImage(layer, content) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg width="${layer.size}mm" height="${layer.size}mm" transform="rotate(${layer.rotation})" xmlns="http://www.w3.org/2000/svg">${content}</svg>`)}`;
 }
 
 function makeLayerPosition(layer) {
@@ -345,6 +378,8 @@ function hydrateSelect($el) {
     attributes: true,
   });
 }
+
+document.body.removeChild(document.querySelector('noscript'));
 
 </script>
 </body>

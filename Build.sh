@@ -2,7 +2,7 @@
 set -x
 
 SourceApps="$(ls ./source/)"
-HubSdkApps="${SourceApps} MatrixStickerHelper"
+HubSdkApps="${SourceApps} MatrixStickerHelper Papiellify"
 HtmlHeadInject='<script src="../../shared/OctoHub-Global.js"></script>'
 
 quoteVar(){ echo '"'"$1"'"' ;}
