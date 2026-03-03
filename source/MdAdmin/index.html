@@ -1,39 +1,43 @@
 <!DOCTYPE html>
 <!-- TODO:
 - Save & load editor prefs
-- New site dialog input checking
+- New site dialog server validation before saving
 - File info / code copy also clicking from media list
 - Data caching & local file drafts
 - Support for Git sites HTTP backends apart from WebDAV
 - Finalize support for ToastUI editor
 -->
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MdAdmin</title>
+<meta property="og:title" content="MdAdmin" />
+<meta property="OctoSpaccHubSdk:Url" content="https://hub.octt.eu.org/MdAdmin/" />
+<meta property="OctoSpaccHubSdk:WebManifestExtra" content="'display':'standalone'," />
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-<!--
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@materializecss/materialize@2.2.2/dist/css/materialize.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/@materializecss/materialize@2.2.2/dist/js/materialize.min.js"></script>
--->
 <link rel="stylesheet" href="./node_modules/@materializecss/materialize/dist/css/materialize.min.css" />
 <script src="./node_modules/@materializecss/materialize/dist/js/materialize.min.js"></script>
 <script src="./node_modules/toml-js/lib/toml.min.js"></script>
 <!--
-<link href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/js/materialize.min.js"></script>
--->
-<!-- <script src="https://www.riccardodegni.com/operations/serve-project/dommy?js=dommy-min"></script> -->
 <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
 <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<link rel="stylesheet" href="./node_modules/@toast-ui/editor/dist/toastui-editor.css" />
+<script src="./node_modules/@toast-ui/editor/dist/toastui-editor.js"></script>
+-->
+<link  href="./vendor/toastui-editor.min.css" rel="stylesheet" />
+<script src="./vendor/toastui-editor-all.min.js"></script>
+<link  href="./vendor/tui-color-picker.min.css" rel="stylesheet" />
+<script src="./vendor/tui-color-picker.min.js"></script>
+<link  href="./vendor/toastui-editor-plugin-color-syntax.min.css" rel="stylesheet" />
+<script src="./vendor/toastui-editor-plugin-color-syntax.min.js"></script>
+<script src="./vendor/vendor.js"></script>
 <!-- <script src="https://spaccdotweb-spaccinc-540014a14f134aa606df6c30057f97eb9997527d5c.gitlab.io/SpaccDotWeb.Alt.js"></script> -->
 <!-- <script src="../SpaccDotWeb/SpaccDotWeb.Alt.js"></script> --><!--dev-->
 <script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.Alt.js"></script><!--prod-->
-<!--
-<script src="./node_modules/webdav/dist/web/index.js" type="module"></script>
-<script src="./node_modules/marked/lib/marked.esm.js" type="module"></script>
--->
+<script type="module">if(location.hostname==='localhost')SpaccDotWeb.RequireScript('https://cdn.jsdelivr.net/npm/eruda').then(()=>eruda.init());</script>
+<!--<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>if(location.hostname==='localhost')eruda.init();</script>-->
 <style>
 [hidden] { display: none; }
 body { overflow-x: hidden; }
@@ -77,7 +81,19 @@ ul#media-list img {
     max-width: 100px;
     max-height: 100px;
 }
+
+textarea.materialize-textarea { min-height: 15em; }
+
+textarea#page-content, div.toastui-editor > div.ProseMirror { overflow-x: auto; }
+
+/* Force text in ToastUI editor to inherit color from app theme, to prevent black text on black background */
+div.toastui-editor > div.ProseMirror,
+div.toastui-editor-md-preview > div.toastui-editor-contents > p { color: initial; }
+
+div.toastui-editor > div.ProseMirror { height: 100%; } /* wtf? */
 </style>
+<!--<style id="editor-font-family"></style>-->
+<style id="editor-styles"></style>
 </head>
 <body>
 <header>
@@ -108,6 +124,14 @@ ul#media-list img {
         <span>Full width</span>
     </label></li>
 
+    <!--
+    <br />
+    <li><label>
+        <input type="checkbox" id="tabbed-preview-switch" />
+        <span>Tabbed preview</span>
+    </label></li>
+    -->
+
     <!-- <br />
     <li><div class="input-field">
         <input id="font-size-input" type="text" />
@@ -137,6 +161,8 @@ ul#media-list img {
 
     <br />
     <li><button class="btn" popovertarget="upload-modal">Upload file</button></li>
+    <!--<br />
+    <li><button class="btn" popovertarget="delete-page-modal">Delete page</button></li>-->
 
     <br />
     <li><div class="input-field" id="filepath-field">
@@ -156,7 +182,8 @@ ul#media-list img {
             <label>Site select</label>
             <select id="site-select"></select>
         </div>
-        <button class="btn" popovertarget="addsite-modal">Add site</button>
+        <button class="btn" popovertarget="addsite-modal" style="float:right">Add site</button>
+        <button class="btn" popovertarget="siteconf-modal" hidden>Edit configuration</button>
         
         <div id="site-sections" hidden>
             <h4>Pages</h4>
@@ -184,13 +211,20 @@ ul#media-list img {
             </div>
         </div>
         -->
-        <div class="input-field" id="editor-container">
-            <textarea id="page-content" class="materialize-textarea" style="min-height: 15em;" placeholder="Start writing Markdown..."></textarea>
-        </div>
+        <div class="input-field" id="editor-container"></div>
     </div>
 </div>
+<div id="siteconf-modal" class="modal" popover>
+	<div class="modal-header"><h4>Edit site configuration (<code>mdadmin.toml</code>)</h4></div>
+	<div class="modal-content"><textarea class="materialize-textarea" placeholder="pages = [ ... ]
+
+media = [ ... ]"></textarea></div>
+	<div class="modal-footer">
+		<button class="btn" id="siteconf-save-button">Save</button>
+	</div>
+</div>
 <div id="addsite-modal" class="modal" popover>
-    <div class="modal-header"><h4>Add site</h4></div>
+    <div class="modal-header"><h4>Add new site</h4></div>
     <div class="modal-content">
         <form id="addsite-form">
             <div class="input-field">
@@ -201,11 +235,9 @@ ul#media-list img {
                 <label for="site-type-select">Connection</label>
                 <select id="site-type-select" class="browser-default">
                     <option value="dav">WebDAV</option>
-                    <!--
-                    <option value="github">GitHub</option>
+                    <!--<option value="github">GitHub</option>-->
                     <option value="gitlab">GitLab</option>
-                    <option value="fs">Local</option>
-                    -->
+                    <!--<option value="disk">Local folder</option>-->
                 </select>
             </div>
             <div class="input-field">
@@ -219,6 +251,18 @@ ul#media-list img {
             <div class="input-field">
                 <input id="site-pass-input" type="password" />
                 <label for="site-pass-input">Password</label>
+            </div>
+            <div class="input-field" hidden>
+            	<input id="site-repo-input" type="text" placeholder="user/repo" />
+            	<label for="site-repo-input">Repository</label>
+            </div>
+            <div class="input-field" hidden>
+            	<input id="site-branch-input" type="text" />
+            	<label for="site-branch-input">Branch</label>
+            </div>
+            <div class="input-field" hidden>
+            	<input id="site-token-input" type="password" />
+            	<label for="site-token-input">Token</label>
             </div>
         </form>
     </div>
@@ -235,12 +279,10 @@ ul#media-list img {
             <input type="file" id="upload-input" />
         </div>
         <br />
-        <!-- <button class="btn" id="upload-button">Upload selected</button> -->
-        <!-- <br /><br /> -->
         <div id="upload-result" hidden></div>
     </div>
 </div>
-<div id="preview-modal" class="modal" style="width: 95%; height: 95vh; max-height: none;" popover>
+<div id="preview-modal" class="modal" style="width: 95%; height: 95vh; height: calc(var(--vh, 1vh) * 95); max-height: none;" popover>
     <div class="modal-header">
         <h4>
             Preview
@@ -259,46 +301,70 @@ ul#media-list img {
 </main>
 <script type="module">
 import { createClient as newWebDAV } from './node_modules/webdav/dist/web/index.js';
+// import { Gitlab } from 'https://esm.sh/@gitbeaker/rest'; // './node_modules/@gitbeaker/rest/dist/index.mjs';
 import { marked } from './node_modules/marked/lib/marked.esm.js';
 
 const Spacc = SpaccDotWeb.AppInit({ uuid: "org.eu.octt.MdAdmin" });
 const $ = Spacc.$;
 
-let webDAV, siteConf;
+const MARKDOWN_PLACEHOLDER = "Start writing Markdown...";
+
+let editBuf = '';
+let fsCaches = {};
+let vh, currEditor, webDAV, gitlab, diskHandle, siteConf;
 let editingDirty = false;
 let sites = Spacc.LocalStorage('sites') || [];
 let editorConf = {
     wordWrap: true,
-    // fullWidth: false,
+    fullWidth: false,
+    // fontFamily,
     ...(Spacc.LocalStorage('editor') || {}) };
 
 M.Sidenav.init($(':: ul.sidenav'));
 
-// $('#dashboard').hidden = false;
+if (editorConf.editor)
+    $('#editor-select').value = editorConf.editor;
+$('#editor-select').addEventListener('change', setEditor);
+
+applyEditorConf();
+setEditor();
 setScreen('dashboard');
 refreshSites();
+loadSite();
+
+// if (!('showDirectoryPicker' in window))
+//	$('#site-type-select [value=disk]').disabled = true;
 
 $('#home-button').addEventListener('click', ev => {
     ev.preventDefault();
-    // $('#dashboard').hidden = false;
-    // $('#editor').hidden = true;
     if (editingDirty && !confirm("You have unsaved edits. Are you sure to go back?")) return;
     setScreen('dashboard');
     setHash();
 });
 
-$('#word-wrap-switch').addEventListener('change', () => $('#page-content').style.whiteSpace = $('#word-wrap-switch').checked ? 'normal' : 'nowrap');
+$('#word-wrap-switch').checked = editorConf.wordWrap;
+$('#word-wrap-switch').addEventListener('change', () => { // $('#page-content').style.whiteSpace = $('#word-wrap-switch').checked ? 'normal' : 'nowrap');
+    applyEditorConf({ wordWrap: $('#word-wrap-switch').checked });
+    setTextarea('#page-content');
+});
 
+$('#full-width-switch').checked = editorConf.fullWidth;
 $('#full-width-switch').addEventListener('change', () => setFullWidth($('#full-width-switch').checked));
 
+if (editorConf.fontFamily)
+    $('#font-family-select').value = editorConf.fontFamily;
 $('#font-family-select').addEventListener('change', () => {
-    $('#page-content').style.fontFamily = $('#font-family-select').value;
-    M.Forms.textareaAutoResize($('#page-content'));
+    // $('textarea#page-content, div.toastui-editor > div.ProseMirror').style.fontFamily = $('#font-family-select').value;
+    // $('#editor').dataset.fontFamily = $('#font-family-select').value;
+    // $('#editor-font-family').innerHTML = `#page-content, div.toastui-editor > div.ProseMirror { font-family: ${ $('#font-family-select').value } }`;
+    applyEditorConf({ fontFamily: $('#font-family-select').value });
+    setTextarea('#page-content');
+    // M.Forms.textareaAutoResize($('#page-content'));
 });
 
 $('#save-button > a').addEventListener('click', async () => {
     $('#load-progress').hidden = false;
-    await webDAV.putFileContents($('#filepath-input').value, $('#page-content').value, { overwrite: true });
+    await writeFile($('#filepath-input').value, currEditor.getText()); // webDAV.putFileContents($('#filepath-input').value, currEditor.getText(), { overwrite: true });
     new M.Toast({ text: "Saved!" });
     setEditingDirty(false);
     $('#load-progress').hidden = true;
@@ -314,44 +380,57 @@ $('#scratchpad-button > a').addEventListener('click', ev => {
     editPage();
 });
 
-$('#page-content').addEventListener('input', () => {
-    if (document.body.dataset.editor === 'scratchpad') {
-        Spacc.LocalStorage('scratchpad', $('#page-content').value);
-    } else {
-        setEditingDirty(true);
-    }
-    updatePreview();
-});
+$('#site-select').addEventListener('change', loadSite);
 
-$('#site-select').addEventListener('change', loadSite());
+$('#addpage-button').addEventListener('click', () => editPage(`${getSiteListProp('pages', '/')[0]}/${Date.now()}.md`, true));
 
-$('#addpage-button').addEventListener('click', () => editPage(`${Date.now()}.md`, true));
-
-$('#addsite-button').addEventListener('click', () => {
-    const name = $('#site-name-input').value.trim();
+$('#addsite-button').addEventListener('click', async () => {
+	const type = $('#site-type-select').selectedOptions[0].value;
     const url = $('#site-url-input').value.trim();
     const user = $('#site-user-input').value.trim();
     const pass = $('#site-pass-input').value.trim();
+    const repo = $('#site-repo-input').value.trim();
+    const branch = $('#site-branch-input').value.trim();
+    const token = $('#site-token-input').value.trim();
+    let name = $('#site-name-input').value.trim();
 
-    let failed = false;
-    for (const item of ['url','user','pass'])
-        $(`#site-${item}-input`).classList.remove('invalid');
+    if (type === 'disk') {
+    	const handle = await showDirectoryPicker();
+    	await saveDiskHandle(sites.length, handle);
+    	if (!name)
+    		name = `${handle.name} (Local)`;
+    } else if (type === 'gitlab') {
+    	for (const item of ['url','repo'])
+    		$(`#site-${item}-input`).classList.remove('invalid');
+    	if (!repo) {
+    		$('#site-repo-input').classList.add('invalid');
+    		return;
+    	}
+    	if (!name)
+    		name = `${url}/${repo}#${branch} (GitLab)`;
+    } else if (type === 'dav') {
+        let failed = false;
+        for (const item of ['url','user','pass'])
+            $(`#site-${item}-input`).classList.remove('invalid');
 
-    if (!url || !url.toLowerCase().startsWith('http://') || !url.toLowerCase().startsWith('https://')) {
-        $('#site-url-input').classList.add('invalid');
-        failed = true;
+        if (!url || (!url.toLowerCase().startsWith('http://') && !url.toLowerCase().startsWith('https://'))) {
+            $('#site-url-input').classList.add('invalid');
+            failed = true;
+        }
+        if (!user) {
+            $('#site-user-input').classList.add('invalid');
+            failed = true;
+        }
+        if (!pass) {
+            $('#site-pass-input').classList.add('invalid');
+            failed = true;
+        }
+        if (failed) return;
+    	if (!name)
+    		name = `${user}@${url} (WebDAV)`;
     }
-    if (!user) {
-        $('#site-user-input').classList.add('invalid');
-        failed = true;
-    }
-    if (!pass) {
-        $('#site-pass-input').classList.add('invalid');
-        failed = true;
-    }
-    if (failed) return;
 
-    sites.push({ name, url, user, pass, type: "dav" });
+    sites.push({ name, url, user, pass, repo, branch, token, type });
     Spacc.LocalStorage('sites', sites);
     refreshSites();
     $('#site-select').selectedIndex = sites.length - 1;
@@ -359,6 +438,33 @@ $('#addsite-button').addEventListener('click', () => {
 
     $('#addsite-modal').hidePopover();
     $('#addsite-form').reset();
+});
+
+$('#site-type-select').addEventListener('change', () => {
+	switch ($('#site-type-select').selectedOptions[0].value) {
+		case 'dav':
+			for (const item of ['url','user','pass'])
+				$(`#site-${item}-input`).parentElement.hidden = false;
+			for (const item of ['repo','branch','token'])
+				$(`#site-${item}-input`).parentElement.hidden = true;
+			break;
+		case 'github':
+		case 'gitlab':
+			for (const item of ['url','repo','branch','token'])
+				$(`#site-${item}-input`).parentElement.hidden = false;
+			for (const item of ['user','pass'])
+				$(`#site-${item}-input`).parentElement.hidden = true;
+			break;
+		case 'disk':
+			for (const item of ['url','user','pass','repo','branch','token'])
+				$(`#site-${item}-input`).parentElement.hidden = true;
+			break;
+	}
+});
+
+$('#siteconf-save-button').addEventListener('click', async () => {
+	await writeFile('mdadmin.toml', $('#siteconf-modal textarea').value);
+	loadSite();
 });
 
 $('#upload-input').addEventListener('change', handleUploadInput);
@@ -379,7 +485,7 @@ function handleUploadInput() {
     reader.onload = async () => {
         const filepath = `/${Date.now()}_${file.name}`;
         const type = file.type.split('/')[0];
-        await webDAV.putFileContents(`${siteConf?.media?.[0] || '/'}/${filepath}`, reader.result, { overwrite: true });
+        await writeFile(`${siteConf?.media?.[0] || '/'}/${filepath}`, reader.result);
         let [html, markdown] = ['', `[${file.name}]`];
         switch (type) {
             case 'image':
@@ -417,112 +523,209 @@ function refreshSites() {
     }
 }
 
-async function loadSite(i) {
-    i = $('#site-select').selectedIndex;
-    if (i < 0) return;
+function getSiteListProp(key, ...def) {
+    return (siteConf?.[key] || def).filter(e => e !== undefined);
+}
+
+async function loadSite() {
+    const i = getCurrentSiteIndex();
+    if (i === null) return;
+    $('#siteconf-save-button').disabled = true;
+    $('#siteconf-modal textarea').disabled = true;
+    $('button[popovertarget=siteconf-modal]').hidden = false;
     $('#load-progress').hidden = false;
     $('#site-sections').hidden = true;
 
     setHash();
     const site = sites[i];
-    webDAV = newWebDAV(site.url, { username: site.user, password: site.pass });
+
+    switch (site.type) {
+    	case 'dav':
+    		webDAV = newWebDAV(site.url, { username: site.user, password: site.pass });
+    		break;
+    	case 'gitlab':
+    		gitlab = new Gitlab({ host: site.url || undefined, token: site.token });
+    		// const tree = await gitlab.Repositories.allRepositoryTrees(site.repo, { ref: site.branch || undefined, recursive: true });
+    		// console.log(tree)
+    		// return; // TODO finish support
+    		break;
+    	case 'disk':
+    		const opts = { mode: "readwrite" };
+    		diskHandle = await getDiskHandle(i);
+    		if (!(await diskHandle.queryPermission(opts)))
+    			await diskHandle.requestPermission(opts);
+    		// for await (const [name, handle] of diskHandle.entries()) alert(name);
+    		return; // TODO finish support
+    		break;
+    }
 
     try {
-        siteConf = toml.parse(await webDAV.getFileContents("mdadmin.toml", { format: "text" }));
+    	const conf = await readFile('mdadmin.toml'); //webDAV.getFileContents('mdadmin.toml', { format: "text" });
+        siteConf = toml.parse(conf);
+        setTextarea('#siteconf-modal textarea', conf);
+        // $('#siteconf-modal textarea').value = conf;
     } catch(e) {
         console.error(e);
         siteConf = null;
+        setTextarea('#siteconf-modal textarea', '');
+        // $('#siteconf-modal textarea').value = '';
     }
 
     await refreshSiteContents();
     $('#site-sections').hidden = false;
     $('#load-progress').hidden = true;
+    $('#siteconf-modal textarea').disabled = false;
+    $('#siteconf-save-button').disabled = false;
 }
 
 async function refreshSiteContents() {
     $('#pages-list').innerHTML = '';
     $('#media-list').innerHTML = '';
 
-    for (const folder of siteConf?.pages || ['/']) {
-        if (!folder) continue;
-    // const pages = await webDAV.getDirectoryContents(siteConf?.pages?.[0] || '/', { deep: true });
-    // for (const file of pages) {
-    for (const file of await webDAV.getDirectoryContents(folder, { deep: true })) {
-        if (file.type !== 'file' || !isEditableFile(file.basename)) continue;
-        const page = $(`<a class="collection-item" href="#">${file.basename}</a>`, { onclick: ev => {
-            ev.preventDefault();
-            editPage(file.basename);
-        } });
-        $('#pages-list').appendChild(page);
-    }
+    const cache = Date.now();
+
+    for (const folder of getSiteListProp('pages', '/')) { // siteConf?.pages || ['/']) {
+    //     if (!folder) continue;
+        for (const file of await listDirectory(folder, { cache })) { // webDAV.getDirectoryContents(folder, { deep: true })) {
+            if (file.type !== 'file' || !isEditableFile(file.basename)) continue;
+            const page = $(`<a class="collection-item" href="#">${file.basename}</a>`, { onclick: ev => {
+                ev.preventDefault();
+                editPage(file.basename);
+            } });
+            $('#pages-list').appendChild(page);
+        }
     }
 
-    const media = await webDAV.getDirectoryContents(siteConf?.media?.[0] || '/', { deep: true });
-    for (const file of media) {
-        if (file.type !== 'file') continue;
-        const url = `${sites[getCurrentSiteIndex()].url}/${file.basename}`;
-        $('#media-list').appendChild($(`<li class="collection-item">
-            <a href="${url}" target="_blank">${isImageFile(file.basename) ? `<img src="${url}" loading="lazy" />` : '🔗'}</a>
-            <span>${file.basename}</span>
-        </li>`));
+    // const media = await listDirectory(siteConf?.media?.[0] || '/'); // webDAV.getDirectoryContents(siteConf?.media?.[0] || '/', { deep: true });
+    for (const folder of getSiteListProp('media', '/')) { // siteConf?.media || ['/']) {
+    	if (!folder) continue;
+        for (const file of await listDirectory(folder, { cache })) {
+            if (file.type !== 'file') continue;
+            const url = `${getSite().url}/${file.basename}`;
+            $('#media-list').appendChild($(`<li class="collection-item">
+                <a href="${url}" target="_blank">${isImageFile(file.basename) ? `<img src="${url}" loading="lazy" />` : '🔗'}</a>
+                <span>${file.basename}</span>
+            </li>`));
+        }
     }
+
+    clearFsCache(cache);
 }
 
 async function editPage(filepath, isNew) {
-    // $('#dashboard').hidden = true;
-
     $('#load-progress').hidden = false;
     $('#filepath-input').value = filepath;
 
-    $('#page-content').disabled = true;
-    $('#page-content').value = '';
-    M.Forms.textareaAutoResize($('#page-content'));
-
-    // $('#editor').hidden = false;
+    currEditor.disable?.();
+    currEditor.setText('');
+    
     setScreen('editor', !filepath && 'scratchpad');
     setHash(filepath);
 
     if (filepath && !isNew) {
-        const raw = await webDAV.getFileContents(filepath, { format: "text" });
-        $('#page-content').value = raw;
+        // const raw = await webDAV.getFileContents(filepath, { format: "text" });
+        currEditor.setText(await readFile(filepath)); // (raw);
     } else if (!filepath) {
-        $('#page-content').value = Spacc.LocalStorage('scratchpad');
+        currEditor.setText(Spacc.LocalStorage('scratchpad') || '');
     }
 
-    $('#page-content').disabled = false;
-    M.Forms.textareaAutoResize($('#page-content'));
+    currEditor.enable?.();
     updatePreview();
 
     $('#load-progress').hidden = true;
 }
 
-function editorText(value) {
-    if (value === undefined) {
-        return $('#page-content').value;
-    } else {
-        return $('#page-content').value = value;
-    }
+function setTextarea(textarea, value) {
+    if (typeof textarea === 'string')
+        textarea = $(textarea);
+    if (!textarea) return;
+    if (value !== undefined)
+        textarea.value = value;
+    M.Forms.textareaAutoResize(textarea);
+}
+
+function setEditor() {
+    const editor = $('#editor-select').selectedOptions[0].value;
+	const oldText = currEditor?.getText() || '';
+	$('#editor-container').innerHTML = '';
+    applyEditorConf({ editor });
+	switch (editor) {
+		case 'toastui':
+			currEditor = new toastui.Editor({
+				el: $('#editor-container'),
+				// height: 'calc(100vh - 64px)',
+				height: 'calc((var(--vh, 1vh) * 100) - 64px)',
+				initialValue: oldText, // editBuf,
+				initialEditType: 'markdown',
+				previewStyle: 'vertical',
+                placeholder: MARKDOWN_PLACEHOLDER,
+                plugins: Object.values(toastui.Editor.plugin),
+				usageStatistics: false,
+				events: { change: onEditorInput },
+			});
+            // currEditor.changePreviewStyle('tab');
+			currEditor.getText = currEditor.getMarkdown;
+			currEditor.setText = text => currEditor.setMarkdown(editBuf = text);
+			break;
+		case 'textarea':
+		default:
+			currEditor = $(`<textarea id="page-content" class="materialize-textarea" placeholder="${MARKDOWN_PLACEHOLDER}"></textarea>`, { value: oldText /* editBuf */ });
+			currEditor.getText = () => currEditor.value;
+			currEditor.setText = text => setTextarea(currEditor, text);
+            // {
+			// 	currEditor.value = editBuf = text;
+			// 	M.Forms.textareaAutoResize(currEditor);
+			// };
+			currEditor.addEventListener('input', onEditorInput);
+			$('#editor-container').appendChild(currEditor);
+			break;
+	}
+    currEditor.disable = () => currEditor.disabled = true;
+    currEditor.enable = () => currEditor.disabled = false;
+}
+
+function onEditorInput() {
+    if (currEditor.disabled) return;
+	editBuf = currEditor.getText();
+	if (document.body.dataset.editor === 'scratchpad') {
+   	    Spacc.LocalStorage('scratchpad', currEditor.getText());
+	} else {
+   		setEditingDirty(true);
+	}
+	updatePreview();
+}
+
+function applyEditorConf(upd) {
+    Spacc.LocalStorage('editor', Object.assign(editorConf, upd));
+    $('#editor-styles').innerHTML = `\
+#page-content, div.toastui-editor > div.ProseMirror {
+    white-space: ${ editorConf.wordWrap ? 'normal' : 'nowrap' };
+    font-family: ${ editorConf.fontFamily || 'unset' };
+}
+`;
 }
 
 function updatePreview() {
-    $('#preview-content').innerHTML = $('#preview-html').textContent = marked.parse($('#page-content').value);
+    $('#preview-content').innerHTML = $('#preview-html').textContent = marked.parse(currEditor.getText());
     $(':: #preview-content [src]').forEach(el => {
         const src = el.getAttribute('src');
         const test = src.toLowerCase();
         if (!test.startsWith('//') && !test.startsWith('http://') && !test.startsWith('https://')) {
-            el.src = `${sites[getCurrentSiteIndex()].url}/${siteConf?.media?.[0] || '/'}/${src}`;
+            el.src = `${getSite().url}/${siteConf?.media?.[0] || '/'}/${src}`;
         }
     });
 }
 
 function getCurrentSiteIndex() {
     const i = $('#site-select').selectedIndex;
-    if (i < 0) return null;
-    return i;
+    return (i >= 0) ? i : null;
+}
+
+function getSite() {
+	return sites[getCurrentSiteIndex()];
 }
 
 function setFullWidth(state) {
-    // const container = $('main > div.container, main > div.container-fluid');
     $('#container').classList.toggle('container', !state);
     $('#container').classList.toggle('container-fluid', state);
 }
@@ -532,8 +735,7 @@ function setScreen(target, prop) {
     $('body').dataset[target] = null;
     setEditingDirty(false);
     setFullWidth(false);
-    const all = $(':: #container > div[id]');
-    for (const screen of all)
+    for (const screen of $(':: #container > div[id]'))
         screen.hidden = true;
     $('#' + target).hidden = false;
     $('body').dataset.screen = target;
@@ -560,8 +762,6 @@ function setHash(page) {
 }
 
 function isEditableFile(filename) {
-    // const name = file.basename;
-    if (filename.search('.') < 0) return false;
     return ['md','mdx','markdown'].includes(getFileExtension(filename).toLowerCase());
 }
 
@@ -570,7 +770,102 @@ function isImageFile(filename) {
 }
 
 function getFileExtension(filename) {
+    if (filename.search('.') < 0) return '';
     return filename.split('.').slice(-1)[0];
+}
+
+// helper: open DB and object store
+function openHandlesDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('fs-handles', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveDiskHandle(key, handle) {
+  const db = await openHandlesDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(handle, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getDiskHandle(key) {
+  const db = await openHandlesDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('handles', 'readonly');
+    const req = tx.objectStore('handles').get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function readFile(path) {
+	const site = getSite();
+	switch (site.type) {
+		case 'dav':
+			return webDAV.getFileContents(path, { format: "text" });
+		case 'gitlab':
+			return gitlab.RepositoryFiles.showRaw(site.repo, path, site.branch || undefined);
+	}
+}
+
+function writeFile(path, body) {
+    const site = getSite();
+	switch (site.type) {
+		case 'dav':
+			return webDAV.putFileContents(path, body, { overwrite: true });
+		case 'gitlab':
+			return gitlab.RepositoryFiles.edit(site.repo, path, site.branch || undefined, body);
+    }
+}
+
+async function listDirectory(path, { cache }) {
+    cache = fsCacheKey(cache);
+    const cached = fsCaches[cache]?.[path];
+    if (cached) return cached;
+    // const cached = fsCaches[fsCacheKey(cache)];
+	// if (cached)
+	// 	return cached;
+	let res;
+	const site = getSite();
+	switch (site.type) {
+		case 'dav':
+			res = await webDAV.getDirectoryContents(path, { deep: true });
+			break;
+		case 'gitlab':
+			res = await gitlab.Repositories.allRepositoryTrees(site.repo, { ref: site.branch || undefined, recursive: true });
+			for (const item of res) {
+				if (item.type === 'blob') item.type = 'file';
+				item.basename = item.path;
+			}
+			break;
+	}
+	// if (cache)
+	// 	fsCaches[fsCacheKey(cache)] = res;
+    if (cache) {
+        if (!fsCaches[cache]) fsCaches[cache] = {};
+        fsCaches[cache][path] = res;
+    }
+	return res;
+}
+
+function clearFsCache(key) {
+	delete fsCaches[fsCacheKey(key)];
+}
+
+function fsCacheKey(key) {
+	if (!key) return null;
+	return `${getCurrentSiteIndex()}/${key}`;
+}
+
+function setVirtualHeight() {
+	vh = window.innerHeight * 0.01;
+	document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
 
 function getDarkTheme() {
@@ -603,20 +898,14 @@ const currentState = getDarkTheme();
 setDarkTheme(currentState);
 updateDarkModeButton(currentState);
 
-// const editor = new toastui.Editor({
-//     el: $('#editor-container'),
-//     height: 'calc(100vh - 64px)',
-//     initialValue: $('#page-content').value,
-//     initialEditType: 'markdown',
-//     previewStyle: 'vertical',
-// });
-
 window.addEventListener('beforeunload', function(e) {
     if (!editingDirty) return;
     e.preventDefault();
     e.returnValue = ''; // Required for Chrome
     return '';
 });
+
+window.addEventListener('resize', setVirtualHeight);
 </script>
 </body>
 </html>
