@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<!-- TODO:
+- Save & load editor prefs
+- New site dialog input checking
+- File info / code copy also clicking from media list
+- Data caching & local file drafts
+- Support for Git sites HTTP backends apart from WebDAV
+- Finalize support for ToastUI editor
+-->
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MdAdmin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+<!--
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@materializecss/materialize@2.2.2/dist/css/materialize.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@materializecss/materialize@2.2.2/dist/js/materialize.min.js"></script>
+-->
+<link rel="stylesheet" href="./node_modules/@materializecss/materialize/dist/css/materialize.min.css" />
+<script src="./node_modules/@materializecss/materialize/dist/js/materialize.min.js"></script>
+<script src="./node_modules/toml-js/lib/toml.min.js"></script>
+<!--
+<link href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/js/materialize.min.js"></script>
+-->
+<!-- <script src="https://www.riccardodegni.com/operations/serve-project/dommy?js=dommy-min"></script> -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<!-- <script src="https://spaccdotweb-spaccinc-540014a14f134aa606df6c30057f97eb9997527d5c.gitlab.io/SpaccDotWeb.Alt.js"></script> -->
+<!-- <script src="../SpaccDotWeb/SpaccDotWeb.Alt.js"></script> --><!--dev-->
+<script src="//SpaccInc.gitlab.io/SpaccDotWeb/SpaccDotWeb.Alt.js"></script><!--prod-->
+<!--
+<script src="./node_modules/webdav/dist/web/index.js" type="module"></script>
+<script src="./node_modules/marked/lib/marked.esm.js" type="module"></script>
+-->
+<style>
+[hidden] { display: none; }
+body { overflow-x: hidden; }
+
+#editor-sidebar, a[data-target="editor-sidebar"],
+#preview-button, #save-button { display: none; }
+
+body[data-screen="editor"] {
+    header, main, footer {
+        padding-left: 300px;
+    }
+    @media only screen and (max-width: 992px) {
+        header, main, footer {
+            padding-left: 0;
+        }
+    }
+
+    #editor-sidebar, a[data-target="editor-sidebar"],
+    #preview-button, #save-button { display: revert; }
+    #scratchpad-button { display: none; }
+
+    &[data-editor="scratchpad"] {
+        #filepath-field, button[popovertarget="upload-modal"],
+        #save-button { display: none; }
+    }
+}
+
+
+ul.sidenav > li > label {
+    /* margin: 12px 0; */
+    padding: 0 var(--sidenav-padding);
+}
+
+ul#media-list li {
+    display: flex;
+    gap: 1em;
+    align-items: center;
+}
+
+ul#media-list img {
+    max-width: 100px;
+    max-height: 100px;
+}
+</style>
+</head>
+<body>
+<header>
+<div class="navbar-fixed">
+    <nav class="nav navbar">
+        <div class="nav-wrapper blue">
+            <a href="#" data-target="editor-sidebar" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+            <a href="#" class="brand-logo center" id="home-button">MdAdmin</a>
+            <ul class="right">
+                <li><a id="theme-button" href="#"><i class="material-icons">dark_mode</i></a></li>
+                <li id="scratchpad-button"><a href="#" title="Scratchpad"><i class="material-icons">edit_note</i></a></li>
+                <li id="preview-button"><a href="#" title="Preview"><i class="material-icons">preview</i></a></li>
+                <li id="save-button"><a href="#" title="Save"><i class="material-icons">save</i></a></li>
+            </ul>
+        </div>
+    </nav>
+</div>
+<ul id="editor-sidebar" class="sidenav sidenav-fixed">
+    <br />
+    <li><label>
+        <input type="checkbox" id="word-wrap-switch" checked />
+        <span>Word wrap</span>
+    </label></li>
+
+    <br />
+    <li><label>
+        <input type="checkbox" id="full-width-switch" />
+        <span>Full width</span>
+    </label></li>
+
+    <!-- <br />
+    <li><div class="input-field">
+        <input id="font-size-input" type="text" />
+        <label for="font-size">Font size</label>
+    </div></li> -->
+
+    <br />
+    <li><div>
+        <label for="font-family-select">Font family</label>
+        <select id="font-family-select" class="browser-default">
+            <option value="system-ui">System Default</option>
+            <option value="monospace">Monospace</option>
+            <option value="serif">Serif</option>
+            <option value="sans-serif">Sans-Serif</option>
+            <option value="cursive">Cursive</option>
+        </select>
+    </div></li>
+
+    <br />
+    <li><div>
+        <label for="editor-select">Editor</label>
+        <select id="editor-select" class="browser-default">
+            <option value="textarea">Textarea</option>
+            <option value="toastui">TOAST UI</option>
+        </select>
+    </div></li>
+
+    <br />
+    <li><button class="btn" popovertarget="upload-modal">Upload file</button></li>
+
+    <br />
+    <li><div class="input-field" id="filepath-field">
+        <input type="text" id="filepath-input">
+        <label class="active">Filepath</label>
+    </div></li>
+</ul>
+</header>
+<main>
+<div class="container">
+    <div class="progress" id="load-progress" style="margin: 16px 0;" hidden><div class="indeterminate"></div></div>
+</div>
+<div class="container" id="container">
+    <div id="dashboard" hidden>
+        <br />
+        <div>
+            <label>Site select</label>
+            <select id="site-select"></select>
+        </div>
+        <button class="btn" popovertarget="addsite-modal">Add site</button>
+        
+        <div id="site-sections" hidden>
+            <h4>Pages</h4>
+            <button class="btn" id="addpage-button">Add new page</button>
+            <ul class="collection" id="pages-list"></ul>
+
+            <h4>Media</h4>
+            <button class="btn" popovertarget="upload-modal">Upload file</button>
+            <ul class="collection" id="media-list"></ul>
+        </div>
+    </div>
+    <div id="editor" hidden>
+        <!--
+        <div class="sidenav sidenav-fixed" id="sidebar">
+            <?php foreach ($meta as $key => $value): ?>
+            <div class="input-field">
+                <input type="text" name="meta[<?= $key ?>]" value="<?= htmlspecialchars(is_array($value)?implode(',', $value):$value) ?>">
+                <label class="active"><?= htmlspecialchars($key) ?></label>
+            </div>
+            <?php endforeach; ?>
+
+            <h6>Add Metadata</h6>
+            <div class="input-field">
+                <input type="text" name="newmeta" placeholder="key:value">
+            </div>
+        </div>
+        -->
+        <div class="input-field" id="editor-container">
+            <textarea id="page-content" class="materialize-textarea" style="min-height: 15em;" placeholder="Start writing Markdown..."></textarea>
+        </div>
+    </div>
+</div>
+<div id="addsite-modal" class="modal" popover>
+    <div class="modal-header"><h4>Add site</h4></div>
+    <div class="modal-content">
+        <form id="addsite-form">
+            <div class="input-field">
+                <input id="site-name-input" type="text" />
+                <label for="site-name-input">Name (optional)</label>
+            </div>
+            <div>
+                <label for="site-type-select">Connection</label>
+                <select id="site-type-select" class="browser-default">
+                    <option value="dav">WebDAV</option>
+                    <!--
+                    <option value="github">GitHub</option>
+                    <option value="gitlab">GitLab</option>
+                    <option value="fs">Local</option>
+                    -->
+                </select>
+            </div>
+            <div class="input-field">
+                <input id="site-url-input" type="text" placeholder="https://example.com/" />
+                <label for="site-url-input">URL</label>
+            </div>
+            <div class="input-field">
+                <input id="site-user-input" type="text" />
+                <label for="site-user-input">Username</label>
+            </div>
+            <div class="input-field">
+                <input id="site-pass-input" type="password" />
+                <label for="site-pass-input">Password</label>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn" id="addsite-button">Add</button>
+    </div>
+</div>
+<div id="upload-modal" class="modal" popover>
+    <div class="modal-header"><h4>Upload file</h4></div>
+    <div class="modal-content">
+        <div id="upload-dropzone" style="border:2px dashed #ccc; padding:2rem; text-align:center;">
+            Drag & Drop file here<br><br>
+            or<br><br>
+            <input type="file" id="upload-input" />
+        </div>
+        <br />
+        <!-- <button class="btn" id="upload-button">Upload selected</button> -->
+        <!-- <br /><br /> -->
+        <div id="upload-result" hidden></div>
+    </div>
+</div>
+<div id="preview-modal" class="modal" style="width: 95%; height: 95vh; max-height: none;" popover>
+    <div class="modal-header">
+        <h4>
+            Preview
+            <button class="btn icon-right" style="float: right;" title="Close" popovertarget="preview-modal">
+                <i class="material-icons">close</i> Close
+            </button>
+        </h4>
+        <br />
+        <details>
+            <summary>HTML</summary>
+            <pre style="overflow: auto; max-height: 60vh;"><code id="preview-html"></code></pre>
+        </details>
+    </div>
+    <div class="modal-content" id="preview-content" style="word-break: break-word;"></div>
+</div>
+</main>
+<script type="module">
+import { createClient as newWebDAV } from './node_modules/webdav/dist/web/index.js';
+import { marked } from './node_modules/marked/lib/marked.esm.js';
+
+const Spacc = SpaccDotWeb.AppInit({ uuid: "org.eu.octt.MdAdmin" });
+const $ = Spacc.$;
+
+let webDAV, siteConf;
+let editingDirty = false;
+let sites = Spacc.LocalStorage('sites') || [];
+let editorConf = {
+    wordWrap: true,
+    // fullWidth: false,
+    ...(Spacc.LocalStorage('editor') || {}) };
+
+M.Sidenav.init($(':: ul.sidenav'));
+
+// $('#dashboard').hidden = false;
+setScreen('dashboard');
+refreshSites();
+
+$('#home-button').addEventListener('click', ev => {
+    ev.preventDefault();
+    // $('#dashboard').hidden = false;
+    // $('#editor').hidden = true;
+    if (editingDirty && !confirm("You have unsaved edits. Are you sure to go back?")) return;
+    setScreen('dashboard');
+    setHash();
+});
+
+$('#word-wrap-switch').addEventListener('change', () => $('#page-content').style.whiteSpace = $('#word-wrap-switch').checked ? 'normal' : 'nowrap');
+
+$('#full-width-switch').addEventListener('change', () => setFullWidth($('#full-width-switch').checked));
+
+$('#font-family-select').addEventListener('change', () => {
+    $('#page-content').style.fontFamily = $('#font-family-select').value;
+    M.Forms.textareaAutoResize($('#page-content'));
+});
+
+$('#save-button > a').addEventListener('click', async () => {
+    $('#load-progress').hidden = false;
+    await webDAV.putFileContents($('#filepath-input').value, $('#page-content').value, { overwrite: true });
+    new M.Toast({ text: "Saved!" });
+    setEditingDirty(false);
+    $('#load-progress').hidden = true;
+});
+
+$('#preview-button > a').addEventListener('click', ev => {
+    ev.preventDefault();
+    $('#preview-modal').showPopover();
+});
+
+$('#scratchpad-button > a').addEventListener('click', ev => {
+    ev.preventDefault();
+    editPage();
+});
+
+$('#page-content').addEventListener('input', () => {
+    if (document.body.dataset.editor === 'scratchpad') {
+        Spacc.LocalStorage('scratchpad', $('#page-content').value);
+    } else {
+        setEditingDirty(true);
+    }
+    updatePreview();
+});
+
+$('#site-select').addEventListener('change', loadSite());
+
+$('#addpage-button').addEventListener('click', () => editPage(`${Date.now()}.md`, true));
+
+$('#addsite-button').addEventListener('click', () => {
+    const name = $('#site-name-input').value.trim();
+    const url = $('#site-url-input').value.trim();
+    const user = $('#site-user-input').value.trim();
+    const pass = $('#site-pass-input').value.trim();
+
+    let failed = false;
+    for (const item of ['url','user','pass'])
+        $(`#site-${item}-input`).classList.remove('invalid');
+
+    if (!url || !url.toLowerCase().startsWith('http://') || !url.toLowerCase().startsWith('https://')) {
+        $('#site-url-input').classList.add('invalid');
+        failed = true;
+    }
+    if (!user) {
+        $('#site-user-input').classList.add('invalid');
+        failed = true;
+    }
+    if (!pass) {
+        $('#site-pass-input').classList.add('invalid');
+        failed = true;
+    }
+    if (failed) return;
+
+    sites.push({ name, url, user, pass, type: "dav" });
+    Spacc.LocalStorage('sites', sites);
+    refreshSites();
+    $('#site-select').selectedIndex = sites.length - 1;
+    loadSite();
+
+    $('#addsite-modal').hidePopover();
+    $('#addsite-form').reset();
+});
+
+$('#upload-input').addEventListener('change', handleUploadInput);
+
+$('#upload-dropzone').addEventListener('dragover', e => e.preventDefault());
+$('#upload-dropzone').addEventListener('drop', e => {
+    e.preventDefault();
+    $('#upload-input').files = e.dataTransfer.files;
+    handleUploadInput();
+});
+
+function handleUploadInput() {
+    const file = $('#upload-input').files[0];
+    if (!file) return;
+    $('#load-progress').hidden = false;
+    $('#upload-result').hidden = true;
+    const reader = new FileReader();
+    reader.onload = async () => {
+        const filepath = `/${Date.now()}_${file.name}`;
+        const type = file.type.split('/')[0];
+        await webDAV.putFileContents(`${siteConf?.media?.[0] || '/'}/${filepath}`, reader.result, { overwrite: true });
+        let [html, markdown] = ['', `[${file.name}]`];
+        switch (type) {
+            case 'image':
+                html = `<img src="${filepath}" alt="${file.name}" />`;
+                markdown = `![${file.name}]`;
+                break;
+            case 'video':
+            case 'audio':
+                html = `<${type} src="${filepath}" controls></${type}>`;
+                break;
+            default:
+                html = `<a src="${filepath}">${file.name}</a>`;
+        }
+        $('#upload-result').innerHTML = `
+            <h6>File URL</h6>
+            <input type="text" readonly value="${filepath}" />
+            <h6>Markdown</h6>
+            <textarea readonly>${markdown}(${filepath})</textarea>
+            <h6>HTML</h6>
+            <textarea readonly>${html}</textarea>
+            <br /><br />
+        `;
+        $('#upload-result').hidden = false;
+        $('#load-progress').hidden = true;
+        refreshSiteContents();
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function refreshSites() {
+    $('#site-select').innerHTML = '';
+    for (const i in sites) {
+        const site = sites[i];
+        $('#site-select').appendChild($(`<option value="${i}">${site.name || site.url}</option>`));
+    }
+}
+
+async function loadSite(i) {
+    i = $('#site-select').selectedIndex;
+    if (i < 0) return;
+    $('#load-progress').hidden = false;
+    $('#site-sections').hidden = true;
+
+    setHash();
+    const site = sites[i];
+    webDAV = newWebDAV(site.url, { username: site.user, password: site.pass });
+
+    try {
+        siteConf = toml.parse(await webDAV.getFileContents("mdadmin.toml", { format: "text" }));
+    } catch(e) {
+        console.error(e);
+        siteConf = null;
+    }
+
+    await refreshSiteContents();
+    $('#site-sections').hidden = false;
+    $('#load-progress').hidden = true;
+}
+
+async function refreshSiteContents() {
+    $('#pages-list').innerHTML = '';
+    $('#media-list').innerHTML = '';
+
+    for (const folder of siteConf?.pages || ['/']) {
+        if (!folder) continue;
+    // const pages = await webDAV.getDirectoryContents(siteConf?.pages?.[0] || '/', { deep: true });
+    // for (const file of pages) {
+    for (const file of await webDAV.getDirectoryContents(folder, { deep: true })) {
+        if (file.type !== 'file' || !isEditableFile(file.basename)) continue;
+        const page = $(`<a class="collection-item" href="#">${file.basename}</a>`, { onclick: ev => {
+            ev.preventDefault();
+            editPage(file.basename);
+        } });
+        $('#pages-list').appendChild(page);
+    }
+    }
+
+    const media = await webDAV.getDirectoryContents(siteConf?.media?.[0] || '/', { deep: true });
+    for (const file of media) {
+        if (file.type !== 'file') continue;
+        const url = `${sites[getCurrentSiteIndex()].url}/${file.basename}`;
+        $('#media-list').appendChild($(`<li class="collection-item">
+            <a href="${url}" target="_blank">${isImageFile(file.basename) ? `<img src="${url}" loading="lazy" />` : '🔗'}</a>
+            <span>${file.basename}</span>
+        </li>`));
+    }
+}
+
+async function editPage(filepath, isNew) {
+    // $('#dashboard').hidden = true;
+
+    $('#load-progress').hidden = false;
+    $('#filepath-input').value = filepath;
+
+    $('#page-content').disabled = true;
+    $('#page-content').value = '';
+    M.Forms.textareaAutoResize($('#page-content'));
+
+    // $('#editor').hidden = false;
+    setScreen('editor', !filepath && 'scratchpad');
+    setHash(filepath);
+
+    if (filepath && !isNew) {
+        const raw = await webDAV.getFileContents(filepath, { format: "text" });
+        $('#page-content').value = raw;
+    } else if (!filepath) {
+        $('#page-content').value = Spacc.LocalStorage('scratchpad');
+    }
+
+    $('#page-content').disabled = false;
+    M.Forms.textareaAutoResize($('#page-content'));
+    updatePreview();
+
+    $('#load-progress').hidden = true;
+}
+
+function editorText(value) {
+    if (value === undefined) {
+        return $('#page-content').value;
+    } else {
+        return $('#page-content').value = value;
+    }
+}
+
+function updatePreview() {
+    $('#preview-content').innerHTML = $('#preview-html').textContent = marked.parse($('#page-content').value);
+    $(':: #preview-content [src]').forEach(el => {
+        const src = el.getAttribute('src');
+        const test = src.toLowerCase();
+        if (!test.startsWith('//') && !test.startsWith('http://') && !test.startsWith('https://')) {
+            el.src = `${sites[getCurrentSiteIndex()].url}/${siteConf?.media?.[0] || '/'}/${src}`;
+        }
+    });
+}
+
+function getCurrentSiteIndex() {
+    const i = $('#site-select').selectedIndex;
+    if (i < 0) return null;
+    return i;
+}
+
+function setFullWidth(state) {
+    // const container = $('main > div.container, main > div.container-fluid');
+    $('#container').classList.toggle('container', !state);
+    $('#container').classList.toggle('container-fluid', state);
+}
+
+function setScreen(target, prop) {
+    $('body').dataset.screen = null;
+    $('body').dataset[target] = null;
+    setEditingDirty(false);
+    setFullWidth(false);
+    const all = $(':: #container > div[id]');
+    for (const screen of all)
+        screen.hidden = true;
+    $('#' + target).hidden = false;
+    $('body').dataset.screen = target;
+    $('body').dataset[target] = prop;
+}
+
+function setEditingDirty(state) {
+    const original = $('#home-button').textContent.replace('*', '');
+    $('#home-button').textContent = document.title = original;
+    if (state) {
+        $('#home-button').textContent = document.title = '*' + original;
+    }
+    editingDirty = state;
+}
+
+function setHash(page) {
+    let hash = `/`;
+    const site = getCurrentSiteIndex();
+    if (site !== null)
+        hash += `${site}/`;
+    if (page)
+        hash += page;
+    location.hash = hash;
+}
+
+function isEditableFile(filename) {
+    // const name = file.basename;
+    if (filename.search('.') < 0) return false;
+    return ['md','mdx','markdown'].includes(getFileExtension(filename).toLowerCase());
+}
+
+function isImageFile(filename) {
+    return ['bmp','png','jpg','jpeg','gif','webp','avif','svg'].includes(getFileExtension(filename).toLowerCase());
+}
+
+function getFileExtension(filename) {
+    return filename.split('.').slice(-1)[0];
+}
+
+function getDarkTheme() {
+    const isDarkModeEnabledViaCss = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const currentTheme = Spacc.LocalStorage('theme');
+    const isDark = currentTheme ? currentTheme === 'dark' : isDarkModeEnabledViaCss;
+    return isDark;
+}
+
+function setDarkTheme(state) {
+    document.documentElement.setAttribute('theme', state ? 'dark' : 'light');
+    Spacc.LocalStorage('theme', state ? 'dark' : 'light');
+}
+
+function updateDarkModeButton(current) {
+    $('#theme-button').classList.remove('is-dark');
+    if (current)
+        $('#theme-button').classList.add('is-dark');
+    $('#theme-button > .material-icons').textContent = current ? 'light_mode' : 'dark_mode';
+    $('#theme-button').title = `Switch to ${current ? 'light' : 'dark'} mode`;
+}
+
+$('#theme-button').addEventListener('click', e => {
+    e.preventDefault();
+    const nextState = !getDarkTheme();
+    setDarkTheme(nextState);
+    updateDarkModeButton(nextState);
+});
+const currentState = getDarkTheme();
+setDarkTheme(currentState);
+updateDarkModeButton(currentState);
+
+// const editor = new toastui.Editor({
+//     el: $('#editor-container'),
+//     height: 'calc(100vh - 64px)',
+//     initialValue: $('#page-content').value,
+//     initialEditType: 'markdown',
+//     previewStyle: 'vertical',
+// });
+
+window.addEventListener('beforeunload', function(e) {
+    if (!editingDirty) return;
+    e.preventDefault();
+    e.returnValue = ''; // Required for Chrome
+    return '';
+});
+</script>
+</body>
+</html>

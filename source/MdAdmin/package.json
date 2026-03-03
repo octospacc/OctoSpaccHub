@@ -1,0 +1,9 @@
+{
+	"dependencies": {
+		"@materializecss/materialize": "^2.2.2",
+		"js-yaml": "^4.1.1",
+		"marked": "^16.3.0",
+		"toml-js": "^0.0.8",
+		"webdav": "^5.9.0"
+	}
+}
