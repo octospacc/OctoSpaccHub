@@ -1,11 +1,11 @@
 {
-    "name": "fixes",
-    "short_name": "fixes",
+    "name": "Fixes",
+    "short_name": "Fixes",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1B1D24",
     "theme_color": "#E8A93C",
-    "description": "A new Flutter project.",
+    "description": "A small, local-first consumption tracker for everyday countable things.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
