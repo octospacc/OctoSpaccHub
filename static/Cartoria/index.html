@@ -18,19 +18,47 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="A personal archive for notes, bookmarks, and files.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Cartoria">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Theme color follows prefers-color-scheme for the browser UI chrome -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFF8F6">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#1A110F">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Cartoria</title>
   <link rel="manifest" href="manifest.json">
+
+    <!--
+    Pre-Flutter background. The HTML body is what the user sees between
+    the network request for flutter_bootstrap.js and the first Flutter
+    frame (~200-800ms). Without this, dark-mode users see a white flash
+    on every reload. Values chosen to match ColorScheme.surface of the
+    generated Material 3 palette.
+  -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #FFF8F6;
+      color: #1C1B1F;
+      height: 100%;
+      overflow: hidden;
+    }
+    @media (prefers-color-scheme: dark) {
+      html, body {
+        background-color: #1A110F;
+        color: #E6E1E5;
+      }
+    }
+  </style>
 </head>
 <body>
   <!--
