@@ -1,32 +1,3 @@
-/*! Based On NoSleep.js v0.12.0 - git.io/vfn01 - Rich Tibbett - MIT license */
-
-class PromiseCompleter {
-  _promise;
-  _resolve;
-  _reject;
-  constructor() {
-    this._promise = new Promise((resolve, reject) => {
-      this._resolve = resolve;
-      this._reject = reject;
-    });
-  }
-
-  isCompleted = false;
-
-  get future() {
-    return this._promise;
-  }
-
-  complete(value) {
-    this.isCompleted = true;
-    this._resolve(value);
-  }
-
-  completeError(error) {
-    this._reject(error);
-  }
-}
-
 var webm =
   'data:video/webm;base64,GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmQCgq17FAAw9CQE2AQAZ3aGFtbXlXQUAGd2hhbW15RIlACECPQAAAAAAAFlSua0AxrkAu14EBY8WBAZyBACK1nEADdW5khkAFVl9WUDglhohAA1ZQOIOBAeBABrCBCLqBCB9DtnVAIueBAKNAHIEAAIAwAQCdASoIAAgAAUAmJaQAA3AA/vz0AAA='
 var mp4 =
@@ -55,28 +26,48 @@ function _classCallCheck(instance, Constructor) {
   }
 }
 
+// Detect iOS browsers < version 10
+var oldIOS =
+  typeof navigator !== 'undefined' &&
+  parseFloat(
+    (
+      '' +
+      (/CPU.*OS ([0-9_]{3,4})[0-9_]{0,1}|(CPU like).*AppleWebKit.*Mobile/i.exec(
+        navigator.userAgent
+      ) || [0, ''])[1]
+    )
+      .replace('undefined', '3_2')
+      .replace('_', '.')
+      .replace('_', '')
+  ) < 10 &&
+  !window.MSStream
+
 // Detect native Wake Lock API support
 var nativeWakeLock = 'wakeLock' in navigator
 
 var NoSleep = (function () {
-  var _nativeEnabledCompleter;
-  var _playVideoCompleter;
+  var _releasedNative = true
+  var _nativeRequestInProgress = false
 
   function NoSleep() {
     var _this = this
 
     _classCallCheck(this, NoSleep)
 
-    this.nativeEnabled = false
     if (nativeWakeLock) {
       this._wakeLock = null
       var handleVisibilityChange = function handleVisibilityChange() {
-        if (_this._wakeLock !== null && document.visibilityState === 'visible') {
+        if (
+          _this._wakeLock !== null &&
+          document.visibilityState === 'visible'
+        ) {
           _this.enable()
         }
       }
       document.addEventListener('visibilitychange', handleVisibilityChange)
       document.addEventListener('fullscreenchange', handleVisibilityChange)
+    } else if (oldIOS) {
+      this.noSleepTimer = null
     } else {
       // Set up no sleep video element
       this.noSleepVideo = document.createElement('video')
@@ -115,92 +106,90 @@ var NoSleep = (function () {
     },
     {
       key: 'enable',
-      value: async function enable() {
+      value: function enable() {
         var _this2 = this
 
         if (nativeWakeLock) {
-          // Disable any previously held wakelocks.
-          await this.disable()
-          if (_nativeEnabledCompleter == null) {
-            _nativeEnabledCompleter = new PromiseCompleter()
-          }
+          _nativeRequestInProgress = true
           navigator.wakeLock
             .request('screen')
             .then(function (wakeLock) {
-              _this2._wakeLock = wakeLock
-              _this2.nativeEnabled = true
+              _releasedNative = false
+              _nativeRequestInProgress = false
 
-              // We now have a wakelock. Notify all of the existing callers.
+              _this2._wakeLock = wakeLock
               _this2._wakeLock.addEventListener('release', function () {
-                _this2.nativeEnabled = false
+                _releasedNative = true
                 _this2._wakeLock = null
               })
-
-              _nativeEnabledCompleter.complete()
-              _nativeEnabledCompleter = null
             })
             .catch(function (err) {
-              _this2.nativeEnabled = false
-              var errorMessage = err.name + ', ' + err.message
-              _nativeEnabledCompleter.completeError(errorMessage)
-              _nativeEnabledCompleter = null
+              _nativeRequestInProgress = false
+              console.error(err.name + ', ' + err.message)
             })
-          // We then wait for screen to be made available.
-          return _nativeEnabledCompleter.future
+        } else if (oldIOS) {
+          this.disable()
+          console.warn(
+            '\n        NoSleep enabled for older iOS devices. This can interrupt\n        active or long-running network requests from completing successfully.\n        See https://github.com/richtr/NoSleep.js/issues/15 for more details.\n      '
+          )
+          this.noSleepTimer = window.setInterval(function () {
+            if (!document.hidden) {
+              window.location.href = window.location.href.split('#')[0]
+              window.setTimeout(window.stop, 0)
+            }
+          }, 15000)
         } else {
-          if (_playVideoCompleter == null) {
-            _playVideoCompleter = new PromiseCompleter()
-          }
-          var playPromise = this.noSleepVideo.play()
-          playPromise.then(function (res) {
-            _playVideoCompleter.complete()
-            _playVideoCompleter = null
-          }).catch(function (err) {
-            var errorMessage = err.name + ', ' + err.message
-            _playVideoCompleter.completeError(errorMessage)
-            _playVideoCompleter = null
-          });
-          return _playVideoCompleter.future
+          this.noSleepVideo.play()
         }
       },
     },
     {
       key: 'disable',
-      value: async function disable() {
+      value: function disable() {
         if (nativeWakeLock) {
-          // If we're still trying to enable the wakelock, wait for it to be enabled
-          if (_nativeEnabledCompleter != null) {
-            await _nativeEnabledCompleter.future
-          }
           if (this._wakeLock != null) {
-            this.nativeEnabled = false
+            _releasedNative = true
             this._wakeLock.release()
           }
 
           this._wakeLock = null
-        } else {
-          if (_playVideoCompleter != null) {
-            await _playVideoCompleter.future
+        } else if (oldIOS) {
+          if (this.noSleepTimer) {
+            console.warn(
+              '\n          NoSleep now disabled for older iOS devices.\n        '
+            )
+            window.clearInterval(this.noSleepTimer)
+            this.noSleepTimer = null
           }
+        } else {
           this.noSleepVideo.pause()
         }
-        return Promise.resolve();
       },
     },
     {
-      key: 'isEnabled',
-      value: async function isEnabled() {
+      key: 'enabled',
+      value: async function enabled() {
         if (nativeWakeLock) {
-          // If we're still trying to enable the wakelock, wait for it to be enabled
-          if (_nativeEnabledCompleter != null) {
-            await _nativeEnabledCompleter.future
+          if (_nativeRequestInProgress == true) {
+            // Wait until the request is done.
+            while (true) {
+              // Wait for 42 milliseconds.
+              await new Promise((resolve, reject) => setTimeout(resolve, 42))
+              if (_nativeRequestInProgress == false) {
+                break
+              }
+            }
           }
 
-          return this.nativeEnabled
-        } else {
-          if (_playVideoCompleter != null) {
-            await _playVideoCompleter.future
+          // todo: use WakeLockSentinel.released when that is available (https://developer.mozilla.org/en-US/docs/Web/API/WakeLockSentinel/released)
+          if (_releasedNative != false) {
+            return false
           }
+
+          return true
+        } else if (oldIOS) {
+          return this.noSleepTimer != null
+        } else {
           if (this.noSleepVideo == undefined) {
             return false
           }
@@ -219,22 +208,17 @@ var noSleep = new NoSleep()
 var Wakelock = {
   enabled: async function () {
     try {
-      return noSleep.isEnabled()
+      return noSleep.enabled()
     } catch (e) {
       return false
     }
   },
   toggle: async function (enable) {
-    try {
-      if (enable) {
-        await noSleep.enable()
-      } else {
-        await noSleep.disable()
-      }
-    } catch (e) {
-      return Promise.reject(e);
+    if (enable) {
+      noSleep.enable()
+    } else {
+      noSleep.disable()
     }
-    return Promise.resolve()
   },
 }
 
